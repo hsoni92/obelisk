@@ -1,5 +1,7 @@
 # Binaries (Makefile: bin/obelisk, bin/obelisk-controller)
 /bin/
+/obelisk
+/obelisk-controller
 *.exe
 *.exe~
 *.dll
