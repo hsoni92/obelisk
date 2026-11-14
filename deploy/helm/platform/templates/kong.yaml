@@ -1,0 +1,57 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: kong-dbless-config
+data:
+  kong.yaml: |
+{{ .Files.Get "files/kong-dbless.yaml" | indent 4 }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obelisk-kong
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obelisk-kong
+  template:
+    metadata:
+      labels:
+        app: obelisk-kong
+    spec:
+      containers:
+        - name: kong
+          image: {{ .Values.kong.image }}
+          env:
+            - name: KONG_DATABASE
+              value: "off"
+            - name: KONG_DECLARATIVE_CONFIG
+              value: /kong/kong.yaml
+            - name: KONG_PROXY_LISTEN
+              value: "0.0.0.0:8000"
+            - name: KONG_ADMIN_LISTEN
+              value: "127.0.0.1:8001"
+          ports:
+            - containerPort: 8000
+              name: proxy
+          volumeMounts:
+            - name: kong-config
+              mountPath: /kong
+      volumes:
+        - name: kong-config
+          configMap:
+            name: kong-dbless-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obelisk-kong
+spec:
+  type: ClusterIP
+  selector:
+    app: obelisk-kong
+  ports:
+    - port: 80
+      targetPort: proxy
+      name: http

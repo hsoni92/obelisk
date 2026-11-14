@@ -1,0 +1,5 @@
+image: redis:7-alpine
+storage:
+  size: 2Gi
+credentials:
+  password: ""

@@ -1,0 +1,4 @@
+apiVersion: v2
+name: obelisk-mysql
+version: 0.1.0
+description: MySQL for Obelisk instances

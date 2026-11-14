@@ -1,0 +1,99 @@
+package main
+
+import (
+	"context"
+	"flag"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"time"
+
+	"github.com/hsoni92/obelisk/internal/adminapi"
+	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/mailgateway"
+	"github.com/hsoni92/obelisk/internal/openroutergateway"
+)
+
+func main() {
+	configPath := flag.String("config", config.ResolvePath(), "path to obelisk.yaml (OBELISK_CONFIG)")
+	helmRoot := flag.String("helm-root", config.ResolveHelmRoot(), "repo root with deploy/helm (OBELISK_ROOT)")
+	addr := flag.String("listen", ":8080", "admin API listen address")
+	gatewayAddr := flag.String("gateway-listen", ":8081", "OpenRouter gateway listen address")
+	mailGatewayAddr := flag.String("mail-gateway-listen", ":8082", "Mail gateway listen address")
+	reconcileEvery := flag.Duration("reconcile", 30*time.Second, "background reconcile interval")
+	flag.Parse()
+
+	cfgFile := config.EnsureReadablePath(*configPath)
+	if cfgFile != *configPath {
+		log.Printf("config: using %s (%s not present)", cfgFile, *configPath)
+	}
+
+	gw := openroutergateway.NewServer(cfgFile)
+	if err := gw.Reload(); err != nil {
+		log.Printf("openrouter gateway reload: %v", err)
+	}
+	mgw := mailgateway.NewServer(cfgFile)
+	if err := mgw.Reload(); err != nil {
+		log.Printf("mail gateway reload: %v", err)
+	}
+	api := &adminapi.Server{
+		ConfigPath:            cfgFile,
+		HelmRoot:              *helmRoot,
+		Gateway:               gw,
+		GatewayListenAddr:     *gatewayAddr,
+		MailGateway:           mgw,
+		MailGatewayListenAddr: *mailGatewayAddr,
+	}
+	srv := &http.Server{Addr: *addr, Handler: api.Handler()}
+	gwSrv := &http.Server{Addr: *gatewayAddr, Handler: gw.Handler()}
+	mailSrv := &http.Server{Addr: *mailGatewayAddr, Handler: mgw.Handler()}
+
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	go func() {
+		t := time.NewTicker(*reconcileEvery)
+		defer t.Stop()
+		rec := controller.Reconciler{ConfigPath: cfgFile, HelmRoot: *helmRoot}
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-t.C:
+				if _, err := rec.Reconcile(ctx); err != nil {
+					log.Printf("reconcile: %v", err)
+				}
+			}
+		}
+	}()
+
+	go func() {
+		log.Printf("admin API listening on %s (config %s, helm-root %s)", *addr, cfgFile, *helmRoot)
+		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	go func() {
+		log.Printf("openrouter gateway listening on %s", *gatewayAddr)
+		if err := gwSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	go func() {
+		log.Printf("mail gateway listening on %s", *mailGatewayAddr)
+		if err := mailSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Fatal(err)
+		}
+	}()
+
+	<-ctx.Done()
+	shutdown, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancelShutdown()
+	_ = srv.Shutdown(shutdown)
+	_ = gwSrv.Shutdown(shutdown)
+	_ = mailSrv.Shutdown(shutdown)
+}

@@ -1,0 +1,29 @@
+apiVersion: obelisk.dev/v1
+kind: ObeliskCluster
+deployment:
+  profile: vps
+  tailscale:
+    enabled: false
+hardware:
+  tier: floor
+services:
+  postgres:
+    enabled: false
+  redis:
+    enabled: false
+  rustfs:
+    enabled: false
+  qdrant:
+    enabled: false
+  searxng:
+    enabled: false
+backup:
+  remote:
+    endpoint: https://ACCOUNT_ID.r2.cloudflarestorage.com
+    bucket: myprefix-obelisk-backups
+    config_bucket: myprefix-obelisk-config
+exposure:
+  funnel:
+    rustfs_s3:
+      enabled: false
+projects: []

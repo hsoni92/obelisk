@@ -1,0 +1,12 @@
+image:
+  repository: rustfs/rustfs
+  tag: latest
+  pullPolicy: IfNotPresent
+
+credentials:
+  accessKey: obelisk
+  secretKey: changeme-rustfs-dev
+# helm sets credentials.* per instance from obelisk.yaml
+
+storage:
+  size: 20Gi

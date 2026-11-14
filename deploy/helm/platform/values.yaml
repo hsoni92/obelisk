@@ -1,0 +1,9 @@
+namespace: obelisk
+obelisk:
+  imageController: obelisk-controller:0.1.0
+  imageAdminUI: obelisk-admin-ui:0.1.0
+  configHostPath: /etc/obelisk/obelisk.yaml
+  helmRoot: /opt/obelisk
+kong:
+  enabled: true
+  image: kong:3.6

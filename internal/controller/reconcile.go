@@ -1,0 +1,169 @@
+package controller
+
+import (
+	"context"
+	"fmt"
+	"log/slog"
+	"os/exec"
+	"sync"
+
+	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/exposure"
+	"github.com/hsoni92/obelisk/pkg/obelisk"
+)
+
+var reconcileMu sync.Mutex
+
+// Reconciler applies desired state to the cluster (Helm releases).
+type Reconciler struct {
+	ConfigPath string
+	Namespace  string
+	HelmRoot   string
+}
+
+type Report struct {
+	ServiceStates map[string]string
+	Messages      []string
+}
+
+func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
+	reconcileMu.Lock()
+	defer reconcileMu.Unlock()
+
+	spec, err := config.Load(r.ConfigPath)
+	if err != nil {
+		return Report{}, err
+	}
+	report := Report{ServiceStates: map[string]string{}}
+	if r.simulateMode() {
+		report.Messages = append(report.Messages,
+			"reconciler simulate mode (no helm/kubectl): desired state only; use a host with k3s for real workloads")
+	}
+	for _, inst := range spec.Instances {
+		state, msg, err := r.reconcileInstance(ctx, inst)
+		report.ServiceStates[inst.StateKey()] = state
+		if msg != "" {
+			report.Messages = append(report.Messages, msg)
+		}
+		if err != nil {
+			return report, err
+		}
+	}
+	if !r.simulateMode() && spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
+		if err := r.ensureTailscale(ctx); err != nil {
+			report.Messages = append(report.Messages, "tailscale: "+err.Error())
+		}
+	}
+	if err := exposure.ApplyFunnel(spec); err != nil {
+		report.Messages = append(report.Messages, "exposure: "+err.Error())
+	}
+	return report, nil
+}
+
+func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.ServiceInstance) (state, msg string, err error) {
+	if r.simulateMode() {
+		if !inst.Enabled {
+			return "stopped", "", nil
+		}
+		return "running", fmt.Sprintf("%s enabled (simulate)", inst.StateKey()), nil
+	}
+	if !inst.Enabled {
+		return "stopped", fmt.Sprintf("%s scaled to 0", inst.StateKey()), r.helmScaleRelease(ctx, inst.ReleaseName(), 0)
+	}
+	if err := r.helmUpgradeInstance(ctx, inst); err != nil {
+		return "degraded", "", err
+	}
+	return "running", fmt.Sprintf("%s release applied", inst.StateKey()), nil
+}
+
+func (r *Reconciler) helmUpgradeInstance(ctx context.Context, inst obelisk.ServiceInstance) error {
+	chart := fmt.Sprintf("%s/deploy/helm/services/%s", r.HelmRoot, inst.Type)
+	release := inst.ReleaseName()
+	ns := r.Namespace
+	if ns == "" {
+		ns = "obelisk"
+	}
+	valuesPath, cleanup, err := writeInstanceValues(inst)
+	if err != nil {
+		return err
+	}
+	defer cleanup()
+	slog.Info("helm upgrade", "release", release, "chart", chart)
+	return r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath)
+}
+
+func (r *Reconciler) helmUpgrade(ctx context.Context, service string) error {
+	// legacy path — unused; kept for callers migrating
+	chart := fmt.Sprintf("%s/deploy/helm/services/%s", r.HelmRoot, service)
+	release := "obelisk-" + service
+	ns := r.Namespace
+	if ns == "" {
+		ns = "obelisk"
+	}
+	slog.Info("helm upgrade", "release", release, "chart", chart)
+	return r.helmUpgradeInstall(ctx, service, chart, release, ns, "")
+}
+
+func (r *Reconciler) helmScaleRelease(ctx context.Context, release string, replicas int) error {
+	ns := r.Namespace
+	if ns == "" {
+		ns = "obelisk"
+	}
+	cmd := exec.CommandContext(ctx, "kubectl", "scale", "statefulset", release,
+		"-n", ns, fmt.Sprintf("--replicas=%d", replicas))
+	cmd.Env = kubeconfigEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		slog.Debug("scale", "release", release, "out", string(out))
+	}
+	return nil
+}
+
+func (r *Reconciler) helmScale(ctx context.Context, service string, replicas int) error {
+	return r.helmScaleRelease(ctx, "obelisk-"+service, replicas)
+}
+
+func (r *Reconciler) ensureTailscale(ctx context.Context) error {
+	cmd := exec.CommandContext(ctx, "tailscale", "status", "--json")
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("tailscale not connected: run tailscale up")
+	}
+	return nil
+}
+
+func SetServiceEnabled(spec *obelisk.Spec, name string, enabled bool) error {
+	obelisk.NormalizeInstances(spec)
+	found := false
+	for i := range spec.Instances {
+		if spec.Instances[i].Type != name {
+			continue
+		}
+		if spec.Instances[i].ID == "default" {
+			spec.Instances[i].Enabled = enabled
+			found = true
+			break
+		}
+	}
+	if !found && enabled {
+		inst, err := obelisk.NewServiceInstance(name, "default")
+		if err != nil {
+			return err
+		}
+		inst.ID = "default"
+		inst.Credentials = obelisk.DefaultCredentialsForType(name)
+		if name == "postgres" || name == "mysql" {
+			inst.Credentials.Password = "changeme-in-ui"
+		}
+		spec.Instances = append(spec.Instances, inst)
+		found = true
+	}
+	if !found && !enabled {
+		for i := range spec.Instances {
+			if spec.Instances[i].Type == name {
+				spec.Instances[i].Enabled = false
+			}
+		}
+	}
+	obelisk.SyncLegacyServiceFlags(spec)
+	return nil
+}

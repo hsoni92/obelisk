@@ -1,0 +1,4 @@
+apiVersion: v2
+name: obelisk-qdrant
+version: 0.1.0
+description: Qdrant vector database (https://github.com/qdrant/qdrant)

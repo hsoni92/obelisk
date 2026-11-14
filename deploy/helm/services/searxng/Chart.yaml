@@ -1,0 +1,4 @@
+apiVersion: v2
+name: obelisk-searxng
+version: 0.1.0
+description: SearXNG metasearch engine (https://docs.searxng.org/admin/installation-docker.html)

@@ -1,0 +1,43 @@
+package controller
+
+import (
+	"os"
+
+	"github.com/hsoni92/obelisk/pkg/obelisk"
+	"gopkg.in/yaml.v3"
+)
+
+func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup func(), err error) {
+	creds := map[string]string{}
+	switch inst.Type {
+	case "postgres", "mysql":
+		creds["username"] = inst.Credentials.Username
+		creds["password"] = inst.Credentials.Password
+		creds["database"] = inst.Credentials.Database
+	case "redis":
+		creds["password"] = inst.Credentials.Password
+	case "rustfs":
+		creds["accessKey"] = inst.Credentials.AccessKey
+		creds["secretKey"] = inst.Credentials.SecretKey
+	case "qdrant":
+		creds["apiKey"] = inst.Credentials.AccessKey
+	case "searxng":
+		creds["secretKey"] = inst.Credentials.SecretKey
+	}
+	vals := map[string]any{"credentials": creds}
+	data, err := yaml.Marshal(vals)
+	if err != nil {
+		return "", func() {}, err
+	}
+	f, err := os.CreateTemp("", "obelisk-helm-"+inst.ID+"-*.yaml")
+	if err != nil {
+		return "", func() {}, err
+	}
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return "", func() {}, err
+	}
+	path = f.Name()
+	_ = f.Close()
+	return path, func() { _ = os.Remove(path) }, nil
+}

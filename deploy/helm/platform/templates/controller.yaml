@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obelisk-controller
+  labels:
+    app.kubernetes.io/name: obelisk-controller
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: obelisk-controller
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: obelisk-controller
+    spec:
+      serviceAccountName: obelisk-controller
+      containers:
+        - name: controller
+          image: {{ .Values.obelisk.imageController }}
+          imagePullPolicy: IfNotPresent
+          args:
+            - -config={{ .Values.obelisk.configHostPath }}
+            - -helm-root={{ .Values.obelisk.helmRoot }}
+            - -listen=:8080
+            - -gateway-listen=:8081
+            - -mail-gateway-listen=:8082
+          env:
+            - name: OBELISK_CREDENTIALS_DIR
+              value: /var/lib/obelisk/credentials
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8081
+              name: openrouter
+            - containerPort: 8082
+              name: mail
+          volumeMounts:
+            - name: obelisk-config
+              mountPath: /etc/obelisk
+              readOnly: true
+            - name: obelisk-credentials
+              mountPath: /var/lib/obelisk/credentials
+      volumes:
+        - name: obelisk-config
+          hostPath:
+            path: /etc/obelisk
+            type: DirectoryOrCreate
+        - name: obelisk-credentials
+          hostPath:
+            path: /var/lib/obelisk/credentials
+            type: DirectoryOrCreate
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obelisk-controller
+spec:
+  selector:
+    app.kubernetes.io/name: obelisk-controller
+  ports:
+    - port: 8080
+      targetPort: http
+      name: http
+    - port: 8081
+      targetPort: openrouter
+      name: openrouter
+    - port: 8082
+      targetPort: mail
+      name: mail
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: obelisk-controller
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: obelisk-controller
+rules:
+  - apiGroups: ["apps"]
+    resources: ["statefulsets", "deployments"]
+    verbs: ["get", "list", "watch", "update", "patch"]
+  - apiGroups: [""]
+    resources: ["pods", "services", "configmaps", "secrets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: obelisk-controller
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: obelisk-controller
+subjects:
+  - kind: ServiceAccount
+    name: obelisk-controller
+    namespace: {{ .Release.Namespace }}

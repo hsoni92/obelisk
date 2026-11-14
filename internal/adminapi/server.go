@@ -1,0 +1,264 @@
+package adminapi
+
+import (
+	"encoding/json"
+	"net/http"
+	"sync"
+
+	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/mailgateway"
+	"github.com/hsoni92/obelisk/internal/openroutergateway"
+	"github.com/hsoni92/obelisk/pkg/obelisk"
+)
+
+type Server struct {
+	ConfigPath string
+	HelmRoot   string
+	Gateway    *openroutergateway.Server
+	// GatewayListenAddr is the controller's OpenRouter listen socket (e.g. ":18081").
+	GatewayListenAddr string
+	MailGateway       *mailgateway.Server
+	MailGatewayListenAddr string
+	mu                sync.Mutex
+}
+
+func (s *Server) Handler() http.Handler {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
+	mux.HandleFunc("GET /api/v1/status", s.handleStatus)
+	mux.HandleFunc("GET /api/v1/overview", s.handleOverview)
+	mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
+	mux.HandleFunc("GET /api/v1/config", s.handleGetConfig)
+	mux.HandleFunc("PUT /api/v1/config", s.handlePutConfig)
+	mux.HandleFunc("POST /api/v1/services/{name}/enable", s.handleServiceEnable)
+	mux.HandleFunc("POST /api/v1/services/{name}/disable", s.handleServiceDisable)
+	mux.HandleFunc("GET /api/v1/instances", s.handleListInstances)
+	mux.HandleFunc("POST /api/v1/instances", s.handleCreateInstance)
+	mux.HandleFunc("PATCH /api/v1/instances/{id}", s.handlePatchInstance)
+	mux.HandleFunc("DELETE /api/v1/instances/{id}", s.handleDeleteInstance)
+	mux.HandleFunc("GET /api/v1/backup/target", s.handleGetBackupTarget)
+	mux.HandleFunc("PATCH /api/v1/backup/target", s.handlePatchBackupTarget)
+	mux.HandleFunc("POST /api/v1/backup/test", s.handleBackupTest)
+	mux.HandleFunc("POST /api/v1/backup/run", s.handleBackupRun)
+	mux.HandleFunc("GET /api/v1/projects", s.handleListProjects)
+	mux.HandleFunc("POST /api/v1/projects", s.handleCreateProject)
+	mux.HandleFunc("GET /api/v1/openrouter/config", s.handleGetOpenRouterConfig)
+	mux.HandleFunc("PATCH /api/v1/openrouter/config", s.handlePatchOpenRouterConfig)
+	mux.HandleFunc("POST /api/v1/openrouter/accounts", s.handlePostOpenRouterAccount)
+	mux.HandleFunc("PATCH /api/v1/openrouter/accounts/{id}", s.handlePatchOpenRouterAccount)
+	mux.HandleFunc("DELETE /api/v1/openrouter/accounts/{id}", s.handleDeleteOpenRouterAccount)
+	mux.HandleFunc("POST /api/v1/openrouter/test", s.handleOpenRouterTest)
+	mux.HandleFunc("GET /api/v1/mail/config", s.handleGetMailConfig)
+	mux.HandleFunc("PATCH /api/v1/mail/config", s.handlePatchMailConfig)
+	mux.HandleFunc("POST /api/v1/mail/accounts", s.handlePostMailAccount)
+	mux.HandleFunc("PATCH /api/v1/mail/accounts/{id}", s.handlePatchMailAccount)
+	mux.HandleFunc("DELETE /api/v1/mail/accounts/{id}", s.handleDeleteMailAccount)
+	mux.HandleFunc("POST /api/v1/mail/test", s.handleMailTest)
+	return mux
+}
+
+func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
+	writeJSON(w, map[string]string{"status": "ok"})
+}
+
+func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	spec, err := config.Load(cfg)
+	if err != nil {
+		writeJSON(w, map[string]any{"error": err.Error()})
+		return
+	}
+
+	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	states := rec.ObserveServiceStates(r.Context(), spec)
+
+	reconcileMode := "cluster"
+	if rec.SimulateMode() {
+		reconcileMode = "simulate"
+	}
+
+	var instances []instanceView
+	for _, inst := range spec.Instances {
+		instances = append(instances, instanceView{
+			ServiceInstance: maskInstance(inst),
+			State:           states[inst.StateKey()],
+		})
+	}
+	bt := s.buildBackupTarget(cfg, spec)
+	writeJSON(w, map[string]any{
+		"machineId":      spec.BackupBucketName(),
+		"profile":        spec.Deployment.Profile,
+		"tailscale":      spec.Deployment.Tailscale.Enabled,
+		"configPath":     cfg,
+		"reconcileMode":  reconcileMode,
+		"serviceStates":  states,
+		"instances":      instances,
+		"messages":       []string{},
+		"backup": map[string]any{
+			"ready":                  bt.BackupReady,
+			"credentials_configured": bt.CredentialsConfigured,
+			"remote_metadata_ready":  bt.RemoteMetadataReady,
+			"implementation_status":  bt.ImplementationStatus,
+			"bucket":                 bt.Layout.Bucket,
+			"config_prefix":          bt.Layout.ConfigPrefix,
+			"data_prefix":            bt.Layout.DataPrefix,
+		},
+	})
+}
+
+func desiredServiceStates(spec obelisk.Spec) map[string]string {
+	states := map[string]string{
+		"postgres": "stopped",
+		"redis":    "stopped",
+		"rustfs":   "stopped",
+	}
+	if spec.Services.Postgres.Enabled {
+		states["postgres"] = "pending"
+	}
+	if spec.Services.Redis.Enabled {
+		states["redis"] = "pending"
+	}
+	if spec.Services.RustFS.Enabled {
+		states["rustfs"] = "pending"
+	}
+	return states
+}
+
+func (s *Server) handleGetConfig(w http.ResponseWriter, _ *http.Request) {
+	spec, err := config.Load(s.ConfigPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, spec)
+}
+
+func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
+	var spec obelisk.Spec
+	if err := json.NewDecoder(r.Body).Decode(&spec); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := config.Save(s.ConfigPath, spec); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, map[string]string{"status": "saved"})
+}
+
+func (s *Server) handleServiceEnable(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	s.mu.Lock()
+	spec, err := config.Load(cfg)
+	if err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := controller.SetServiceEnabled(&spec, name, true); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := config.Save(cfg, spec); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.mu.Unlock()
+
+	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	controller.ReconcileAsync(rec)
+	states := rec.ObserveServiceStates(r.Context(), spec)
+	writeJSON(w, map[string]any{
+		"enabled":       name,
+		"accepted":      true,
+		"serviceStates": states,
+	})
+}
+
+func (s *Server) handleServiceDisable(w http.ResponseWriter, r *http.Request) {
+	name := r.PathValue("name")
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	s.mu.Lock()
+	spec, err := config.Load(cfg)
+	if err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err := controller.SetServiceEnabled(&spec, name, false); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := config.Save(cfg, spec); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.mu.Unlock()
+
+	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	controller.ReconcileAsync(rec)
+	states := rec.ObserveServiceStates(r.Context(), spec)
+	writeJSON(w, map[string]any{"disabled": name, "accepted": true, "serviceStates": states})
+}
+
+func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
+	spec, err := config.Load(config.EnsureReadablePath(s.ConfigPath))
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	states := rec.ObserveServiceStates(r.Context(), spec)
+	writeJSON(w, obelisk.BuildConnections(spec, states))
+}
+
+func (s *Server) handleListProjects(w http.ResponseWriter, _ *http.Request) {
+	spec, err := config.Load(s.ConfigPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, spec.Projects)
+}
+
+func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
+	var p obelisk.Project
+	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	spec, err := config.Load(s.ConfigPath)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	spec.Projects = append(spec.Projects, p)
+	if err := config.Save(s.ConfigPath, spec); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, p)
+}
+
+func writeJSON(w http.ResponseWriter, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(v)
+}
+
+func errString(err error) string {
+	if err == nil {
+		return ""
+	}
+	return err.Error()
+}

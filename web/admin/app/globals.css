@@ -1,0 +1,273 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* The Kinetic — Precision Broadcast. Tokens mapped to shadcn semantic colors */
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-sidebar: var(--sidebar);
+  --color-broadcast: var(--broadcast);
+  --color-broadcast-hover: var(--broadcast-hover);
+  --color-broadcast-tint: var(--broadcast-tint);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-3: var(--chart-3);
+  --color-chart-4: var(--chart-4);
+  --color-link: var(--link);
+  --color-link-tint: var(--link-tint);
+  --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
+  --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-roboto-mono);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --shadow-rb-1: 0 1px 2px rgb(40 20 20 / 0.05);
+  --shadow-rb-2: 0 1px 2px rgb(40 20 20 / 0.04), 0 0 0 1px rgb(40 20 20 / 0.05);
+  --shadow-rb-3: 0 1px 2px rgb(187 0 0 / 0.25);
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 8px;
+  --radius-xl: 12px;
+}
+
+:root {
+  --broadcast: #bb0000;
+  --broadcast-hover: #9e0000;
+  --broadcast-tint: #fbe9e9;
+  --chart-1: #bb0000;
+  --chart-2: #0a55c8;
+  --chart-3: #e0a100;
+  --chart-4: #cfc8c8;
+  --scrollbar-thumb: rgb(22 18 18 / 0.18);
+  --scrollbar-thumb-hover: rgb(22 18 18 / 0.34);
+  --link: #0a55c8;
+  --link-tint: #e8f0fc;
+  --success: #0a7a33;
+  --success-tint: #d9f7e1;
+  --warning: #8a5a00;
+  --warning-tint: #fdf2c0;
+  --background: #faf8f8;
+  --sidebar: #f5f1f1;
+  --surface: #ece9e9;
+  --foreground: #161212;
+  --muted-foreground: #6b6464;
+  --border: #eee9e9;
+  --card: #ffffff;
+  --card-foreground: #161212;
+  --popover: #ffffff;
+  --popover-foreground: #161212;
+  --primary: #bb0000;
+  --primary-foreground: #ffffff;
+  --secondary: #0a55c8;
+  --secondary-foreground: #ffffff;
+  --muted: #f3eff0;
+  --accent: #f3eff0;
+  --accent-foreground: #161212;
+  --destructive: #bb0000;
+  --input: #f3eff0;
+  --ring: #bb0000;
+}
+
+.dark {
+  --background: #141010;
+  --sidebar: #1b1616;
+  --surface: #2a2323;
+  --foreground: #f4eeee;
+  --muted-foreground: #a99f9f;
+  --border: rgb(255 255 255 / 0.08);
+  --card: #1f1919;
+  --card-foreground: #f4eeee;
+  --broadcast-tint: #3a1515;
+  --link-tint: #15233d;
+  --success-tint: #12301c;
+  --warning-tint: #3a2e0d;
+  --success: #5fd884;
+  --warning: #f0c040;
+  --scrollbar-thumb: rgb(255 255 255 / 0.18);
+  --scrollbar-thumb-hover: rgb(255 255 255 / 0.34);
+  --link: #6ea2f5;
+  --chart-1: #ef4444;
+  --chart-2: #6ea2f5;
+  --chart-3: #f0c040;
+  --chart-4: #5a5252;
+  --muted: #2a2323;
+  --input: #2a2323;
+  --popover: #1f1919;
+  --popover-foreground: #f4eeee;
+  --accent: #2a2323;
+  --accent-foreground: #f4eeee;
+  --primary-foreground: #ffffff;
+  --secondary: #6ea2f5;
+  --secondary-foreground: #141010;
+  --destructive: #ef4444;
+  --ring: #bb0000;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground font-sans antialiased;
+  }
+  /*
+   * Scrollbars: slim, rounded, theme-aware. The gutter is always reserved so
+   * layout never shifts when a scrollbar appears or disappears (content growth,
+   * dialogs locking body scroll, etc.).
+   */
+  html {
+    scrollbar-gutter: stable;
+  }
+  * {
+    scrollbar-gutter: stable;
+  }
+  /* Firefox + any engine without ::-webkit-scrollbar */
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scrollbar-thumb) transparent;
+    }
+  }
+  *::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  *::-webkit-scrollbar-track,
+  *::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  *::-webkit-scrollbar-thumb {
+    background-color: var(--scrollbar-thumb);
+    border: 3px solid transparent;
+    background-clip: padding-box;
+    border-radius: 999px;
+    transition: background-color 0.15s;
+  }
+  *::-webkit-scrollbar-thumb:hover {
+    background-color: var(--scrollbar-thumb-hover);
+  }
+  *::-webkit-scrollbar-thumb:active {
+    background-color: var(--broadcast);
+  }
+
+  /* Tailwind v4 preflight resets buttons to cursor:default — restore it for every click target */
+  button:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  [role="tab"],
+  [role="menuitem"],
+  a[href],
+  summary,
+  select:not(:disabled),
+  label:has(input[type="checkbox"], input[type="radio"]),
+  input[type="checkbox"],
+  input[type="radio"],
+  input[type="submit"]:not(:disabled) {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
+}
+
+@layer utilities {
+  .text-display {
+    font-size: 22px;
+    line-height: 28px;
+    font-weight: 650;
+    letter-spacing: -0.015em;
+  }
+  .text-page-title {
+    font-size: 18px;
+    line-height: 24px;
+    font-weight: 650;
+    letter-spacing: -0.02em;
+  }
+  .text-section-title {
+    font-size: 14px;
+    line-height: 20px;
+    font-weight: 600;
+  }
+  .text-stat {
+    font-size: 20px;
+    line-height: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .text-eyebrow {
+    font-size: 10.5px;
+    line-height: 14px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  .text-body {
+    font-size: 13px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+  .text-body-small {
+    font-size: 12px;
+    line-height: 18px;
+    font-weight: 400;
+  }
+  .text-metadata {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 400;
+  }
+  .text-label {
+    font-size: 12px;
+    line-height: 16px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+  }
+  .shadow-rb-1 {
+    box-shadow: var(--shadow-rb-1);
+  }
+  .shadow-rb-2 {
+    box-shadow: var(--shadow-rb-2);
+  }
+  .shadow-rb-3 {
+    box-shadow: var(--shadow-rb-3);
+  }
+  .field {
+    height: 32px;
+    padding: 0 12px;
+    font-size: 13px;
+    border-radius: 8px;
+    background: var(--muted);
+    outline: none;
+    box-shadow: inset 0 0 0 1px var(--border);
+  }
+  .field:focus {
+    box-shadow: inset 0 0 0 1.5px var(--ring);
+  }
+  .scrollbar-none {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+  .scrollbar-none::-webkit-scrollbar {
+    display: none;
+  }
+}

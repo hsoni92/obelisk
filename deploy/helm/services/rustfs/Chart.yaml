@@ -1,0 +1,4 @@
+apiVersion: v2
+name: obelisk-rustfs
+version: 0.1.0
+description: RustFS S3-compatible object storage (rustfs/rustfs container)

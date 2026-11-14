@@ -1,0 +1,33 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obelisk-admin-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obelisk-admin-ui
+  template:
+    metadata:
+      labels:
+        app: obelisk-admin-ui
+    spec:
+      containers:
+        - name: ui
+          image: {{ .Values.obelisk.imageAdminUI }}
+          ports:
+            - containerPort: 3000
+          env:
+            - name: NEXT_PUBLIC_API_BASE
+              value: /api
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obelisk-admin-ui
+spec:
+  selector:
+    app: obelisk-admin-ui
+  ports:
+    - port: 3000
+      targetPort: 3000

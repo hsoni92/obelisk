@@ -1,0 +1,32 @@
+_format_version: "3.0"
+_transform: true
+services:
+  - name: admin-api
+    url: http://obelisk-controller:8080
+    routes:
+      - name: admin-api
+        paths: ["/api"]
+  - name: admin-ui
+    url: http://obelisk-admin-ui:3000
+    routes:
+      - name: admin-ui
+        paths: ["/"]
+  - name: openrouter-gateway
+    url: http://obelisk-controller:8081
+    routes:
+      - name: openrouter
+        paths: ["/openrouter"]
+        strip_path: true
+  - name: mail-gateway
+    url: http://obelisk-controller:8082
+    routes:
+      - name: mail
+        paths: ["/mail"]
+        strip_path: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 1

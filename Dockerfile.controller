@@ -1,0 +1,9 @@
+FROM golang:1.22-bookworm AS build
+WORKDIR /src
+COPY go.mod ./
+COPY . .
+RUN go mod tidy && CGO_ENABLED=0 go build -o /out/obelisk-controller ./cmd/obelisk-controller
+
+FROM gcr.io/distroless/static-debian12
+COPY --from=build /out/obelisk-controller /obelisk-controller
+ENTRYPOINT ["/obelisk-controller"]

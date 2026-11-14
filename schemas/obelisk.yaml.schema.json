@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://obelisk.dev/schemas/obelisk.yaml.schema.json",
+  "title": "ObeliskCluster",
+  "type": "object",
+  "required": ["apiVersion", "kind", "deployment", "services"],
+  "properties": {
+    "apiVersion": { "const": "obelisk.dev/v1" },
+    "kind": { "const": "ObeliskCluster" },
+    "deployment": {
+      "type": "object",
+      "required": ["profile"],
+      "properties": {
+        "profile": { "enum": ["vps", "local"] },
+        "tailscale": {
+          "type": "object",
+          "properties": {
+            "enabled": { "type": "boolean" }
+          }
+        }
+      },
+      "if": {
+        "properties": { "profile": { "const": "vps" } }
+      },
+      "then": {
+        "properties": {
+          "tailscale": {
+            "properties": { "enabled": { "const": false } }
+          }
+        }
+      }
+    },
+    "hardware": {
+      "type": "object",
+      "properties": {
+        "tier": { "enum": ["floor", "comfort"] }
+      }
+    },
+    "services": {
+      "type": "object",
+      "properties": {
+        "postgres": { "$ref": "#/$defs/serviceToggle" },
+        "mysql": { "$ref": "#/$defs/serviceToggle" },
+        "redis": { "$ref": "#/$defs/serviceToggle" },
+        "rustfs": { "$ref": "#/$defs/serviceToggle" },
+        "qdrant": { "$ref": "#/$defs/serviceToggle" },
+        "searxng": { "$ref": "#/$defs/serviceToggle" }
+      }
+    },
+    "machine": {
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Stable appliance identity; S3/R2 bucket name for this host"
+        }
+      }
+    },
+    "backup": {
+      "type": "object",
+      "properties": {
+        "credentials_secret": { "type": "string" },
+        "remote": {
+          "type": "object",
+          "properties": {
+            "endpoint": { "type": "string" }
+          }
+        }
+      }
+    },
+    "exposure": {
+      "type": "object",
+      "properties": {
+        "funnel": {
+          "type": "object",
+          "properties": {
+            "rustfs_s3": {
+              "type": "object",
+              "properties": { "enabled": { "type": "boolean" } }
+            }
+          }
+        }
+      }
+    },
+    "mail_gateway": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label", "address"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "address": { "type": "string" },
+              "provider": { "type": "string" },
+              "notes": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "openrouter_gateway": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "accounts": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["id", "label"],
+            "properties": {
+              "id": { "type": "string" },
+              "label": { "type": "string" },
+              "enabled": { "type": "boolean" },
+              "notes": { "type": "string" },
+              "key_fingerprint": { "type": "string" },
+              "upstream_label": { "type": "string" },
+              "key_tail": { "type": "string" },
+              "upstream_user_id": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+    "projects": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name"],
+        "properties": {
+          "name": { "type": "string" },
+          "postgres_db": { "type": "string" },
+          "redis_db": { "type": "integer", "minimum": 0, "maximum": 15 }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "serviceToggle": {
+      "type": "object",
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "profile": { "type": "string" }
+      }
+    }
+  }
+}

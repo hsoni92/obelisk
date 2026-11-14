@@ -1,0 +1,5 @@
+image: qdrant/qdrant:v1.12.5
+storage:
+  size: 4Gi
+credentials:
+  apiKey: ""
