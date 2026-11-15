@@ -5,6 +5,10 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+# shellcheck disable=SC1091
+source "$ROOT/scripts/load-dotenv.sh"
+load_dotenv "$ROOT"
+
 CLUSTER=0
 for arg in "$@"; do
   case "$arg" in
@@ -16,7 +20,7 @@ Usage: scripts/dev.sh [--cluster]
   (default)  simulate reconcile — no k3d required; good for API + UI work.
   --cluster  OBELISK_RECONCILE=cluster; starts k3d if dev/kubeconfig is missing.
 
-Env: OBELISK_CONFIG, OBELISK_ROOT, KUBECONFIG, GATEWAY_LISTEN, MAIL_GATEWAY_LISTEN
+Env: repo-root .env (optional), OBELISK_CONFIG, OBELISK_ROOT, KUBECONFIG, GATEWAY_LISTEN, MAIL_GATEWAY_LISTEN
 EOF
       exit 0
       ;;

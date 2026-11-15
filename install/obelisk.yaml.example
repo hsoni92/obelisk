@@ -27,3 +27,8 @@ exposure:
     rustfs_s3:
       enabled: false
 projects: []
+# blueprint:
+#   github:
+#     repository: owner/obelisk-appliance
+#     branch: main
+#     sync_status: idle

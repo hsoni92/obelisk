@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"sync"
 
+	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
+	"github.com/hsoni92/obelisk/internal/restore"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -17,10 +19,12 @@ type Server struct {
 	HelmRoot   string
 	Gateway    *openroutergateway.Server
 	// GatewayListenAddr is the controller's OpenRouter listen socket (e.g. ":18081").
-	GatewayListenAddr string
-	MailGateway       *mailgateway.Server
+	GatewayListenAddr     string
+	MailGateway           *mailgateway.Server
 	MailGatewayListenAddr string
-	mu                sync.Mutex
+	Blueprint             *blueprint.Runtime
+	Restore               *restore.Orchestrator
+	mu                    sync.Mutex
 }
 
 func (s *Server) Handler() http.Handler {
@@ -62,7 +66,19 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/mail/accounts/{id}", s.handlePatchMailAccount)
 	mux.HandleFunc("DELETE /api/v1/mail/accounts/{id}", s.handleDeleteMailAccount)
 	mux.HandleFunc("POST /api/v1/mail/test", s.handleMailTest)
-	return mux
+	mux.HandleFunc("GET /api/v1/blueprint/status", s.handleBlueprintStatus)
+	mux.HandleFunc("GET /api/v1/blueprint/github/config", s.handleBlueprintGitHubConfig)
+	mux.HandleFunc("POST /api/v1/blueprint/github/authorize", s.handleBlueprintAuthorize)
+	mux.HandleFunc("POST /api/v1/blueprint/github/callback", s.handleBlueprintCallback)
+	mux.HandleFunc("POST /api/v1/blueprint/github/logout", s.handleBlueprintLogout)
+	mux.HandleFunc("POST /api/v1/blueprint/onboard", s.handleBlueprintOnboard)
+	mux.HandleFunc("POST /api/v1/blueprint/unlock", s.handleBlueprintUnlock)
+	mux.HandleFunc("POST /api/v1/blueprint/lock", s.handleBlueprintLock)
+	mux.HandleFunc("POST /api/v1/blueprint/import", s.handleBlueprintImport)
+	mux.HandleFunc("POST /api/v1/blueprint/push", s.handleBlueprintPush)
+	mux.HandleFunc("POST /api/v1/restore/chain", s.handleRestoreChain)
+	mux.HandleFunc("GET /api/v1/restore/chain", s.handleRestoreChainStatus)
+	return s.requireGitHub(mux)
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {
@@ -91,14 +107,14 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	}
 	bt := s.buildBackupTarget(cfg, spec)
 	writeJSON(w, map[string]any{
-		"machineId":      spec.BackupBucketName(),
-		"profile":        spec.Deployment.Profile,
-		"tailscale":      spec.Deployment.Tailscale.Enabled,
-		"configPath":     cfg,
-		"reconcileMode":  reconcileMode,
-		"serviceStates":  states,
-		"instances":      instances,
-		"messages":       []string{},
+		"machineId":     spec.BackupBucketName(),
+		"profile":       spec.Deployment.Profile,
+		"tailscale":     spec.Deployment.Tailscale.Enabled,
+		"configPath":    cfg,
+		"reconcileMode": reconcileMode,
+		"serviceStates": states,
+		"instances":     instances,
+		"messages":      []string{},
 		"backup": map[string]any{
 			"ready":                  bt.BackupReady,
 			"credentials_configured": bt.CredentialsConfigured,

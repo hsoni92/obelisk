@@ -10,10 +10,12 @@ import (
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/adminapi"
+	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
+	"github.com/hsoni92/obelisk/internal/restore"
 )
 
 func main() {
@@ -24,6 +26,8 @@ func main() {
 	mailGatewayAddr := flag.String("mail-gateway-listen", ":8082", "Mail gateway listen address")
 	reconcileEvery := flag.Duration("reconcile", 30*time.Second, "background reconcile interval")
 	flag.Parse()
+
+	config.LoadRepoDotEnv()
 
 	cfgFile := config.EnsureReadablePath(*configPath)
 	if cfgFile != *configPath {
@@ -38,6 +42,15 @@ func main() {
 	if err := mgw.Reload(); err != nil {
 		log.Printf("mail gateway reload: %v", err)
 	}
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
+	defer cancel()
+
+	bp, err := blueprint.NewRuntime(cfgFile, *helmRoot)
+	if err != nil {
+		log.Fatal(err)
+	}
+	bp.Start(ctx)
+	config.SetAfterSave(func(string) { bp.Sync.Enqueue() })
 	api := &adminapi.Server{
 		ConfigPath:            cfgFile,
 		HelmRoot:              *helmRoot,
@@ -45,13 +58,12 @@ func main() {
 		GatewayListenAddr:     *gatewayAddr,
 		MailGateway:           mgw,
 		MailGatewayListenAddr: *mailGatewayAddr,
+		Blueprint:             bp,
+		Restore:               restore.New(),
 	}
 	srv := &http.Server{Addr: *addr, Handler: api.Handler()}
 	gwSrv := &http.Server{Addr: *gatewayAddr, Handler: gw.Handler()}
 	mailSrv := &http.Server{Addr: *mailGatewayAddr, Handler: mgw.Handler()}
-
-	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt)
-	defer cancel()
 
 	go func() {
 		t := time.NewTicker(*reconcileEvery)

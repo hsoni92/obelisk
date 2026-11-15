@@ -74,13 +74,13 @@ Obelisk concentrates that stack on **one box** with lazy enablement, built-in ba
 
 * **Given:** Platform ready; operator created two S3-compatible buckets (data + config) in R2 or AWS.
 * **When:** Operator opens **DR**, notes **machine identity** (also the bucket name), creates that bucket in R2/S3, enters endpoint + API keys (Secret `obelisk-backup-remote`), runs **Test connection**, then enables a data service and clicks **Backup now** (or runs `obelisk backup run`).
-* **Then:** Preflight write to `preflight/.write-test` succeeds; backup job is accepted; uploads land under fixed prefixes `config/` and `data/{type}/{instance}/` inside `s3://<machine.id>/` (v1 worker may be phased—UI shows `implementation_status` until CronJobs ship).
+* **Then:** Preflight write to `preflight/.write-test` succeeds; backup job is accepted; uploads land under `data/{type}/{instance}/` inside `s3://<machine.id>/`. Control-plane settings are not uploaded to S3; they are pushed as an encrypted GitHub blueprint ([github_encrypted_blueprint.md](./github_encrypted_blueprint.md)).
 
 ### CUJ 5: Disaster restore
 
-* **Given:** Prior appliance uploaded under `s3://<machine.id>/` with the same machine identity recorded in restored metadata.
-* **When:** Operator installs Obelisk on a fresh VPS, enters the same backup credentials in **DR** (or `obelisk restore --credentials-file`), runs restore orchestrator (`pull_config` → `restore_control` → `restore_data` → `reconcile_services`).
-* **Then:** Previously enabled services run with restored data; Funnel disabled until re-enabled.
+* **Given:** The appliance previously pushed an encrypted blueprint to its private GitHub repo, and S3 `data/` for that `machine.id` is intact.
+* **When:** Operator installs Obelisk on a fresh VPS, signs in with GitHub, unlocks with the blueprint passphrase, and runs chained restore (`pull_blueprint` → `unlock` → `apply_control` → `restore_data` → `reconcile_services`). If the new host already has a different `machine.id`, the operator chooses **adopt blueprint id** (restore that bucket) or **keep new id** (settings only).
+* **Then:** Settings match the blueprint. Data objects under `data/` are restored when the blueprint id is adopted. Funnel stays off until re-enabled. The UI shows settings restored and data restored separately.
 
 ## Open Questions
 
@@ -103,7 +103,7 @@ Obelisk concentrates that stack on **one box** with lazy enablement, built-in ba
 | **Installer** (`install/bootstrap.sh`) | Idempotent host prep: k3s, optional Tailscale (`local` only), disk paths, initial `obelisk.yaml` with `deployment.profile`, deploy platform manifests |
 | **obelisk-controller** | Watches `ObeliskCluster` CR (mirror of `obelisk.yaml`) or polls file; reconciles data-service Helm releases, resource profiles |
 | **exposure-reconciler** (may be controller module) | Renders Kong declarative config; applies rate-limit + auth bundle; drives Tailscale Funnel only when `deployment.profile=local` and Tailscale enabled |
-| **backup-reconciler** | Creates/suspends CronJobs per running service; mounts Secret `obelisk-backup-remote`; uploads to bucket `machine.id` under `data/` and `config/` prefixes |
+| **backup-reconciler** | Creates/suspends CronJobs per running service; mounts Secret `obelisk-backup-remote`; uploads to bucket `machine.id` under `data/` only. Settings durability is the encrypted GitHub blueprint, not an S3 `config/` tarball |
 | **obelisk-admin-api** | REST via Kong on profile-appropriate interface; validates and writes desired state; triggers async reconcile |
 | **admin UI** | **Next.js** (latest stable at each release, pinned in `versions.lock`) + **shadcn/ui** components; lazy routes; talks only to admin API; no custom color system beyond theme tokens |
 | **obelisk CLI** | `install`, `status`, `obelisk service enable|disable`, `obelisk backup run`, `obelisk restore` parity |
@@ -242,22 +242,23 @@ backup:
 
 | Prefix | Contents |
 | --- | --- |
-| `config/` | Control-plane tarball (`obelisk.yaml`, Kong YAML, enable flags; no tailnet or backup keys) |
 | `data/{type}/{instance_id}/` | `pg_dump`, RDB, RustFS sync per running instance |
 | `preflight/` | Connection test artifacts only |
+
+Control-plane desired state is not stored under `config/`. It is pushed to a private GitHub repo as an encrypted blueprint (`manifest.json`, redacted `obelisk.public.yaml`, `secrets.enc`). See [github_encrypted_blueprint.md](./github_encrypted_blueprint.md).
 
 **Credentials:** R2/S3 keys live in Secret `obelisk-backup-remote` (or `backup-remote.credentials.json` beside config in dev). Admin **DR** sets endpoint + keys only.
 
 | Layer | Tooling | Schedule |
 | --- | --- | --- |
-| Control plane | Tarball → `config/latest.tar` (exact filename in implementation plan) | On change + daily |
+| Control plane | Encrypted GitHub blueprint (not S3 `config/`) | After each successful save, once the passphrase is unlocked |
 | Postgres / MySQL | `pg_dump` / `mysqldump` → `data/postgres/{id}/` or `data/mysql/{id}/` | Operator schedule + manual |
 | Redis | RDB → `data/redis/{id}/` | Same |
 | RustFS | Object sync → `data/rustfs/{id}/` | Same |
 
-**Restore orchestrator** (admin API workflow): phases `preflight → pull_config` (from `config/` in bucket `machine.id`, requires bootstrap credentials on fresh host) → `restore_control` → `restore_data[pg,mysql,redis,rustfs]` → `reconcile_services` → `verify`; on failure, abort with rollback instructions; **Funnel forced off** at end of successful restore.
+**Restore orchestrator** (admin API `POST /api/v1/restore/chain`): phases `pull_blueprint` (GitHub) → `unlock` → `apply_control` → `restore_data` (S3 `data/` only) → `reconcile_services` → force Funnel off. On failure the chain stops and reports the phase. **Funnel is forced off** at the end of a successful restore.
 
-**Restore bootstrap (v1):** On a fresh machine after install, operator re-enters the same backup API keys in **DR** before `pull_config` (or supplies `obelisk restore --credentials-file` on CLI).
+**Restore bootstrap:** On a fresh machine the operator signs in with GitHub and unlocks the blueprint passphrase. Backup API keys travel inside the encrypted bundle, so they are not retyped when the bundle decrypts. If `machine.id` differs, the operator adopts the blueprint id before data restore.
 
 ### Hardware profiles
 

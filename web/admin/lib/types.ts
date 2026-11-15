@@ -218,6 +218,52 @@ export type OverviewComponent = {
   release: string;
 };
 
+export type BlueprintStatus = {
+  authenticated: boolean;
+  login?: string;
+  client_configured: boolean;
+  repository?: string;
+  branch?: string;
+  generation: number;
+  remote_generation?: number;
+  last_sync_at?: string;
+  last_commit_sha?: string;
+  sync_status: string;
+  crypto_unlocked: boolean;
+  import_required: boolean;
+  last_push_error?: string;
+  machine_id?: string;
+  remote_machine_id?: string;
+  machine_id_mismatch: boolean;
+  bundle_present: boolean;
+  needs_onboarding: boolean;
+  discovered_repository?: string;
+  key_id?: string;
+};
+
+export type BlueprintAuthorizeResponse = {
+  flow: "code" | "device";
+  authorize_url?: string;
+  state?: string;
+  user_code?: string;
+  verification_uri?: string;
+  device_code?: string;
+  interval?: number;
+  expires_in?: number;
+};
+
+export type RestoreChainState = {
+  phase: string;
+  settings_restored: boolean;
+  data_restored: boolean;
+  data_objects: number;
+  error?: string;
+  started_at?: string;
+  finished_at?: string;
+  phases?: string[];
+  running: boolean;
+};
+
 export type OverviewHistoryEvent = {
   at: string;
   key: string;

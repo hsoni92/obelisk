@@ -1,10 +1,13 @@
 import type {
   BackupConfigResponse,
   BackupTargetResponse,
+  BlueprintAuthorizeResponse,
+  BlueprintStatus,
   ConnectionsResponse,
   CreateInstanceResponse,
   MailConfigResponse,
   OpenRouterConfigResponse,
+  RestoreChainState,
   ServiceInstance,
   OverviewResponse,
   StatusResponse,
@@ -18,12 +21,13 @@ export const obeliskApi = createApi({
   reducerPath: "obeliskApi",
   baseQuery: fetchBaseQuery({
     baseUrl: obeliskApiBaseUrl,
+    credentials: "include",
     prepareHeaders: (headers) => {
       headers.set("Accept", "application/json");
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -327,6 +331,100 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Mail"],
     }),
+    getBlueprintStatus: builder.query<BlueprintStatus, void>({
+      query: () => "/blueprint/status",
+      providesTags: ["Blueprint"],
+    }),
+    getBlueprintGitHubConfig: builder.query<{ client_configured: boolean; scope: string }, void>({
+      query: () => "/blueprint/github/config",
+    }),
+    authorizeGitHub: builder.mutation<
+      BlueprintAuthorizeResponse,
+      { flow: "code" | "device"; redirect_uri?: string }
+    >({
+      query: (body) => ({
+        url: "/blueprint/github/authorize",
+        method: "POST",
+        body,
+      }),
+    }),
+    completeGitHubCallback: builder.mutation<
+      { status: string; login?: string },
+      { code?: string; state?: string; device_code?: string }
+    >({
+      query: (body) => ({
+        url: "/blueprint/github/callback",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Blueprint"],
+    }),
+    logoutGitHub: builder.mutation<{ status: string }, void>({
+      query: () => ({
+        url: "/blueprint/github/logout",
+        method: "POST",
+      }),
+      invalidatesTags: ["Blueprint"],
+    }),
+    onboardBlueprint: builder.mutation<
+      BlueprintStatus,
+      { repository?: string; branch?: string; passphrase: string }
+    >({
+      query: (body) => ({
+        url: "/blueprint/onboard",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Blueprint", "Status"],
+    }),
+    unlockBlueprint: builder.mutation<BlueprintStatus, { passphrase: string }>({
+      query: (body) => ({
+        url: "/blueprint/unlock",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Blueprint"],
+    }),
+    lockBlueprint: builder.mutation<BlueprintStatus, void>({
+      query: () => ({
+        url: "/blueprint/lock",
+        method: "POST",
+      }),
+      invalidatesTags: ["Blueprint"],
+    }),
+    importBlueprint: builder.mutation<
+      BlueprintStatus,
+      { passphrase: string; repository?: string; machine_id_choice?: "adopt" | "keep" }
+    >({
+      query: (body) => ({
+        url: "/blueprint/import",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Blueprint", "Status", "BackupConfig"],
+    }),
+    pushBlueprint: builder.mutation<BlueprintStatus, void>({
+      query: () => ({
+        url: "/blueprint/push",
+        method: "POST",
+      }),
+      invalidatesTags: ["Blueprint"],
+    }),
+    startRestoreChain: builder.mutation<
+      RestoreChainState,
+      { passphrase: string; repository?: string; machine_id_choice?: "adopt" | "keep" }
+    >({
+      query: (body) => ({
+        url: "/restore/chain",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Restore", "Blueprint", "Status"],
+    }),
+    getRestoreChain: builder.query<RestoreChainState, void>({
+      query: () => "/restore/chain",
+      providesTags: ["Restore"],
+    }),
     testOpenRouter: builder.mutation<
       {
         ok: boolean;
@@ -378,6 +476,18 @@ export const {
   usePatchMailAccountMutation,
   useDeleteMailAccountMutation,
   useTestMailMutation,
+  useGetBlueprintStatusQuery,
+  useGetBlueprintGitHubConfigQuery,
+  useAuthorizeGitHubMutation,
+  useCompleteGitHubCallbackMutation,
+  useLogoutGitHubMutation,
+  useOnboardBlueprintMutation,
+  useUnlockBlueprintMutation,
+  useLockBlueprintMutation,
+  useImportBlueprintMutation,
+  usePushBlueprintMutation,
+  useStartRestoreChainMutation,
+  useGetRestoreChainQuery,
 } = obeliskApi;
 
 /** Default polling for live cluster status. */
@@ -392,15 +502,18 @@ export function rtkErrorMessage(error: unknown): string {
     const data = (error as { data?: unknown }).data;
     if (typeof data === "string" && data.trim()) return data;
     if (typeof data === "object" && data) {
-      if ("message" in data) {
-        return String((data as { message: unknown }).message);
-      }
       if ("error" in data && (data as { error: unknown }).error === "duplicate_key") {
         const d = data as { message?: string; existing_label?: string; key_tail?: string };
         return (
           d.message ??
           `Duplicate key (already saved as ${d.existing_label ?? "account"}, tail …${d.key_tail ?? ""})`
         );
+      }
+      if ("message" in data && (data as { message?: unknown }).message) {
+        return String((data as { message: unknown }).message);
+      }
+      if ("error" in data && typeof (data as { error?: unknown }).error === "string") {
+        return (data as { error: string }).error;
       }
     }
   }

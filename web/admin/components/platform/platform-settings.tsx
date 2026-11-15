@@ -8,7 +8,7 @@ import {
   systemPrefersDark,
   type ThemeMode,
 } from "@/lib/theme";
-import { Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
+import { GitBranch, Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
 import { useSyncExternalStore } from "react";
 
 const MODES: {
@@ -49,6 +49,13 @@ export function PlatformSettings() {
           <Palette className="size-4 shrink-0" />
           Appearance
         </button>
+        <a
+          href="#blueprint"
+          className="mt-1 flex w-full items-center gap-2 rounded-lg border-l-2 border-transparent px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-card/60"
+        >
+          <GitBranch className="size-4 shrink-0" />
+          Blueprint
+        </a>
       </nav>
 
       <section aria-labelledby="appearance-heading">

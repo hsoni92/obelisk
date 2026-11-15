@@ -2,17 +2,18 @@ package obelisk
 
 // Spec is the declarative desired state (obelisk.yaml).
 type Spec struct {
-	APIVersion string       `yaml:"apiVersion"`
-	Kind       string       `yaml:"kind"`
-	Machine    Machine      `yaml:"machine,omitempty"`
-	Deployment Deployment   `yaml:"deployment"`
-	Hardware   Hardware     `yaml:"hardware"`
-	Services   ServiceFlags       `yaml:"services"`
-	Instances  []ServiceInstance  `yaml:"instances,omitempty"`
+	APIVersion        string            `yaml:"apiVersion"`
+	Kind              string            `yaml:"kind"`
+	Machine           Machine           `yaml:"machine,omitempty"`
+	Deployment        Deployment        `yaml:"deployment"`
+	Hardware          Hardware          `yaml:"hardware"`
+	Services          ServiceFlags      `yaml:"services"`
+	Instances         []ServiceInstance `yaml:"instances,omitempty"`
 	Backup            Backup            `yaml:"backup"`
 	Exposure          Exposure          `yaml:"exposure"`
 	OpenRouterGateway OpenRouterGateway `yaml:"openrouter_gateway,omitempty" json:"openrouter_gateway,omitempty"`
 	MailGateway       MailGateway       `yaml:"mail_gateway,omitempty" json:"mail_gateway,omitempty"`
+	Blueprint         Blueprint         `yaml:"blueprint,omitempty" json:"blueprint,omitempty"`
 	Projects          []Project         `yaml:"projects"`
 }
 
@@ -77,9 +78,9 @@ type FunnelRoute struct {
 }
 
 type Project struct {
-	Name        string `yaml:"name"`
-	PostgresDB  string `yaml:"postgres_db"`
-	RedisDB     int    `yaml:"redis_db"`
+	Name       string `yaml:"name"`
+	PostgresDB string `yaml:"postgres_db"`
+	RedisDB    int    `yaml:"redis_db"`
 }
 
 func DefaultSpec(profile string) Spec {

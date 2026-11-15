@@ -127,6 +127,36 @@
         }
       }
     },
+    "blueprint": {
+      "type": "object",
+      "description": "Encrypted GitHub mirror metadata. OAuth tokens are not stored here.",
+      "properties": {
+        "github": {
+          "type": "object",
+          "properties": {
+            "repository": { "type": "string", "description": "owner/name of the private blueprint repo" },
+            "branch": { "type": "string" },
+            "generation": { "type": "integer", "minimum": 0 },
+            "last_sync_at": { "type": "string" },
+            "last_commit_sha": { "type": "string" },
+            "sync_status": {
+              "enum": ["idle", "pending", "synced", "failed", "locked", "push_paused"]
+            },
+            "crypto_unlocked": {
+              "type": "boolean",
+              "description": "UI hint only. The passphrase-derived key lives in controller memory."
+            },
+            "oauth_login": { "type": "string" },
+            "kdf_salt": { "type": "string", "description": "Non-secret Argon2id salt" },
+            "kdf_memory": { "type": "integer" },
+            "kdf_iterations": { "type": "integer" },
+            "kdf_parallelism": { "type": "integer" },
+            "key_id": { "type": "string" },
+            "last_push_error": { "type": "string" }
+          }
+        }
+      }
+    },
     "projects": {
       "type": "array",
       "items": {

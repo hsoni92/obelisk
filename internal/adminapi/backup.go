@@ -14,10 +14,10 @@ import (
 )
 
 type backupLayoutView struct {
-	Bucket        string `json:"bucket"`
-	ConfigPrefix  string `json:"config_prefix"`
-	DataPrefix    string `json:"data_prefix"`
-	PreflightKey  string `json:"preflight_key"`
+	Bucket       string `json:"bucket"`
+	ConfigPrefix string `json:"config_prefix"`
+	DataPrefix   string `json:"data_prefix"`
+	PreflightKey string `json:"preflight_key"`
 }
 
 type backupRemoteView struct {
@@ -25,17 +25,17 @@ type backupRemoteView struct {
 }
 
 type backupTargetResponse struct {
-	MachineID               string           `json:"machine_id"`
-	Layout                  backupLayoutView `json:"layout"`
-	Remote                  backupRemoteView `json:"remote"`
-	CredentialsSecret       string           `json:"credentials_secret"`
-	CredentialsConfigured   bool             `json:"credentials_configured"`
-	RemoteMetadataReady     bool             `json:"remote_metadata_ready"`
-	BackupReady             bool             `json:"backup_ready"`
-	LastTestAt              string           `json:"last_test_at,omitempty"`
-	LastTestOK              *bool            `json:"last_test_ok,omitempty"`
-	LastTestMessage         string           `json:"last_test_message,omitempty"`
-	ImplementationStatus    string           `json:"implementation_status"`
+	MachineID             string           `json:"machine_id"`
+	Layout                backupLayoutView `json:"layout"`
+	Remote                backupRemoteView `json:"remote"`
+	CredentialsSecret     string           `json:"credentials_secret"`
+	CredentialsConfigured bool             `json:"credentials_configured"`
+	RemoteMetadataReady   bool             `json:"remote_metadata_ready"`
+	BackupReady           bool             `json:"backup_ready"`
+	LastTestAt            string           `json:"last_test_at,omitempty"`
+	LastTestOK            *bool            `json:"last_test_ok,omitempty"`
+	LastTestMessage       string           `json:"last_test_message,omitempty"`
+	ImplementationStatus  string           `json:"implementation_status"`
 }
 
 type patchBackupTargetRequest struct {
@@ -226,9 +226,9 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if out.UploadedDestinations > 0 {
 			writeJSON(w, map[string]any{
-				"status":    "degraded",
-				"message":   err.Error(),
-				"uploads":   out.UploadedDestinations,
+				"status":     "degraded",
+				"message":    err.Error(),
+				"uploads":    out.UploadedDestinations,
 				"object_key": out.ObjectKey,
 			})
 			return
@@ -237,7 +237,7 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	summary := fmt.Sprintf(
-		"uploaded config snapshot + %d data object(s) to %d destination(s)",
+		"uploaded %d data object(s) to %d destination(s)",
 		len(out.DataObjects),
 		out.UploadedDestinations,
 	)
@@ -245,11 +245,11 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		summary += fmt.Sprintf("; %d skipped", len(out.DataSkipped))
 	}
 	writeJSON(w, map[string]any{
-		"status":        "ok",
-		"message":       summary,
-		"uploads":       out.UploadedDestinations,
-		"object_key":    out.ObjectKey,
-		"data_objects":  out.DataObjects,
-		"data_skipped":  out.DataSkipped,
+		"status":       "ok",
+		"message":      summary,
+		"uploads":      out.UploadedDestinations,
+		"object_key":   out.ObjectKey,
+		"data_objects": out.DataObjects,
+		"data_skipped": out.DataSkipped,
 	})
 }

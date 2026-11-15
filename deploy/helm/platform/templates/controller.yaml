@@ -28,6 +28,24 @@ spec:
           env:
             - name: OBELISK_CREDENTIALS_DIR
               value: /var/lib/obelisk/credentials
+            - name: OBELISK_GITHUB_CLIENT_ID
+              valueFrom:
+                secretKeyRef:
+                  name: obelisk-github-oauth
+                  key: client_id
+                  optional: true
+            - name: OBELISK_GITHUB_CLIENT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: obelisk-github-oauth
+                  key: client_secret
+                  optional: true
+            - name: OBELISK_GITHUB_REDIRECT_URI
+              valueFrom:
+                secretKeyRef:
+                  name: obelisk-github-oauth
+                  key: redirect_uri
+                  optional: true
           ports:
             - containerPort: 8080
               name: http

@@ -3,7 +3,7 @@
 1. Clone or copy Obelisk to `/opt/obelisk`.
 2. On **VPS**: `OBELISK_PROFILE=vps OBELISK_ROOT=/opt/obelisk sudo ./install/bootstrap.sh`
 3. On **local** with optional Tailscale: `OBELISK_PROFILE=local OBELISK_TAILSCALE=true sudo ./install/bootstrap.sh`
-4. Open admin UI via Kong on the host HTTP port.
+4. Open admin UI via Kong on the host HTTP port. Sign in with GitHub and finish blueprint onboarding ([github-blueprint.md](./github-blueprint.md)).
 5. Enable Postgres / Redis / RustFS / Qdrant / SearXNG from the Services tab when needed.
 
 ## UI dev on a laptop (no `/etc/obelisk`)

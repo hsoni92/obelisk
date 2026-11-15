@@ -1,5 +1,6 @@
 "use client";
 
+import { RestoreWizard } from "@/components/blueprint/restore-wizard";
 import { DRPanel } from "@/components/dr/dr-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
@@ -73,6 +74,7 @@ export default function DRPage() {
       )}
 
       <div className="space-y-4">
+        <RestoreWizard />
         <DRPanel onBusy={setBusy} onError={setActionError} />
         <div className="flex flex-wrap items-center gap-3">
           <Button

@@ -4,7 +4,10 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"net/url"
+	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -207,6 +210,61 @@ func PutObject(ctx context.Context, endpoint, bucket, key string, creds RemoteCr
 		return fmt.Errorf("upload s3://%s/%s: %w", bucket, key, err)
 	}
 	return nil
+}
+
+// DownloadPrefix copies objects under prefix into destDir, preserving key paths.
+// Used by chained restore for the data/ prefix. config/ is not requested.
+func DownloadPrefix(ctx context.Context, endpoint, bucket, prefix string, creds RemoteCredentials, destDir string) (int, error) {
+	host, secure, err := parseEndpoint(endpoint)
+	if err != nil {
+		return 0, err
+	}
+	cli, err := minio.New(host, &minio.Options{
+		Creds:  credentials.NewStaticV4(creds.AccessKeyID, creds.SecretAccessKey, ""),
+		Secure: secure,
+	})
+	if err != nil {
+		return 0, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
+	defer cancel()
+	n := 0
+	for obj := range cli.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if obj.Err != nil {
+			return n, obj.Err
+		}
+		if obj.Key == "" || strings.HasSuffix(obj.Key, "/") {
+			continue
+		}
+		if strings.HasPrefix(obj.Key, obelisk.BackupConfigPrefix) {
+			continue
+		}
+		reader, err := cli.GetObject(ctx, bucket, obj.Key, minio.GetObjectOptions{})
+		if err != nil {
+			return n, err
+		}
+		dest := filepath.Join(destDir, filepath.FromSlash(obj.Key))
+		if err := os.MkdirAll(filepath.Dir(dest), 0o700); err != nil {
+			reader.Close()
+			return n, err
+		}
+		f, err := os.OpenFile(dest, os.O_CREATE|os.O_TRUNC|os.O_WRONLY, 0o600)
+		if err != nil {
+			reader.Close()
+			return n, err
+		}
+		_, copyErr := io.Copy(f, reader)
+		closeErr := f.Close()
+		reader.Close()
+		if copyErr != nil {
+			return n, copyErr
+		}
+		if closeErr != nil {
+			return n, closeErr
+		}
+		n++
+	}
+	return n, nil
 }
 
 func contentTypeForObjectKey(key string) string {

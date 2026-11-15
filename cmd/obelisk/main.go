@@ -31,6 +31,10 @@ func main() {
 		cmdInitConfig(os.Args[2:])
 	case "reconcile":
 		cmdReconcile(os.Args[2:])
+	case "blueprint":
+		cmdBlueprint(os.Args[2:])
+	case "restore":
+		cmdRestore(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -49,6 +53,8 @@ Commands:
   status [--api URL] [--config path]
   service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng> [--config path] [--helm-root path]
   reconcile [--config path] [--helm-root path]
+  blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
+  restore --chain [--api URL] [--config path] [--passphrase secret] [--adopt-machine-id | --keep-machine-id]
 `)
 }
 

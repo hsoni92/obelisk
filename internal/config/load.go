@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sync"
 
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 	"gopkg.in/yaml.v3"
@@ -11,7 +12,23 @@ import (
 
 const DefaultPath = "/etc/obelisk/obelisk.yaml"
 
+// Options controls bootstrap identity when loading config.
+type Options struct {
+	// AdoptMachineID is applied when the file has no machine.id, before a new id is minted.
+	AdoptMachineID string
+}
+
 func Load(path string) (obelisk.Spec, error) {
+	return load(path, Options{})
+}
+
+// LoadOptions reads config and, when AdoptMachineID is set, applies that id
+// before a new machine id would be minted (blueprint adopt on an empty install).
+func LoadOptions(path string, opt Options) (obelisk.Spec, error) {
+	return load(path, opt)
+}
+
+func load(path string, opt Options) (obelisk.Spec, error) {
 	if path == "" {
 		path = ResolvePath()
 	}
@@ -19,7 +36,10 @@ func Load(path string) (obelisk.Spec, error) {
 	if err != nil {
 		if os.IsNotExist(err) && autoInitAllowed(path) {
 			spec := obelisk.DefaultSpec(defaultProfileForPath(path))
-			if saveErr := Save(path, spec); saveErr != nil {
+			if opt.AdoptMachineID != "" {
+				spec.Machine.ID = opt.AdoptMachineID
+			}
+			if saveErr := SaveQuiet(path, spec); saveErr != nil {
 				return obelisk.Spec{}, fmt.Errorf("create config %s: %w", path, saveErr)
 			}
 			return spec, nil
@@ -27,7 +47,7 @@ func Load(path string) (obelisk.Spec, error) {
 		if os.IsNotExist(err) && path == DefaultPath {
 			alt := ResolvePath()
 			if alt != path {
-				return Load(alt)
+				return load(alt, opt)
 			}
 			return obelisk.Spec{}, fmt.Errorf("read config %s: %w\n\nOn a host: run install/bootstrap.sh or:\n  sudo obelisk init-config --profile vps --path %s\n\nFor local UI dev: make dev-api", path, err, DefaultPath)
 		}
@@ -40,29 +60,37 @@ func Load(path string) (obelisk.Spec, error) {
 	if err := Validate(&spec); err != nil {
 		return obelisk.Spec{}, err
 	}
-	obelisk.NormalizeOpenRouter(&spec)
-	obelisk.NormalizeMail(&spec)
-	obelisk.NormalizeInstances(&spec)
-	obelisk.NormalizeBackup(&spec)
+	normalize(&spec)
+	if opt.AdoptMachineID != "" && spec.Machine.ID == "" {
+		spec.Machine.ID = opt.AdoptMachineID
+	}
 	if obelisk.EnsureMachineIdentity(&spec) {
-		if saveErr := Save(path, spec); saveErr == nil {
+		if saveErr := SaveQuiet(path, spec); saveErr == nil {
 			return spec, nil
 		}
 	}
 	return spec, nil
 }
 
+// Save writes spec and notifies the blueprint sync hook.
 func Save(path string, spec obelisk.Spec) error {
+	return write(path, spec, true)
+}
+
+// SaveQuiet writes spec without enqueueing a blueprint push.
+// Used for sync metadata, machine-id minting, and restore/import.
+func SaveQuiet(path string, spec obelisk.Spec) error {
+	return write(path, spec, false)
+}
+
+func write(path string, spec obelisk.Spec, notify bool) error {
 	if path == "" {
 		path = ResolvePath()
 	}
 	if err := Validate(&spec); err != nil {
 		return err
 	}
-	obelisk.NormalizeOpenRouter(&spec)
-	obelisk.NormalizeMail(&spec)
-	obelisk.NormalizeInstances(&spec)
-	obelisk.NormalizeBackup(&spec)
+	normalize(&spec)
 	data, err := yaml.Marshal(&spec)
 	if err != nil {
 		return err
@@ -75,7 +103,39 @@ func Save(path string, spec obelisk.Spec) error {
 	if err := os.WriteFile(tmp, data, 0o644); err != nil {
 		return err
 	}
-	return os.Rename(tmp, path)
+	if err := os.Rename(tmp, path); err != nil {
+		return err
+	}
+	if notify {
+		saveHookMu.RLock()
+		fn := saveHook
+		saveHookMu.RUnlock()
+		if fn != nil {
+			fn(path)
+		}
+	}
+	return nil
+}
+
+func normalize(spec *obelisk.Spec) {
+	obelisk.NormalizeOpenRouter(spec)
+	obelisk.NormalizeMail(spec)
+	obelisk.NormalizeInstances(spec)
+	obelisk.NormalizeBackup(spec)
+	obelisk.NormalizeBlueprint(spec)
+}
+
+var (
+	saveHookMu sync.RWMutex
+	saveHook   func(path string)
+)
+
+// SetAfterSave registers a hook invoked after a successful operator save.
+// Restore, import, and sync metadata writes use SaveQuiet and do not call it.
+func SetAfterSave(fn func(path string)) {
+	saveHookMu.Lock()
+	saveHook = fn
+	saveHookMu.Unlock()
 }
 
 func Validate(spec *obelisk.Spec) error {

@@ -2,7 +2,6 @@ package backup
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -42,31 +41,14 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 		rf = 1
 	}
 
-	snap := map[string]any{
-		"kind":       "obelisk.backup.snapshot",
-		"version":    1,
-		"created_at": time.Now().UTC().Format(time.RFC3339),
-		"machine_id": spec.BackupBucketName(),
-		"instances":  len(spec.Instances),
-		"services":   spec.Services,
-	}
-	body, err := json.Marshal(snap)
-	if err != nil {
-		return RunOutcome{}, err
-	}
-	ts := time.Now().UTC().Format("20060102T150405Z")
-	objectKey := obelisk.BackupConfigObjectKey("snapshots/" + ts + ".json")
-
+	// Settings durability is the GitHub blueprint. S3 receives data/ only (no config/ tarball).
 	type artifact struct {
 		key  string
 		body []byte
 	}
-	artifacts := []artifact{{key: objectKey, body: body}}
+	var artifacts []artifact
 	dumps := CollectDataDumps(ctx, spec, r.InstanceStates)
-	out := RunOutcome{
-		RequiredReplication: rf,
-		ObjectKey:           objectKey,
-	}
+	out := RunOutcome{RequiredReplication: rf}
 	for _, d := range dumps {
 		if d.Skipped {
 			out.DataSkipped = append(out.DataSkipped,
@@ -77,6 +59,22 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 			out.DataObjects = append(out.DataObjects, d.ObjectKey)
 			artifacts = append(artifacts, artifact{key: d.ObjectKey, body: d.Body})
 		}
+	}
+
+	wantData := countEligibleDataInstances(spec, r.InstanceStates)
+	if wantData > 0 && len(out.DataObjects) == 0 {
+		reason := strings.Join(out.DataSkipped, "; ")
+		if reason == "" {
+			reason = "unknown"
+		}
+		return out, fmt.Errorf(
+			"no database backups in S3 (look under data/<type>/<id>/): %s",
+			reason,
+		)
+	}
+	if len(artifacts) == 0 {
+		_ = UpdateLastRun(cfg)
+		return out, nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
@@ -119,18 +117,6 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 	}
 
 	_ = UpdateLastRun(cfg)
-
-	wantData := countEligibleDataInstances(spec, r.InstanceStates)
-	if wantData > 0 && len(out.DataObjects) == 0 {
-		reason := strings.Join(out.DataSkipped, "; ")
-		if reason == "" {
-			reason = "unknown"
-		}
-		return out, fmt.Errorf(
-			"no database backups in S3 (look under data/<type>/<id>/): %s",
-			reason,
-		)
-	}
 
 	if out.UploadedDestinations < rf {
 		return out, fmt.Errorf(
