@@ -1,0 +1,7 @@
+image: mongo:7
+storage:
+  size: 10Gi
+credentials:
+  username: obelisk
+  password: changeme-in-ui
+  database: obelisk

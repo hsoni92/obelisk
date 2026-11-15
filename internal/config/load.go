@@ -43,6 +43,7 @@ func Load(path string) (obelisk.Spec, error) {
 	obelisk.NormalizeOpenRouter(&spec)
 	obelisk.NormalizeMail(&spec)
 	obelisk.NormalizeInstances(&spec)
+	obelisk.NormalizeBackup(&spec)
 	if obelisk.EnsureMachineIdentity(&spec) {
 		if saveErr := Save(path, spec); saveErr == nil {
 			return spec, nil
@@ -61,6 +62,7 @@ func Save(path string, spec obelisk.Spec) error {
 	obelisk.NormalizeOpenRouter(&spec)
 	obelisk.NormalizeMail(&spec)
 	obelisk.NormalizeInstances(&spec)
+	obelisk.NormalizeBackup(&spec)
 	data, err := yaml.Marshal(&spec)
 	if err != nil {
 		return err
@@ -104,5 +106,5 @@ func Validate(spec *obelisk.Spec) error {
 			return err
 		}
 	}
-	return nil
+	return obelisk.ValidateBackupPolicy(*spec)
 }

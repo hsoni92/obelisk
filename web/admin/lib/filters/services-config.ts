@@ -10,6 +10,7 @@ export const SERVICES_SURFACE = "services" as const;
 export const SERVICE_TYPES = [
   "postgres",
   "mysql",
+  "mongodb",
   "redis",
   "rustfs",
   "qdrant",
@@ -28,6 +29,7 @@ export const SERVICE_TYPE_LABEL: Record<(typeof SERVICE_TYPES)[number], string> 
   {
     postgres: "PostgreSQL",
     mysql: "MySQL",
+    mongodb: "MongoDB",
     redis: "Redis",
     rustfs: "RustFS",
     qdrant: "Qdrant",

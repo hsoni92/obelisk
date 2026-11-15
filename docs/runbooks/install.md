@@ -9,8 +9,12 @@
 ## UI dev on a laptop (no `/etc/obelisk`)
 
 ```bash
-make dev-api    # OBELISK_CONFIG=./dev/obelisk.yaml, API :8080
-make dev-ui     # Next.js → proxies /api/v1 to :8080
+make dev              # simulate reconcile, Air + Next.js (one terminal)
+make dev-cluster      # k3d + cluster reconcile + hot reload
+
+# Or separate processes without API hot-reload:
+make dev-api          # OBELISK_CONFIG=./dev/obelisk.yaml, API :8080
+make dev-ui           # Next.js → proxies /api/v1 to :8080
 ```
 
 Without `make dev-api`, the UI will error because nothing serves `/api/v1` and config may be missing.

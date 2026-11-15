@@ -19,12 +19,21 @@ import {
   useReactTable,
 } from "@tanstack/react-table";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { Box, Database, HardDrive, Layers, Search, Server } from "lucide-react";
+import {
+  Box,
+  Cuboid,
+  Database,
+  HardDrive,
+  Layers,
+  Search,
+  Server,
+} from "lucide-react";
 import * as React from "react";
 
 const TYPE_ICONS = {
   postgres: Database,
   mysql: Server,
+  mongodb: Cuboid,
   redis: Layers,
   rustfs: HardDrive,
   qdrant: Box,
@@ -32,7 +41,7 @@ const TYPE_ICONS = {
 } as const;
 
 const GRID =
-  "grid grid-cols-[minmax(160px,1.1fr)_88px_100px_minmax(160px,1.2fr)_minmax(200px,auto)] items-center gap-2";
+  "grid grid-cols-[minmax(160px,1fr)_88px_100px_112px_minmax(140px,1fr)_minmax(200px,auto)] items-center gap-2";
 
 const ROW_HEIGHT = 56;
 
@@ -44,7 +53,7 @@ type ServicesTableProps = {
   filtered?: boolean;
   onStart: (inst: ServiceInstance) => void;
   onStop: (inst: ServiceInstance) => void;
-  onCredentials: (inst: ServiceInstance) => void;
+  onConfigure: (inst: ServiceInstance) => void;
   onClearFilters?: () => void;
 };
 
@@ -56,7 +65,7 @@ export function ServicesTable({
   filtered = false,
   onStart,
   onStop,
-  onCredentials,
+  onConfigure,
   onClearFilters,
 }: ServicesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([
@@ -85,7 +94,8 @@ export function ServicesTable({
                   {label}
                 </p>
                 <p className="truncate text-eyebrow text-muted-foreground">
-                  {inst.type} · {inst.id}
+                  {inst.deployment?.release ?? inst.type} · {inst.type} ·{" "}
+                  {inst.id}
                 </p>
               </div>
             </div>
@@ -101,6 +111,41 @@ export function ServicesTable({
             {String(getValue())}
           </span>
         ),
+      },
+      {
+        id: "backup",
+        accessorFn: (r) =>
+          r.instance.deployment?.backup?.supported
+            ? r.instance.deployment.backup.enabled
+              ? "on"
+              : "off"
+            : "na",
+        header: "Backup",
+        cell: ({ row }) => {
+          const b = row.original.instance.deployment?.backup;
+          if (!b?.supported) {
+            return (
+              <span className="text-metadata text-muted-foreground">N/A</span>
+            );
+          }
+          const label = !b.enabled
+            ? "off"
+            : b.policy?.overridden
+              ? `${b.method ?? "on"} · custom`
+              : (b.method ?? "on");
+          return (
+            <Badge
+              variant={b.enabled ? "success" : "default"}
+              title={
+                b.enabled && b.policy
+                  ? `RF ${b.policy.replication_factor} · ${b.policy.schedule}`
+                  : undefined
+              }
+            >
+              {label}
+            </Badge>
+          );
+        },
       },
       {
         id: "state",
@@ -177,16 +222,16 @@ export function ServicesTable({
               <Button
                 size="sm"
                 variant="outline"
-                onClick={() => onCredentials(inst)}
+                onClick={() => onConfigure(inst)}
               >
-                Credentials
+                Configure
               </Button>
             </div>
           );
         },
       },
     ],
-    [busyKey, onCredentials, onStart, onStop],
+    [busyKey, onConfigure, onStart, onStop],
   );
 
   const table = useReactTable({

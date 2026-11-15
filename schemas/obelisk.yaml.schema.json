@@ -41,6 +41,7 @@
       "properties": {
         "postgres": { "$ref": "#/$defs/serviceToggle" },
         "mysql": { "$ref": "#/$defs/serviceToggle" },
+        "mongodb": { "$ref": "#/$defs/serviceToggle" },
         "redis": { "$ref": "#/$defs/serviceToggle" },
         "rustfs": { "$ref": "#/$defs/serviceToggle" },
         "qdrant": { "$ref": "#/$defs/serviceToggle" },

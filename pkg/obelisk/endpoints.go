@@ -20,6 +20,7 @@ type InstanceConnection struct {
 	DisplayName string `json:"display_name,omitempty"`
 	Postgres    string `json:"postgres,omitempty"`
 	MySQL       string `json:"mysql,omitempty"`
+	MongoDB     string `json:"mongodb,omitempty"`
 	Redis       string `json:"redis,omitempty"`
 	S3HTTP      string `json:"s3_http,omitempty"`
 	QdrantHTTP  string `json:"qdrant_http,omitempty"`
@@ -62,7 +63,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			DisplayName: inst.DisplayName,
 		}
 		switch inst.Type {
-		case "postgres", "mysql":
+		case "postgres", "mysql", "mongodb":
 			user := inst.Credentials.Username
 			if user == "" {
 				user = "obelisk"
@@ -76,12 +77,16 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				pass = "SECRET"
 			}
 			svc := inst.ReleaseName()
-			if inst.Type == "postgres" {
+			switch inst.Type {
+			case "postgres":
 				ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
 				notes = append(notes, fmt.Sprintf("Postgres %q service: %s (port-forward 5432 if local)", inst.ID, svc))
-			} else {
+			case "mysql":
 				ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
 				notes = append(notes, fmt.Sprintf("MySQL %q service: %s (port-forward 3306 if local)", inst.ID, svc))
+			case "mongodb":
+				ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
+				notes = append(notes, fmt.Sprintf("MongoDB %q service: %s (port-forward 27017 if local)", inst.ID, svc))
 			}
 		case "redis":
 			if inst.Credentials.Password != "" {

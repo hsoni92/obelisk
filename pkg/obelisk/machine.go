@@ -60,9 +60,17 @@ func (s Spec) BackupBucketName() string {
 	return strings.TrimSpace(s.Machine.ID)
 }
 
-// BackupRemoteReady is true when endpoint and machine identity are set.
+// BackupRemoteReady is true when at least one enabled destination has an endpoint and machine identity is set.
 func (s Spec) BackupRemoteReady() bool {
-	return strings.TrimSpace(s.Backup.Remote.Endpoint) != "" && s.BackupBucketName() != ""
+	if s.BackupBucketName() == "" {
+		return false
+	}
+	for _, d := range EnabledBackupDestinations(s) {
+		if strings.TrimSpace(d.Endpoint) != "" {
+			return true
+		}
+	}
+	return false
 }
 
 // BackupConfigObjectKey returns the object prefix for control-plane artifacts.

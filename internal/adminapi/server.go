@@ -39,6 +39,13 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("DELETE /api/v1/instances/{id}", s.handleDeleteInstance)
 	mux.HandleFunc("GET /api/v1/backup/target", s.handleGetBackupTarget)
 	mux.HandleFunc("PATCH /api/v1/backup/target", s.handlePatchBackupTarget)
+	mux.HandleFunc("GET /api/v1/backup/config", s.handleGetBackupConfig)
+	mux.HandleFunc("PATCH /api/v1/backup/policy", s.handlePatchBackupPolicy)
+	mux.HandleFunc("POST /api/v1/backup/destinations", s.handlePostBackupDestination)
+	mux.HandleFunc("PATCH /api/v1/backup/destinations/{id}", s.handlePatchBackupDestination)
+	mux.HandleFunc("DELETE /api/v1/backup/destinations/{id}", s.handleDeleteBackupDestination)
+	mux.HandleFunc("POST /api/v1/backup/destinations/{id}/test", s.handleTestBackupDestination)
+	mux.HandleFunc("POST /api/v1/backup/destinations/test-all", s.handleTestAllBackupDestinations)
 	mux.HandleFunc("POST /api/v1/backup/test", s.handleBackupTest)
 	mux.HandleFunc("POST /api/v1/backup/run", s.handleBackupRun)
 	mux.HandleFunc("GET /api/v1/projects", s.handleListProjects)
@@ -80,10 +87,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 
 	var instances []instanceView
 	for _, inst := range spec.Instances {
-		instances = append(instances, instanceView{
-			ServiceInstance: maskInstance(inst),
-			State:           states[inst.StateKey()],
-		})
+		instances = append(instances, enrichInstanceView(inst, states[inst.StateKey()], spec))
 	}
 	bt := s.buildBackupTarget(cfg, spec)
 	writeJSON(w, map[string]any{

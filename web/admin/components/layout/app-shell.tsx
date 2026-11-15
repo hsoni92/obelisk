@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/button";
 const NAV: { id: NavId; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: Gauge },
   { id: "services", label: "Services", icon: LayoutDashboard },
-  { id: "dr", label: "DR", icon: HardDriveDownload },
+  { id: "dr", label: "Disaster Recovery", icon: HardDriveDownload },
   { id: "exposure", label: "Exposure", icon: Share2 },
   { id: "platform", label: "Platform", icon: Settings },
 ];

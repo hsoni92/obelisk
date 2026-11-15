@@ -1,15 +1,22 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go
+
+GO ?= go
+export PATH := $(shell $(GO) env GOPATH 2>/dev/null)/bin:$(PATH)
 
 GO_PKGS := ./cmd/... ./internal/... ./pkg/...
 
-test-go:
-	go test $(GO_PKGS)
+check-go:
+	@chmod +x install/check-go.sh
+	@./install/check-go.sh
 
-build-cli:
-	go build -o bin/obelisk ./cmd/obelisk
+test-go: check-go
+	$(GO) test $(GO_PKGS)
 
-build-controller:
-	go build -o bin/obelisk-controller ./cmd/obelisk-controller
+build-cli: check-go
+	$(GO) build -o bin/obelisk ./cmd/obelisk
+
+build-controller: check-go
+	$(GO) build -o bin/obelisk-controller ./cmd/obelisk-controller
 
 helm-lint:
 	helm lint deploy/helm/platform
@@ -17,6 +24,7 @@ helm-lint:
 	helm lint deploy/helm/services/redis
 	helm lint deploy/helm/services/rustfs
 	helm lint deploy/helm/services/mysql
+	helm lint deploy/helm/services/mongodb
 	helm lint deploy/helm/services/qdrant
 	helm lint deploy/helm/services/searxng
 
@@ -43,5 +51,14 @@ dev-api: build-controller
 	OBELISK_CREDENTIALS_DIR="$${OBELISK_CREDENTIALS_DIR:-$(CURDIR)/dev/credentials}" \
 	./bin/obelisk-controller -listen :8080 -gateway-listen $(GATEWAY_LISTEN) -mail-gateway-listen $(MAIL_GATEWAY_LISTEN)
 
-dev: build-controller
-	@echo "Run in two terminals: make dev-api && make dev-ui"
+install-air: check-go
+	$(GO) install github.com/air-verse/air@latest
+	@echo "air installed to $$($(GO) env GOPATH)/bin — ensure that directory is on your PATH"
+
+dev: check-go
+	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
+	./scripts/dev.sh
+
+dev-cluster: check-go
+	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
+	OBELISK_DEV_CLUSTER=1 ./scripts/dev.sh --cluster

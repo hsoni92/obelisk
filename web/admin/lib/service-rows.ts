@@ -49,6 +49,7 @@ export function connectionEntries(
   const out: ConnectionEntry[] = [];
   if (conn.postgres) out.push({ label: "PostgreSQL", value: conn.postgres });
   if (conn.mysql) out.push({ label: "MySQL", value: conn.mysql });
+  if (conn.mongodb) out.push({ label: "MongoDB", value: conn.mongodb });
   if (conn.redis) out.push({ label: "Redis", value: conn.redis });
   if (conn.s3_http) out.push({ label: "S3 HTTP", value: conn.s3_http });
   if (conn.qdrant_http) out.push({ label: "Qdrant REST", value: conn.qdrant_http });

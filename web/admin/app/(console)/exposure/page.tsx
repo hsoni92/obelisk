@@ -6,7 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { useState } from "react";
 
 export default function ExposurePage() {
-  const [busy, setBusy] = useState<string | null>(null);
+  const [, setBusy] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
   return (
@@ -22,10 +22,7 @@ export default function ExposurePage() {
         </p>
       )}
 
-      <div className="space-y-4">
-        <p className="text-body text-muted-foreground max-w-2xl">
-          VPS: public HTTP via Kong. Funnel only when local + Tailscale.
-        </p>
+      <div className="divide-y divide-border rounded-xl bg-card shadow-rb-2">
         <OpenRouterPanel onBusy={setBusy} onError={setActionError} />
         <MailPanel onBusy={setBusy} onError={setActionError} />
       </div>

@@ -2,33 +2,37 @@
 
 * **Author:** hsoni92
 * **Status:** Proposed
-* **Date:** 2026-11-14
+* **Date:** 2026-11-15
 
 --------------------------------------------------------------------------------
 
 ## Overview
 
-Obelisk stores desired state in `obelisk.yaml` on the appliance. After a hardware loss or full reinstall, operators must rebuild that state and re-enter secrets even when S3/R2 still holds database and object backups. This design adds an **encrypted mirror** of control-plane state in a **private GitHub repository**: the appliance **pushes** after each successful save, and a fresh install can **pull, decrypt, and apply** settings, then **chain into the existing S3 data restore** using backup policy and credentials recovered from the mirror.
+Obelisk stores desired state in `obelisk.yaml` on the appliance. Operators **sign in with GitHub** in the admin UI. Every appliance has a **GitHub home for its encrypted blueprint** (private repo). If the repo already has a bundle, install/login **pulls, decrypts, and applies** it; if the repo is empty, the operator goes through **fresh onboarding** (initial spec, passphrase, first push).
 
-GitHub holds **settings and encrypted secrets**, not data dumps. S3/R2 under `machine.id` remains the store for `data/{type}/{instance}/`. The pattern is **Encrypted Blueprint Mirror** (unidirectional), not bidirectional GitOps.
+The appliance **pushes** an encrypted mirror after each successful save. On disaster recovery, the same login flow leads into **chained restore**: blueprint from GitHub, then **S3/R2 `data/`** using `machine.id` and backup settings from the bundle.
+
+**Glossary (short):** *Settings* = control-plane desired state (yaml + encrypted sidecars). *Sidecars* = `backup-remote`, mail, and openrouter credential JSON beside config. *`machine.id`* = stable appliance id and S3 bucket name (`obelisk.yaml`). *Funnel* = optional Tailscale Funnel for RustFS S3 only ([obelisk.md](./obelisk.md)); forced off after restore until re-enabled.
+
+GitHub holds **settings and encrypted secrets**, not data dumps. S3/R2 under `machine.id` holds **`data/` only** (no `config/` tarball). Pattern: **encrypted blueprint mirror** (push-only from appliance), not bidirectional GitOps.
 
 ## The Problem
 
 1. **Control plane is fragile off-box today:** DR plans upload `config/` tarballs to S3, but restore UX still centers on manual credential entry and scattered DR steps. Operators who live in GitHub want a familiar off-site copy of **what the appliance should look like**, including backup endpoint and schedule fields.
 2. **Secrets block naive git backup:** Putting `obelisk.yaml` in git would leak or tempt plaintext storage of backup keys, gateway tokens, and instance passwords.
-3. **Two-bucket mental load:** Operators must distinguish local yaml, optional S3 `config/`, S3 `data/`, and (now) git without a single story for **which source wins on rebirth**.
-4. **Headless VPS:** Sync and restore must work without a browser on the server for day-to-day pushes; pairing happens once from a trusted device.
+3. **Store split:** Operators need one story: **GitHub = off-appliance settings**, **S3 `data/` = backups**, **local disk = live** until push succeeds.
+4. **Headless VPS:** GitHub **device OAuth** for first link; day-to-day encrypt/push needs a **passphrase unlock** on the controller (see D6).
 
-**Proposed direction:** Encrypt secret material with a **user-held passphrase** before any git write; keep cleartext desired structure where safe; use a **machine credential** (deploy key or GitHub App) for push; expose **sync and chained restore status** in the admin UI; treat local disk as source of truth during normal operation.
+**Proposed direction:** **GitHub OAuth** (full repo permissions required for create/read/write on the blueprint repo) for login and git transport; **passphrase** encrypts secrets before every commit; **passphrase remembered in browser storage** (client-side) and re-sent to unlock after reboot; local disk is authoritative until push succeeds.
 
 ## Goals
 
-* **G1 — Encrypted mirror:** Opt-in continuous sync of control-plane state to a private GitHub repo after successful saves (debounced, retried).
-* **G2 — User-held key:** Passphrase-derived key encrypts secret bundles; passphrase is not persisted on the appliance (session unlock in memory for auto-push).
-* **G3 — Backup policy in mirror:** `backup.remote` and related policy fields are part of the mirrored state so DR targets need not be retyped after rebirth.
-* **G4 — Chained rebirth:** Explicit orchestrator path: pull mirror → unlock → apply control → restore S3 data → reconcile; UI separates **settings restored** from **data restored**.
-* **G5 — Risk controls:** Pre-push plaintext checks, generation/clobber guards, push-failure queue, key-loss messaging, headless pairing CUJ.
-* **G6 — Coexistence:** Appliances without GitHub enabled continue to use local yaml + S3 DR only.
+* **G1 — GitHub-first:** Sign in with GitHub is the entry path; blueprint repo always exists for the account (created on onboarding if missing).
+* **G2 — Encrypted mirror:** Continuous sync to GitHub after successful saves (debounced, retried) when controller crypto is unlocked.
+* **G3 — User-held key:** Passphrase-derived key encrypts secret bundles; **not stored on appliance disk**; **stored in browser local storage** by the admin UI (operator accepts device compromise risk).
+* **G4 — Backup policy in mirror:** `backup.remote` and related fields travel in the bundle so DR targets need not be retyped after rebirth.
+* **G5 — Chained rebirth:** pull blueprint → unlock → apply control → restore S3 data → reconcile; UI separates **settings restored** from **data restored**.
+* **G6 — Risk controls:** Pre-push plaintext checks, generation guard, push-failure queue, key-loss messaging, device OAuth for headless link.
 
 ## Non-Goals
 
@@ -37,14 +41,70 @@ GitHub holds **settings and encrypted secrets**, not data dumps. S3/R2 under `ma
 * **NG3:** Database or object blobs in GitHub.
 * **NG4:** Server-side recovery of a lost passphrase.
 * **NG5:** Multi-writer or multi-node sync.
-* **NG6:** Mandatory GitHub for all installs (feature defaults off).
+* **NG6:** S3 `config/` control-plane tarballs (settings durability is GitHub-only in this model).
 
 ## Resolved decisions (formerly open questions)
 
 * **D1 — GitHub auth (OQ1):** **GitHub OAuth** for operator login and repo access. The admin UI uses **Sign in with GitHub** (OAuth Authorization Code flow in the browser). On headless VPS, first-time linking uses the **OAuth Device Authorization Grant** (code on screen, approval on a phone or laptop). After authorization, the appliance stores **refresh + access tokens** only in Kubernetes Secret `obelisk-blueprint-github` (never in `obelisk.yaml` or git). A background refresher renews access tokens for auto-push. Token loss requires re-authorization, not passphrase re-entry.
 * **D2 — Bundle format (OQ2):** **Split v1 bundle** for reliability: `manifest.json` (schema version, generation, `machine.id`, `key_id`, crypto metadata) + `obelisk.public.yaml` (redacted spec) + `secrets.enc` (single AEAD blob). **Argon2id** KDF for the user passphrase; **XChaCha20-Poly1305** for `secrets.enc`; envelope fields in manifest for future key rotation (`key_id` / re-wrap without history rewrite). Pre-push validator scans cleartext paths before commit.
-* **D3 — S3 `config/` (OQ3):** When `blueprint.github.enabled` is true, **do not upload** S3 `config/` tarballs. **No S3 fallback** for control plane. Off-appliance desired state lives only in GitHub (+ local disk on the appliance). S3 bucket `machine.id` holds **`data/` only** for mirrored appliances.
-* **D4 — Ship scope (OQ4):** **Full restore chain is required** before the feature is generally available (`blueprint.github.enabled` in docs/UI). Encrypted auto-push may land earlier behind an internal flag, but **GA** requires `POST /api/v1/restore/chain` (or `obelisk restore --chain`) completing **pull blueprint → unlock → apply control → restore data → reconcile** with progress persisted and UI parity.
+* **D3 — S3 `config/`:** **Never upload** S3 `config/` tarballs. **No S3 fallback** for control plane. Off-appliance settings = GitHub only. S3 bucket `machine.id` = **`data/` only**.
+* **D4 — Ship scope:** **GA** requires full `POST /api/v1/restore/chain` (or `obelisk restore --chain`): pull blueprint → unlock → apply control → restore data → reconcile.
+* **D5 — No mirror toggle:** There is no “blueprint off” product mode. Flow is always: **GitHub login → repo has bundle or fresh onboarding**.
+* **D6 — Passphrase session:** Passphrase unlocks crypto in **controller memory** with **no TTL** until `POST /blueprint/lock` or process restart. **After reboot**, operator unlocks again; UI may **read passphrase from browser storage** and call unlock automatically (still an explicit unlock step to the API). Passphrase is **never written to appliance disk**.
+* **D7 — OAuth scopes:** Request **all GitHub permissions needed** to create/read/write the blueprint repo (v1: private-repo `repo` scope or fine-grained equivalent covering contents + metadata).
+* **D8 — `machine.id` on rebirth:** Default: **reuse `machine.id` from decrypted blueprint** (same S3 bucket). If local `machine.id` already differs (new empty install), UI **warns “different machine”** and operator may **adopt blueprint id** or **start new id** (new bucket; no automatic data restore to old bucket).
+* **D9 — `generation`:** Increment on each successful push. If remote `generation > local`, block push and require **import from GitHub** (overwrite local desired state from bundle, then reconcile).
+* **D10 — `pull_control`:** Parent [obelisk.md](./obelisk.md) CUJ 5 uses **`pull_blueprint` from GitHub** then existing restore phases (not S3 `config/`).
+
+## Critical User Journeys (CUJs)
+
+### CUJ 1: Fresh onboarding (empty GitHub bundle)
+
+* **Given:** Platform installed; operator opens admin UI; GitHub repo exists but has no Obelisk bundle yet.
+* **When:** Operator signs in with GitHub, sets passphrase (saved in browser storage), completes minimal platform wizard, saves first config.
+* **Then:** Encrypted bundle pushed; `generation` = 1; local and GitHub aligned.
+
+### CUJ 2: Returning operator (bundle exists)
+
+* **Given:** Repo contains latest `manifest.json` + bundle.
+* **When:** Operator signs in with GitHub; UI loads passphrase from browser storage and calls unlock; bootstrap pulls bundle if local is empty or user confirms import.
+* **Then:** Local `obelisk.yaml` and sidecars match bundle; services reconcile; sync resumes on save.
+
+### CUJ 3: Headless VPS — first GitHub link
+
+* **Given:** Fresh VPS; operator has phone/laptop.
+* **When:** Admin UI shows device code; operator approves at GitHub; tokens stored in `obelisk-blueprint-github` Secret.
+* **Then:** Pull/push works; unlock still requires passphrase via UI (browser storage on whichever device opens admin).
+
+### CUJ 4: Chained disaster recovery
+
+* **Given:** New VPS; S3 `data/` intact for blueprint `machine.id`.
+* **When:** Operator runs restore wizard: GitHub login → unlock → `restore/chain`.
+* **Then:** Settings restored, then data restored, then reconcile; Funnel off until re-enabled; UI shows both legs complete.
+
+### CUJ 5: Different machine id detected
+
+* **Given:** Local minted new `machine.id`; pulled blueprint carries another id.
+* **When:** Import/bootstrap surfaces mismatch.
+* **Then:** Operator chooses **adopt blueprint id** (continue DR to that bucket) or **keep new id** (settings only, no automatic data restore from old bucket).
+
+### CUJ 6: Reboot
+
+* **Given:** Controller restarted; OAuth tokens still valid in Secret.
+* **When:** Operator opens admin UI; UI sends unlock (passphrase from browser storage or prompt).
+* **Then:** Crypto unlocked; queued pushes run; until unlock, saves local-only with **push paused** badge.
+
+## Risks & Mitigations
+
+| Risk | Mitigation |
+| --- | --- |
+| Passphrase in browser storage | Explicit consent copy; optional “forget on this device”; never log passphrase server-side |
+| Passphrase lost | No recovery; data blobs may survive on S3 but secrets in bundle are lost |
+| Controller reboot | Push paused until unlock; OAuth may still work for pull |
+| GitHub outage | Local saves continue; retry queue when API returns |
+| Wrong machine id choice | Clear UI copy before adopt/new-id |
+| OAuth token revoked | `sync_status: failed`; re-run GitHub login |
+| Generation conflict | Refuse push; offer import from GitHub |
 
 ## Technical Plan (Architecture)
 
@@ -53,8 +113,9 @@ GitHub holds **settings and encrypted secrets**, not data dumps. S3/R2 under `ma
 1. **Local disk wins during operation:** `obelisk.yaml` and credential sidecars on the appliance remain the live source of truth. GitHub is a **write-only encrypted mirror** for off-site durability.
 2. **No silent pull:** GitHub → appliance applies only during explicit **bootstrap**, **import**, or **chained restore** flows.
 3. **Encrypt before git:** Secret material never enters the repository in plaintext. A validator runs immediately before commit.
-4. **Split stores:** GitHub = control-plane mirror; S3 `machine.id` bucket = **`data/` backups only** when GitHub mirror is enabled (no `config/` uploads).
-5. **Session crypto for auto-push:** Passphrase unlocks an in-memory key with TTL; when locked, saves persist locally but pushes are skipped and surfaced in UI.
+4. **Split stores:** GitHub = off-appliance settings; S3 `machine.id` = **`data/` only** (D3).
+5. **Unlock for push:** Encrypt/push runs only while controller holds passphrase-derived key in memory (D6). Locked or post-reboot: local save ok, push paused.
+6. **GitHub login gate:** Admin UI requires GitHub session before settings screens (except platform install bootstrap that routes to login).
 
 ### Authority table
 
@@ -64,7 +125,7 @@ GitHub holds **settings and encrypted secrets**, not data dumps. S3/R2 under `ma
 | GitHub | `obelisk.public.yaml` + encrypted bundle + `manifest.json` | After save, post-encrypt, debounced push | **Settings** (via pull + decrypt) |
 | S3 `data/` | pg_dump, RDB, RustFS artifacts | Backup jobs | **Data** (via existing/future restore worker) |
 
-When `blueprint.github.enabled` is true, **GitHub is the only off-appliance control-plane store**. The backup reconciler **skips** `config/` uploads (D3).
+The backup reconciler **never uploads** S3 `config/` (D3). Parent `obelisk.md` CUJ 5 is updated via D10.
 
 ### Logical components (new / extended)
 
@@ -75,8 +136,8 @@ When `blueprint.github.enabled` is true, **GitHub is the only off-appliance cont
 | **blueprint-sync** (`internal/blueprint/sync`) | Post-`config.Save` hook: debounce, encrypt, push queue, retry backoff, clobber check vs remote `generation` |
 | **blueprint-auth** (`internal/blueprint/auth`) | GitHub OAuth (browser + device flow); token refresh; store tokens in K8s Secret `obelisk-blueprint-github`; `POST /blueprint/github/authorize` + callback/device poll |
 | **restore-orchestrator** (extend `internal/backup` or new `internal/restore`) | Phased chain: `pull_blueprint` → `unlock` → `apply_control` → `restore_data` → `reconcile_services` |
-| **admin API** | `GET/PATCH /api/v1/blueprint/github`, `POST .../unlock`, `POST .../pair`, `POST .../pull`, restore chain endpoints |
-| **admin UI** | **Platform → Blueprint sync** panel; DR banner cross-link; sync badge (local / pushed / failed) |
+| **admin API** | GitHub OAuth, `POST /blueprint/unlock`, status, `restore/chain` |
+| **admin UI** | GitHub sign-in gate; passphrase setup + browser storage; sync badge; DR chain wizard |
 | **obelisk CLI** | `blueprint status`, `blueprint unlock`, `restore --chain` parity |
 
 ### Bundle layout (v1 — locked per D2)
@@ -96,16 +157,14 @@ secrets.enc            # AEAD ciphertext of JSON map: sidecar contents + instanc
 ```yaml
 blueprint:
   github:
-    enabled: false
-    repository: "owner/obelisk-appliance"  # non-secret
+    repository: "owner/obelisk-appliance"  # non-secret; set after onboarding
     branch: main
     generation: 0
     last_sync_at: null
     last_commit_sha: null
-    sync_status: idle | pending | synced | failed
-    unlock_expires_at: null                # hint for UI only
-    oauth_login: null                      # GitHub username, non-secret, set after OAuth
-    oauth_connected: false
+    sync_status: idle | pending | synced | failed | locked | push_paused
+    crypto_unlocked: false                 # UI hint only; real unlock state is server memory
+    oauth_login: null                      # GitHub username, non-secret
 ```
 
 OAuth tokens **never** appear in `obelisk.yaml` or git; only in Secret `obelisk-blueprint-github` (D1).
@@ -123,7 +182,7 @@ sequenceDiagram
 
   UI->>API: PATCH service / config
   API->>CFG: validate + write local yaml
-  CFG->>SYNC: enqueue (if github.enabled and unlocked)
+  CFG->>SYNC: enqueue (if crypto unlocked)
   SYNC->>CRY: pack + encrypt bundle
   CRY->>SYNC: artifacts
   SYNC->>GH: commit + push
@@ -135,25 +194,28 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-  A[Install platform] --> B[Pair GitHub credential]
-  B --> B2[GitHub OAuth device or browser if needed]
-  B2 --> C[Pull manifest + bundle]
-  C --> D[Operator passphrase unlock]
-  D --> E[Apply yaml + sidecars + machine.id]
-  E --> F[S3 restore data prefix]
-  F --> G[Reconcile services]
-  G --> H[Force Funnel off]
+  A[Install platform] --> B[GitHub OAuth sign-in]
+  B --> C{Bundle in repo?}
+  C -->|yes| D[Pull manifest + bundle]
+  C -->|no| D2[Fresh onboarding wizard]
+  D --> E[Passphrase unlock]
+  D2 --> E
+  E --> F[Apply yaml; machine.id choice if mismatch]
+  F --> G[S3 restore data prefix]
+  G --> H[Reconcile services]
+  H --> I[Force Funnel off]
 ```
 
-`machine.id` from decrypted spec must be applied **before** `EnsureMachineIdentity` can mint a new ID.
+When adopting blueprint id, apply `machine.id` from bundle **before** `EnsureMachineIdentity` would mint a new one (D8).
 
 ### API sketch
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/v1/blueprint/status` | sync_status, generation, last_sha, unlock state |
-| PATCH | `/api/v1/blueprint/github` | enable, repo, branch (requires unlocked session to push) |
-| POST | `/api/v1/blueprint/unlock` | passphrase → session key in controller memory (TTL) |
+| POST | `/api/v1/blueprint/onboard` | create/select repo; first push after fresh onboarding |
+| POST | `/api/v1/blueprint/unlock` | passphrase → session key in controller memory (no TTL, D6) |
+| POST | `/api/v1/blueprint/import` | pull remote when `generation` ahead of local (D9) |
 | POST | `/api/v1/blueprint/lock` | drop session key |
 | POST | `/api/v1/blueprint/push` | manual push (operator override) |
 | POST | `/api/v1/blueprint/github/authorize` | start OAuth (redirect URL or device code) |
@@ -173,7 +235,7 @@ Extend status/overview with: `blueprint.sync_status`, `last_push_error` (sanitiz
 
 ### Dependency note (D4)
 
-**GA blocks on full chain:** S3 backup upload, data restore workers, and restore orchestrator must be **non-stub** before `blueprint.github.enabled` is documented as supported. OAuth push (D1) and encrypted bundle (D2) ship in the same release train as `restore/chain`, not as a standalone “sync only” product surface.
+**GA blocks on full chain (D4):** S3 data upload/restore and `restore/chain` must be non-stub in the same release as GitHub-first onboarding.
 
 ### GitHub OAuth (D1)
 
@@ -183,7 +245,7 @@ Extend status/overview with: `blueprint.sync_status`, `last_push_error` (sanitiz
 | Headless VPS first link | Device Authorization Grant | Display user code; operator approves at `github.com/login/device` |
 | Background sync | Refresh token → access token | Refresher runs in controller; on `401`, mark `sync_status: failed` and prompt re-auth |
 
-OAuth App registration is operator-supplied or documented Obelisk client IDs with redirect URL to admin UI. Scopes: minimum **`repo`** (private repository) or successor fine-grained permission set that allows read/write on the configured repository only.
+OAuth App: operator-supplied or Obelisk-shipped client with redirect to admin UI. **D7:** grant scopes needed for private repo lifecycle (read/write/create as required by onboarding). Git operations use OAuth access token over HTTPS.
 
 ## Alternatives Considered
 
@@ -209,13 +271,13 @@ Keep secrets out of git entirely; only non-secret yaml is pushed.
 
 Build DR CUJ 5 first, add mirror later.
 
-**Partially accepted:** Design requires restore orchestrator for full G4; mirror-only v1 must be labeled settings-only if data restore remains stub. Reviewers treat parallel greenfield without S3 upload as unsafe.
+**Partially accepted:** GA still requires non-stub data restore (D4).
 
 ### GitHub as sole disaster store (drop S3 for control plane)
 
 Use only git for settings and only S3 for data—no S3 `config/`.
 
-**Accepted as target:** This is the intended demotion of S3 `config/` when mirror is enabled; exact migration is OQ3.
+**Accepted per D3/D5:** Always; not conditional on a toggle.
 
 ### Full GitOps (pull from git on interval, reconcile from remote)
 
@@ -235,13 +297,13 @@ Phases are ordered so operators are not misled by sync without data DR.
 
 | Phase | Outcome | Exit criteria |
 | --- | --- | --- |
-| **P0** | D1–D4 locked | OAuth auth, bundle v1, no S3 `config/`, GA gated on full chain |
+| **P0** | D1–D10 locked | OAuth, bundle, no S3 `config/`, GitHub-first, browser passphrase |
 | **P1** | Crypto bundle + tests | Round-trip tests; wrong passphrase fails; tamper fails |
 | **P2** | Git transport + machine Secret | Push/pull against test repo; pairing stores credential |
 | **P3** | Post-save sync worker | All `config.Save` paths enqueue; debounce + retry |
 | **P4** | Admin API + UI + CLI status | Unlock/lock, enable repo, sync badges |
 | **P4b** | S3 backup upload + data restore workers | Real `RunNow` uploads; `data/` restore implemented (**blocker for GA**) |
-| **P5** | Chained restore + CUJs + OAuth GA | `restore/chain` E2E; disable `config/` when mirror on; Funnel forced off |
+| **P5** | Chained restore + CUJs GA | `restore/chain` E2E; no S3 `config/` upload; Funnel forced off |
 
 ### File changes
 
@@ -249,7 +311,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 
 | File | Change |
 | --- | --- |
-| `pkg/obelisk/spec.go` | Add `Blueprint`, `BlueprintGitHub` structs; default `enabled: false`; bump generation on successful push |
+| `pkg/obelisk/spec.go` | Add `Blueprint`, `BlueprintGitHub` structs; bump generation on successful push |
 | `pkg/obelisk/spec.go` | Add `RedactedSpec()` helper for public yaml export |
 | `schemas/obelisk.yaml.schema.json` | Document `blueprint.github` fields |
 | `docs/designs/obelisk.md` | Update CUJ 5, demote S3 `config/` when mirror on; cross-link this design |
@@ -260,7 +322,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 | --- | --- |
 | `internal/config/load.go` | On bootstrap restore path: apply `machine.id` from spec before `EnsureMachineIdentity` when flag set |
 | `internal/config/save.go` (new hook file or same package) | `SaveAndNotify(spec)` wrapper calling `sync.Enqueue` after successful save |
-| `internal/config/load.go` | Optional: detect `blueprint.github.enabled` on first boot → skip auto-init empty spec |
+| `internal/config/load.go` | Bootstrap: apply blueprint `machine.id` when operator adopts id (D8) |
 
 #### Blueprint packages (new)
 
@@ -270,9 +332,9 @@ Phases are ordered so operators are not misled by sync without data DR.
 | `internal/blueprint/bundle.go` | Manifest + redacted yaml + secrets map from sidecars |
 | `internal/blueprint/git.go` | Remote operations; read remote generation from `manifest.json` on fetch |
 | `internal/blueprint/sync.go` | Debounced queue, worker goroutine, backoff |
-| `internal/blueprint/session.go` | In-memory unlock TTL; mutex |
+| `internal/blueprint/session.go` | In-memory unlock until lock/restart (no TTL, D6); mutex |
 | `internal/blueprint/auth.go` | OAuth code/device exchange, token refresh, Secret `obelisk-blueprint-github` |
-| `internal/backup/reconciler.go` or controller | Skip `config/` prefix upload when `blueprint.github.enabled` |
+| backup upload worker | Never write S3 `config/` prefix (D3) |
 | `internal/blueprint/crypto_test.go` | Vectors and tamper tests |
 | `internal/blueprint/sync_test.go` | Mock git; enqueue coalescing |
 
@@ -292,7 +354,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 | `internal/adminapi/blueprint.go` (new) | Handlers: status, patch github, unlock, lock, push, pair |
 | `internal/adminapi/restore.go` (new) | `POST /restore/chain` state machine + persisted phase |
 | `internal/adminapi/server.go` | Route registration |
-| `internal/adminapi/server.go` | Replace direct `config.Save` with wrapper where spec mutates (instances, backup, mail, openrouter, config put) |
+| `internal/config/load.go` (`Save`) | Central post-save sync hook; suppress during restore/import |
 
 #### Restore / backup
 
@@ -314,7 +376,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 
 | File | Change |
 | --- | --- |
-| `web/admin/app/platform/blueprint/page.tsx` (new) | Enable, repo, unlock, sync status |
+| `web/admin` auth + onboarding | GitHub OAuth gate, passphrase + `localStorage`, unlock-on-load, sync status |
 | `web/admin/components/dr/backup-remote-panel.tsx` | Banner linking to blueprint sync |
 | `web/admin/app/layout.tsx` or nav config | Platform submenu entry |
 | `web/admin/lib/api.ts` | RTK endpoints for blueprint + restore chain |
@@ -325,7 +387,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 | --- | --- |
 | `docs/runbooks/github-blueprint.md` (new) | Pairing CUJ, key loss, headless VPS |
 | `docs/runbooks/install.md` | Optional pointer to blueprint bootstrap |
-| `install/obelisk.yaml.example` | Sample `blueprint.github` disabled block |
+| `install/obelisk.yaml.example` | Sample `blueprint.github` metadata block |
 | `docs/designs/SITEMAP.md` | Register this design when finalized |
 
 #### Helm / deploy (if Secret names ship in chart)
@@ -336,9 +398,8 @@ Phases are ordered so operators are not misled by sync without data DR.
 
 ### Rollout
 
-* Default `blueprint.github.enabled: false` on upgrade.
-* Enable wizard: create repo → pair → unlock → initial push → show Recovery Kit.
-* Feature flag in UI hides panel until controller version supports API.
+* First open: GitHub sign-in → onboarding (repo + passphrase) → unlock → initial push.
+* Upgrades: require GitHub login before admin settings; migrate metadata into `blueprint.github` spec section.
 
 ## Verification Plan
 
@@ -354,7 +415,7 @@ Phases are ordered so operators are not misled by sync without data DR.
 
 ## Non-Functional Requirements
 
-* **Security:** No plaintext secrets in git; machine token scoped to one repo; session key cleared on lock/TTL.
+* **Security:** No plaintext secrets in git; passphrase only in browser storage + controller RAM; session cleared on lock or process exit (not TTL).
 * **Availability:** Local saves succeed when GitHub is down; sync catches up on retry.
 * **Operability:** `sync_status` and `restore.phase` visible in UI and `obelisk blueprint status`.
 * **Performance:** Debounce default 5s; max 1 push per debounce window per appliance.

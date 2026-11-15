@@ -14,8 +14,12 @@ import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   overviewPollOptions,
   rtkErrorMessage,
+  useGetBackupConfigQuery,
   useGetOverviewQuery,
 } from "@/lib/api";
+import { BackupOverview } from "@/components/overview/backup-overview";
+import { summarizeBackup } from "@/lib/backup-summary";
+import { formatBytes } from "@/lib/format-bytes";
 import { buildTimeline, relativeTime, severity } from "@/lib/overview-series";
 import { stateBadgeVariant } from "@/lib/service-rows";
 import { cn } from "@/lib/utils";
@@ -24,8 +28,9 @@ import {
   ArrowUpRight,
   CheckCircle2,
   Clock,
-  Hourglass,
-  PauseCircle,
+  DatabaseBackup,
+  HardDrive,
+  ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
 import { useMemo, useState } from "react";
@@ -46,14 +51,14 @@ const RANGE_OPTIONS = [
 ];
 
 const timelineConfig = {
-  healthy: { label: "Running", color: "var(--chart-1)" },
-  attention: { label: "Degraded / pending", color: "var(--chart-2)" },
+  healthy: { label: "Running", color: "#22c55e" },
+  attention: { label: "Degraded / pending", color: "#ef4444" },
 } satisfies ChartConfig;
 
 const stateConfig = {
-  running: { label: "Running", color: "var(--chart-1)" },
-  pending: { label: "Pending", color: "var(--chart-2)" },
-  degraded: { label: "Degraded", color: "var(--chart-3)" },
+  running: { label: "Running", color: "#22c55e" },
+  pending: { label: "Pending", color: "#eab308" },
+  degraded: { label: "Degraded", color: "#ef4444" },
   stopped: { label: "Stopped", color: "var(--chart-4)" },
 } satisfies ChartConfig;
 
@@ -71,6 +76,11 @@ export function OverviewPanel({
     { hours },
     overviewPollOptions,
   );
+
+  const { data: backupConfig } = useGetBackupConfigQuery(undefined, {
+    pollingInterval: 8000,
+  });
+  const backup = useMemo(() => summarizeBackup(backupConfig), [backupConfig]);
 
   const components = useMemo(() => data?.components ?? [], [data?.components]);
   const summary = data?.summary;
@@ -168,39 +178,74 @@ export function OverviewPanel({
         />
       </div>
 
+      {/* Verdict banner */}
+      <Verdict
+        loading={isLoading}
+        degraded={summary?.degraded ?? 0}
+        pending={summary?.pending ?? 0}
+        running={summary?.running ?? 0}
+        total={total}
+        backupTone={backup?.tone}
+        backupDetail={backup?.detail}
+        onOpenDR={onOpenDR}
+        onShowAttention={() => setView("attention")}
+      />
+
       {/* KPIs */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <Kpi
           icon={CheckCircle2}
           tone="success"
           label="Running"
-          value={val(summary?.running)}
+          value={`${val(summary?.running)}/${total}`}
           pill={pct(summary?.running)}
           pillTone="success"
+          hint="components healthy"
         />
         <Kpi
           icon={AlertTriangle}
-          tone="live"
-          label="Degraded"
-          value={val(summary?.degraded)}
-          pill={summary?.degraded ? pct(summary.degraded) : "OK"}
-          pillTone={summary?.degraded ? "live" : "success"}
+          tone={summary?.degraded ? "live" : summary?.pending ? "warning" : "success"}
+          label="Needs attention"
+          value={val((summary?.degraded ?? 0) + (summary?.pending ?? 0))}
+          pill={
+            summary?.degraded
+              ? `${summary.degraded} degraded`
+              : summary?.pending
+                ? `${summary.pending} pending`
+                : "OK"
+          }
+          pillTone={
+            summary?.degraded ? "live" : summary?.pending ? "warning" : "success"
+          }
+          hint={`${summary?.stopped ?? 0} stopped by design`}
         />
         <Kpi
-          icon={Hourglass}
+          icon={backup?.tone === "success" ? DatabaseBackup : ShieldAlert}
+          tone={backup?.tone ?? "default"}
+          label="Backup status"
+          value={backup?.label ?? "—"}
+          pill={
+            backup
+              ? `${backup.healthy}/${backup.enabled.length} dest`
+              : "…"
+          }
+          pillTone={backup?.tone ?? "default"}
+          hint={
+            backup?.lastBackupAt
+              ? `last ${relativeTime(backup.lastBackupAt)}`
+              : "no backup yet"
+          }
+        />
+        <Kpi
+          icon={HardDrive}
           tone="info"
-          label="Pending"
-          value={val(summary?.pending)}
-          pill={pct(summary?.pending)}
-          pillTone={summary?.pending ? "warning" : "default"}
-        />
-        <Kpi
-          icon={PauseCircle}
-          tone="default"
-          label="Stopped"
-          value={val(summary?.stopped)}
-          pill={pct(summary?.stopped)}
+          label="Backup size"
+          value={backup ? (backup.totalBytes ? formatBytes(backup.totalBytes) : "0 B") : "—"}
+          pill={
+            backup ? `${backup.totalObjects.toLocaleString()} obj` : "…"
+          }
           pillTone="default"
+          hint="across enabled destinations"
         />
       </div>
 
@@ -369,6 +414,13 @@ export function OverviewPanel({
           </ul>
         </Card>
       </div>
+
+      {/* Backups */}
+      <BackupOverview
+        config={backupConfig}
+        summary={backup}
+        onOpenDR={onOpenDR}
+      />
 
       {/* Components */}
       <Card className="overflow-hidden">
@@ -586,6 +638,7 @@ function ChartLegend({
 
 const TONE_ICON: Record<string, string> = {
   success: "bg-success-tint text-success",
+  warning: "bg-warning-tint text-warning",
   live: "bg-broadcast-tint text-broadcast",
   info: "bg-link-tint text-link",
   default: "bg-muted text-muted-foreground",
@@ -598,6 +651,7 @@ function Kpi({
   value,
   pill,
   pillTone,
+  hint,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE_ICON;
@@ -605,6 +659,7 @@ function Kpi({
   value: number | string;
   pill: string;
   pillTone: "success" | "warning" | "live" | "default";
+  hint?: string;
 }) {
   return (
     <Card className="p-4">
@@ -621,6 +676,81 @@ function Kpi({
       </div>
       <p className="mt-3 text-eyebrow text-muted-foreground">{label}</p>
       <p className="text-stat tabular-nums">{value}</p>
+      {hint && (
+        <p className="mt-0.5 truncate text-metadata text-muted-foreground">
+          {hint}
+        </p>
+      )}
     </Card>
+  );
+}
+
+function Verdict({
+  loading,
+  degraded,
+  pending,
+  running,
+  total,
+  backupTone,
+  backupDetail,
+  onOpenDR,
+  onShowAttention,
+}: {
+  loading: boolean;
+  degraded: number;
+  pending: number;
+  running: number;
+  total: number;
+  backupTone?: "success" | "warning" | "live" | "default";
+  backupDetail?: string;
+  onOpenDR: () => void;
+  onShowAttention: () => void;
+}) {
+  if (loading) return null;
+  const issues: string[] = [];
+  if (degraded) issues.push(`${degraded} component${degraded > 1 ? "s" : ""} degraded`);
+  if (pending) issues.push(`${pending} pending`);
+  const backupBad = backupTone === "warning" || backupTone === "live";
+  if (backupBad && backupDetail) issues.push(backupDetail);
+
+  const bad = degraded > 0 || backupTone === "live";
+  const ok = issues.length === 0;
+  const Icon = ok ? CheckCircle2 : AlertTriangle;
+  return (
+    <div
+      role="status"
+      className={cn(
+        "flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3",
+        ok && "border-success/30 bg-success-tint text-success",
+        !ok && bad && "border-broadcast/30 bg-broadcast-tint text-broadcast",
+        !ok && !bad && "border-warning/30 bg-warning-tint text-warning",
+      )}
+    >
+      <Icon className="size-5 shrink-0" aria-hidden />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-semibold">
+          {ok
+            ? "All systems operational"
+            : bad
+              ? "Action needed"
+              : "Heads up"}
+        </p>
+        <p className="text-metadata opacity-90">
+          {ok
+            ? `${running} of ${total} components running · backups healthy`
+            : issues.join(" · ")}
+        </p>
+      </div>
+      {!ok && (degraded > 0 || pending > 0) && (
+        <Button size="sm" variant="outline" onClick={onShowAttention}>
+          Show components
+        </Button>
+      )}
+      {backupBad && (
+        <Button size="sm" variant="outline" onClick={onOpenDR}>
+          Fix backups
+        </Button>
+      )}
+    </div>
   );
 }

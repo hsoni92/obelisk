@@ -1,8 +1,39 @@
+export type InstanceBackupPolicyView = {
+  schedule: string;
+  replication_factor: number;
+  data_retention_days: number;
+  overridden: boolean;
+};
+
+export type InstanceBackupView = {
+  supported: boolean;
+  enabled: boolean;
+  method?: string;
+  object_prefix?: string;
+  policy?: InstanceBackupPolicyView;
+};
+
+export type InstanceDeploymentView = {
+  release: string;
+  namespace: string;
+  backup: InstanceBackupView;
+};
+
 export type ServiceInstance = {
   id: string;
-  type: "postgres" | "mysql" | "redis" | "rustfs" | "qdrant" | "searxng";
+  type: "postgres" | "mysql" | "mongodb" | "redis" | "rustfs" | "qdrant" | "searxng";
   display_name?: string;
   enabled: boolean;
+  state?: string;
+  deployment?: InstanceDeploymentView;
+  backup?: {
+    enabled?: boolean;
+    policy_override?: {
+      schedule?: string;
+      replication_factor?: number;
+      data_retention_days?: number;
+    };
+  };
   credentials: {
     username?: string;
     password?: string;
@@ -10,7 +41,6 @@ export type ServiceInstance = {
     access_key?: string;
     secret_key?: string;
   };
-  state?: string;
 };
 
 export type StatusResponse = {
@@ -31,6 +61,50 @@ export type StatusResponse = {
     config_prefix?: string;
     data_prefix?: string;
   };
+};
+
+export type BackupDestinationView = {
+  id: string;
+  label: string;
+  provider?: string;
+  endpoint: string;
+  bucket: string;
+  enabled: boolean;
+  credentials_configured: boolean;
+  ready: boolean;
+  status: string;
+  last_test_at?: string;
+  last_test_ok?: boolean;
+  last_test_message?: string;
+  last_upload_at?: string;
+  last_inventory_at?: string;
+  bytes?: number;
+  objects?: number;
+  last_error?: string;
+  schedule_lag?: string;
+};
+
+export type BackupConfigResponse = {
+  machine_id: string;
+  layout: BackupTargetResponse["layout"];
+  scope?: {
+    data_service_types: string[];
+  };
+  policy: {
+    schedule: string;
+    replication_factor: number;
+    data_retention_days: number;
+    config_keep_count: number;
+    include_config: boolean;
+  };
+  destinations: BackupDestinationView[];
+  backup_ready: boolean;
+  replication_ready: boolean;
+  ready_destination_count: number;
+  enabled_destination_count: number;
+  implementation_status: string;
+  last_run_at?: string;
+  credentials_secret: string;
 };
 
 export type BackupTargetResponse = {
@@ -61,6 +135,7 @@ export type ConnectionsResponse = {
     display_name?: string;
     postgres?: string;
     mysql?: string;
+    mongodb?: string;
     redis?: string;
     s3_http?: string;
     qdrant_http?: string;

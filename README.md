@@ -6,20 +6,22 @@ Design: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 
 ## Development
 
+**Prerequisites:** Go **1.22+** on `PATH`, Node.js/npm for `web/admin`. If `make` says `go: No such file or directory`, install Go first (`make check-go` prints distro hints).
+
 The admin UI talks to `obelisk-controller` on port **8080**. Without `/etc/obelisk/obelisk.yaml` on your laptop, point config at a repo-local file:
 
 ```bash
-make build-controller
+go version       # must be 1.22+
 
-# One-time: local k3s via Docker (no sudo)
-make dev-k3d-up
+# One command: API (:8080, Go hot-reload) + UI (:3080, Next.js)
+make install-air
+make dev
 
-# Terminal 1 — API (cluster reconcile via dev/kubeconfig)
-make dev-api
-
-# Terminal 2 — UI (proxies /api/v1 → :8080)
-make dev-ui
+# Real Helm reconcile against local k3d (Docker)
+make dev-cluster
 ```
+
+Split terminals (no hot-reload on the API): `make dev-api` and `make dev-ui`. Cluster-only bootstrap: `make dev-k3d-up`.
 
 Override paths with `OBELISK_CONFIG` and `OBELISK_ROOT`. If `/etc/obelisk/obelisk.yaml` exists (after bootstrap), the controller uses it automatically unless `OBELISK_CONFIG` is set.
 

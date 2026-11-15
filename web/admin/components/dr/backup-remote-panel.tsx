@@ -4,13 +4,21 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
+import { SelectField } from "@/components/ui/select";
+import {
+  AWS_S3_REGIONS,
+  BACKUP_REMOTE_PROVIDER_OPTIONS,
+  type BackupRemoteProvider,
+  parseBackupRemoteEndpoint,
+  resolveBackupRemoteEndpoint,
+} from "@/lib/backup-remote-endpoint";
 import {
   rtkErrorMessage,
   useGetBackupTargetQuery,
   usePatchBackupTargetMutation,
   useTestBackupRemoteMutation,
 } from "@/lib/api";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 
 export function BackupRemotePanel({
   onBusy,
@@ -24,11 +32,49 @@ export function BackupRemotePanel({
   const [testBackupRemote] = useTestBackupRemoteMutation();
 
   const serverEndpoint = target?.remote.endpoint ?? "";
-  const [endpointDraft, setEndpointDraft] = useState<string | null>(null);
-  const endpoint = endpointDraft ?? serverEndpoint;
+  const parsedFromServer = useMemo(
+    () => parseBackupRemoteEndpoint(serverEndpoint),
+    [serverEndpoint],
+  );
+
+  const [providerDraft, setProviderDraft] = useState<BackupRemoteProvider | null>(
+    null,
+  );
+  const [awsRegionDraft, setAwsRegionDraft] = useState<string | null>(null);
+  const [customEndpointDraft, setCustomEndpointDraft] = useState<string | null>(
+    null,
+  );
+
+  const provider = providerDraft ?? parsedFromServer.provider;
+  const awsRegion = awsRegionDraft ?? parsedFromServer.awsRegion;
+  const customEndpoint =
+    customEndpointDraft ?? parsedFromServer.customEndpoint;
+
+  const endpoint = resolveBackupRemoteEndpoint(
+    provider,
+    awsRegion,
+    customEndpoint,
+  );
+
+  const awsRegionOptions = useMemo(() => {
+    if (AWS_S3_REGIONS.some((r) => r.value === awsRegion)) {
+      return AWS_S3_REGIONS;
+    }
+    return [
+      { value: awsRegion, label: `${awsRegion} (current)` },
+      ...AWS_S3_REGIONS,
+    ];
+  }, [awsRegion]);
+
   const [accessKey, setAccessKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
   const [message, setMessage] = useState<string | null>(null);
+
+  function clearEndpointDrafts() {
+    setProviderDraft(null);
+    setAwsRegionDraft(null);
+    setCustomEndpointDraft(null);
+  }
 
   async function save() {
     onBusy("dr-save");
@@ -45,7 +91,7 @@ export function BackupRemotePanel({
         };
       }
       await patchBackupTarget(body).unwrap();
-      setEndpointDraft(null);
+      clearEndpointDrafts();
       setAccessKey("");
       setSecretKey("");
       setMessage("Remote backup settings saved.");
@@ -103,8 +149,10 @@ export function BackupRemotePanel({
           {target?.machine_id ?? "—"}
         </p>
         <p className="text-metadata text-muted-foreground">
-          Assigned at first boot and stored in obelisk.yaml. Use this exact name
-          when you create your R2/S3 bucket — one bucket per appliance.
+          Assigned at first boot and stored in obelisk.yaml. Test connection
+          creates an S3/R2 bucket with this name when it does not exist yet
+          (IAM needs <code className="font-mono text-[11px]">CreateBucket</code>
+          ).
         </p>
       </div>
 
@@ -132,12 +180,43 @@ export function BackupRemotePanel({
         , not in git.
       </p>
 
-      <Field
-        label="Endpoint URL"
-        value={endpoint}
-        onChange={(e) => setEndpointDraft(e.target.value)}
-        placeholder="https://<account>.r2.cloudflarestorage.com"
-      />
+      <div className="space-y-1">
+        <Label className="text-eyebrow">Remote storage</Label>
+        <SelectField
+          options={BACKUP_REMOTE_PROVIDER_OPTIONS}
+          value={provider}
+          onValueChange={(v) => {
+            setProviderDraft(v as BackupRemoteProvider);
+          }}
+          aria-label="Remote storage provider"
+        />
+      </div>
+
+      {provider === "aws" ? (
+        <>
+          <div className="space-y-1">
+            <Label className="text-eyebrow">AWS region</Label>
+            <SelectField
+              options={awsRegionOptions}
+              value={awsRegion}
+              onValueChange={(v) => setAwsRegionDraft(v)}
+              placeholder="Select region"
+              aria-label="AWS region for S3"
+            />
+            <p className="text-metadata text-muted-foreground">
+              Create the bucket in this same region. Stored endpoint:{" "}
+              <code className="font-mono text-[11px] break-all">{endpoint}</code>
+            </p>
+          </div>
+        </>
+      ) : (
+        <Field
+          label={provider === "r2" ? "R2 endpoint URL" : "Endpoint URL"}
+          value={customEndpoint}
+          onChange={(e) => setCustomEndpointDraft(e.target.value)}
+          placeholder="https://<account>.r2.cloudflarestorage.com"
+        />
+      )}
 
       <div className="space-y-2 border-t border-border pt-3">
         <Label className="text-eyebrow">API credentials</Label>

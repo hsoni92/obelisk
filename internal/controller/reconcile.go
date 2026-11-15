@@ -151,7 +151,7 @@ func SetServiceEnabled(spec *obelisk.Spec, name string, enabled bool) error {
 		}
 		inst.ID = "default"
 		inst.Credentials = obelisk.DefaultCredentialsForType(name)
-		if name == "postgres" || name == "mysql" {
+		if name == "postgres" || name == "mysql" || name == "mongodb" {
 			inst.Credentials.Password = "changeme-in-ui"
 		}
 		spec.Instances = append(spec.Instances, inst)

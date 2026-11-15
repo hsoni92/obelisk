@@ -1,4 +1,5 @@
 import type {
+  BackupConfigResponse,
   BackupTargetResponse,
   ConnectionsResponse,
   CreateInstanceResponse,
@@ -22,7 +23,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "Overview", "OpenRouter", "Mail"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -43,6 +44,86 @@ export const obeliskApi = createApi({
       query: () => "/backup/target",
       providesTags: ["BackupTarget"],
     }),
+    getBackupConfig: builder.query<BackupConfigResponse, void>({
+      query: () => "/backup/config",
+      providesTags: ["BackupConfig"],
+      keepUnusedDataFor: 30,
+    }),
+    patchBackupPolicy: builder.mutation<
+      BackupConfigResponse,
+      {
+        schedule?: string;
+        replication_factor?: number;
+        data_retention_days?: number;
+        config_keep_count?: number;
+        include_config?: boolean;
+      }
+    >({
+      query: (body) => ({
+        url: "/backup/policy",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    postBackupDestination: builder.mutation<
+      BackupConfigResponse,
+      {
+        label: string;
+        provider?: string;
+        endpoint: string;
+        enabled?: boolean;
+        credentials?: { access_key_id: string; secret_access_key: string };
+      }
+    >({
+      query: (body) => ({
+        url: "/backup/destinations",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    patchBackupDestination: builder.mutation<
+      BackupConfigResponse,
+      {
+        id: string;
+        body: {
+          label?: string;
+          provider?: string;
+          endpoint?: string;
+          enabled?: boolean;
+          credentials?: { access_key_id: string; secret_access_key: string };
+        };
+      }
+    >({
+      query: ({ id, body }) => ({
+        url: `/backup/destinations/${encodeURIComponent(id)}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    deleteBackupDestination: builder.mutation<BackupConfigResponse, { id: string }>({
+      query: ({ id }) => ({
+        url: `/backup/destinations/${encodeURIComponent(id)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    testBackupDestination: builder.mutation<BackupConfigResponse, { id: string }>({
+      query: ({ id }) => ({
+        url: `/backup/destinations/${encodeURIComponent(id)}/test`,
+        method: "POST",
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    testAllBackupDestinations: builder.mutation<BackupConfigResponse, void>({
+      query: () => ({
+        url: "/backup/destinations/test-all",
+        method: "POST",
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
     createInstance: builder.mutation<
       CreateInstanceResponse,
       { type: string; display_name: string }
@@ -61,6 +142,15 @@ export const obeliskApi = createApi({
         body: {
           display_name?: string;
           enabled?: boolean;
+          backup?: {
+            enabled?: boolean;
+            policy_override?: {
+              schedule?: string;
+              replication_factor?: number;
+              data_retention_days?: number;
+            };
+            clear_policy_override?: boolean;
+          };
           credentials?: ServiceInstance["credentials"];
         };
       }
@@ -91,14 +181,25 @@ export const obeliskApi = createApi({
         url: "/backup/test",
         method: "POST",
       }),
-      invalidatesTags: ["BackupTarget", "Status"],
+      invalidatesTags: ["BackupTarget", "BackupConfig", "Status"],
     }),
-    runBackup: builder.mutation<{ status: string; message?: string }, void>({
+    runBackup: builder.mutation<
+      {
+        status: string;
+        message?: string;
+        object_key?: string;
+        uploads?: number;
+        note?: string;
+        data_objects?: string[];
+        data_skipped?: string[];
+      },
+      void
+    >({
       query: () => ({
         url: "/backup/run",
         method: "POST",
       }),
-      invalidatesTags: ["Status"],
+      invalidatesTags: ["Status", "BackupConfig"],
     }),
     getOpenRouterConfig: builder.query<OpenRouterConfigResponse, void>({
       query: () => "/openrouter/config",
@@ -253,6 +354,13 @@ export const {
   useGetOverviewQuery,
   useGetConnectionsQuery,
   useGetBackupTargetQuery,
+  useGetBackupConfigQuery,
+  usePatchBackupPolicyMutation,
+  usePostBackupDestinationMutation,
+  usePatchBackupDestinationMutation,
+  useDeleteBackupDestinationMutation,
+  useTestBackupDestinationMutation,
+  useTestAllBackupDestinationsMutation,
   useCreateInstanceMutation,
   usePatchInstanceMutation,
   usePatchBackupTargetMutation,

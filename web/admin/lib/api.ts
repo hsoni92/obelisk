@@ -2,6 +2,8 @@
  * Domain types and RTK Query hooks for the Obelisk admin API.
  */
 export type {
+  BackupConfigResponse,
+  BackupDestinationView,
   BackupTargetResponse,
   ConnectionsResponse,
   CreateInstanceResponse,
@@ -22,6 +24,13 @@ export {
   useCreateInstanceMutation,
   useGetOverviewQuery,
   useGetBackupTargetQuery,
+  useGetBackupConfigQuery,
+  usePatchBackupPolicyMutation,
+  usePostBackupDestinationMutation,
+  usePatchBackupDestinationMutation,
+  useDeleteBackupDestinationMutation,
+  useTestBackupDestinationMutation,
+  useTestAllBackupDestinationsMutation,
   useGetConnectionsQuery,
   useGetStatusQuery,
   usePatchBackupTargetMutation,

@@ -3,15 +3,24 @@ package adminapi
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
+type instanceDeploymentView struct {
+	Release   string                    `json:"release"`
+	Namespace string                    `json:"namespace"`
+	Backup    obelisk.InstanceBackupView  `json:"backup"`
+}
+
 type instanceView struct {
 	obelisk.ServiceInstance
-	State string `json:"state"`
+	State      string                 `json:"state"`
+	Deployment instanceDeploymentView `json:"deployment"`
 }
 
 type createInstanceRequest struct {
@@ -19,10 +28,37 @@ type createInstanceRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
+type patchInstanceBackupRequest struct {
+	Enabled             *bool                                `json:"enabled,omitempty"`
+	PolicyOverride      *obelisk.InstanceBackupPolicyOverride  `json:"policy_override,omitempty"`
+	ClearPolicyOverride *bool                                `json:"clear_policy_override,omitempty"`
+}
+
 type patchInstanceRequest struct {
 	DisplayName *string                      `json:"display_name,omitempty"`
 	Enabled     *bool                        `json:"enabled,omitempty"`
+	Backup      *patchInstanceBackupRequest  `json:"backup,omitempty"`
 	Credentials *obelisk.InstanceCredentials `json:"credentials,omitempty"`
+}
+
+func instanceNamespace() string {
+	if ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE")); ns != "" {
+		return ns
+	}
+	return "obelisk"
+}
+
+func enrichInstanceView(inst obelisk.ServiceInstance, state string, spec obelisk.Spec) instanceView {
+	global := obelisk.ResolvedBackupPolicy(spec)
+	return instanceView{
+		ServiceInstance: maskInstance(inst),
+		State:           state,
+		Deployment: instanceDeploymentView{
+			Release:   inst.ReleaseName(),
+			Namespace: instanceNamespace(),
+			Backup:    obelisk.BuildInstanceBackupView(inst, global),
+		},
+	}
 }
 
 func maskInstance(inst obelisk.ServiceInstance) obelisk.ServiceInstance {
@@ -46,10 +82,7 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	states := rec.ObserveServiceStates(r.Context(), spec)
 	var list []instanceView
 	for _, inst := range spec.Instances {
-		list = append(list, instanceView{
-			ServiceInstance: maskInstance(inst),
-			State:           states[inst.StateKey()],
-		})
+		list = append(list, enrichInstanceView(inst, states[inst.StateKey()], spec))
 	}
 	writeJSON(w, list)
 }
@@ -123,6 +156,29 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 	if req.Enabled != nil {
 		inst.Enabled = *req.Enabled
 	}
+	if req.Backup != nil {
+		if req.Backup.Enabled != nil {
+			inst.Backup.Enabled = req.Backup.Enabled
+		}
+		if req.Backup.ClearPolicyOverride != nil && *req.Backup.ClearPolicyOverride {
+			inst.Backup.PolicyOverride = nil
+		} else if req.Backup.PolicyOverride != nil {
+			if inst.Backup.PolicyOverride == nil {
+				inst.Backup.PolicyOverride = &obelisk.InstanceBackupPolicyOverride{}
+			}
+			po := inst.Backup.PolicyOverride
+			if req.Backup.PolicyOverride.Schedule != nil {
+				s := strings.TrimSpace(*req.Backup.PolicyOverride.Schedule)
+				po.Schedule = &s
+			}
+			if req.Backup.PolicyOverride.ReplicationFactor != nil {
+				po.ReplicationFactor = req.Backup.PolicyOverride.ReplicationFactor
+			}
+			if req.Backup.PolicyOverride.DataRetentionDays != nil {
+				po.DataRetentionDays = req.Backup.PolicyOverride.DataRetentionDays
+			}
+		}
+	}
 	if req.Credentials != nil {
 		c := *req.Credentials
 		if c.Username != "" {
@@ -142,6 +198,11 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	spec.Instances[idx] = inst
+	if err := obelisk.ValidateInstanceBackupPolicyOverride(spec, inst); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
 	obelisk.SyncLegacyServiceFlags(&spec)
 	if err := config.Save(cfg, spec); err != nil {
 		s.mu.Unlock()
@@ -151,7 +212,10 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
 	controller.ReconcileAsync(rec)
-	writeJSON(w, map[string]any{"instance": maskInstance(inst), "accepted": true})
+	writeJSON(w, map[string]any{
+		"instance": enrichInstanceView(inst, "pending", spec),
+		"accepted": true,
+	})
 }
 
 func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {

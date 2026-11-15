@@ -9,6 +9,7 @@ import (
 
 	"github.com/hsoni92/obelisk/internal/backup"
 	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -53,30 +54,25 @@ func (s *Server) handleGetBackupTarget(w http.ResponseWriter, _ *http.Request) {
 }
 
 func (s *Server) buildBackupTarget(cfg string, spec obelisk.Spec) backupTargetResponse {
-	credOK, _ := backup.CredentialsConfigured(cfg)
+	full := s.buildBackupConfig(cfg, spec)
+	credOK, _ := backup.AnyCredentialsConfigured(cfg)
 	metaReady := spec.BackupRemoteReady()
-	secret := spec.Backup.CredentialsSecret
-	if secret == "" {
-		secret = obelisk.DefaultBackupCredentialsSecret
+	secret := full.CredentialsSecret
+	ep := spec.Backup.Remote.Endpoint
+	if len(full.Destinations) > 0 {
+		ep = full.Destinations[0].Endpoint
 	}
-	ready := metaReady && credOK
-	bucket := spec.BackupBucketName()
 	return backupTargetResponse{
-		MachineID: bucket,
-		Layout: backupLayoutView{
-			Bucket:       bucket,
-			ConfigPrefix: obelisk.BackupConfigPrefix,
-			DataPrefix:   obelisk.BackupDataPrefix,
-			PreflightKey: obelisk.BackupPreflightObject,
-		},
+		MachineID: full.MachineID,
+		Layout:    full.Layout,
 		Remote: backupRemoteView{
-			Endpoint: spec.Backup.Remote.Endpoint,
+			Endpoint: ep,
 		},
 		CredentialsSecret:     secret,
 		CredentialsConfigured: credOK,
 		RemoteMetadataReady:   metaReady,
-		BackupReady:           ready,
-		ImplementationStatus:  "stub",
+		BackupReady:           full.BackupReady,
+		ImplementationStatus:  full.ImplementationStatus,
 	}
 }
 
@@ -97,6 +93,19 @@ func (s *Server) handlePatchBackupTarget(w http.ResponseWriter, r *http.Request)
 	obelisk.EnsureMachineIdentity(&spec)
 	if req.Remote != nil {
 		spec.Backup.Remote.Endpoint = req.Remote.Endpoint
+		if len(spec.Backup.Destinations) == 0 {
+			spec.Backup.Destinations = []obelisk.BackupDestination{{
+				ID: "primary", Label: "Primary", Endpoint: req.Remote.Endpoint,
+				Enabled: true, Bucket: spec.BackupBucketName(),
+			}}
+		} else {
+			for i := range spec.Backup.Destinations {
+				if spec.Backup.Destinations[i].ID == "primary" {
+					spec.Backup.Destinations[i].Endpoint = req.Remote.Endpoint
+					break
+				}
+			}
+		}
 	}
 	if spec.Backup.CredentialsSecret == "" {
 		spec.Backup.CredentialsSecret = obelisk.DefaultBackupCredentialsSecret
@@ -107,6 +116,7 @@ func (s *Server) handlePatchBackupTarget(w http.ResponseWriter, r *http.Request)
 				http.Error(w, err.Error(), http.StatusBadRequest)
 				return
 			}
+			_ = backup.SaveDestinationCredentials(cfg, "primary", *req.Credentials)
 		}
 	}
 	if err := config.Save(cfg, spec); err != nil {
@@ -127,10 +137,21 @@ func (s *Server) handleBackupTest(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "backup.remote endpoint and machine identity required", http.StatusBadRequest)
 		return
 	}
-	creds, ok, err := backup.LoadCredentials(cfg)
+	destID := "primary"
+	if dests := obelisk.EnabledBackupDestinations(spec); len(dests) > 0 {
+		destID = dests[0].ID
+	}
+	creds, ok, err := backup.LoadDestinationCredentials(cfg, destID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	if !ok {
+		creds, ok, err = backup.LoadCredentials(cfg)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 	if !ok {
 		http.Error(w, "backup credentials not configured", http.StatusBadRequest)
@@ -140,7 +161,7 @@ func (s *Server) handleBackupTest(w http.ResponseWriter, r *http.Request) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	testErr := backup.TestRemote(ctx, spec, creds)
+	bucketCreated, testErr := backup.TestRemote(ctx, spec, creds)
 	resp := s.buildBackupTarget(cfg, spec)
 	now := time.Now().UTC().Format(time.RFC3339)
 	resp.LastTestAt = now
@@ -148,22 +169,50 @@ func (s *Server) handleBackupTest(w http.ResponseWriter, r *http.Request) {
 		ok := false
 		resp.LastTestOK = &ok
 		resp.LastTestMessage = testErr.Error()
+		_ = backup.UpdateDestinationTest(cfg, destID, false, testErr.Error())
 		writeJSON(w, resp)
 		return
 	}
 	okVal := true
 	resp.LastTestOK = &okVal
-	resp.LastTestMessage = fmt.Sprintf(
-		"write test OK (s3://%s/%s)",
-		spec.BackupBucketName(),
-		obelisk.BackupPreflightObject,
-	)
+	bucket := spec.BackupBucketName()
+	if bucketCreated {
+		resp.LastTestMessage = fmt.Sprintf(
+			"created bucket %q; write test OK (s3://%s/%s)",
+			bucket,
+			bucket,
+			obelisk.BackupPreflightObject,
+		)
+	} else {
+		resp.LastTestMessage = fmt.Sprintf(
+			"write test OK (s3://%s/%s)",
+			bucket,
+			obelisk.BackupPreflightObject,
+		)
+	}
+	_ = backup.UpdateDestinationTest(cfg, destID, true, resp.LastTestMessage)
+	dests := obelisk.EnabledBackupDestinations(spec)
+	if len(dests) > 0 {
+		d := dests[0]
+		bucket = obelisk.DestinationBucket(spec, d)
+		if b, n, invErr := backup.BucketUsage(ctx, d.Endpoint, bucket, creds, 2000); invErr == nil {
+			_ = backup.UpdateDestinationInventory(cfg, destID, b, n)
+		}
+	}
 	resp.BackupReady = true
 	writeJSON(w, resp)
 }
 
 func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
-	runner := backup.Runner{ConfigPath: s.ConfigPath}
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	spec, loadErr := config.Load(cfg)
+	if loadErr != nil {
+		http.Error(w, loadErr.Error(), http.StatusInternalServerError)
+		return
+	}
+	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	states := rec.ObserveServiceStates(r.Context(), spec)
+	runner := backup.Runner{ConfigPath: s.ConfigPath, InstanceStates: states}
 	ready, msg, err := runner.Ready()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -173,12 +222,34 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, fmt.Sprintf("backup not configured: %s", msg), http.StatusBadRequest)
 		return
 	}
-	if err := runner.RunNow(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	out, err := runner.RunNow(r.Context())
+	if err != nil {
+		if out.UploadedDestinations > 0 {
+			writeJSON(w, map[string]any{
+				"status":    "degraded",
+				"message":   err.Error(),
+				"uploads":   out.UploadedDestinations,
+				"object_key": out.ObjectKey,
+			})
+			return
+		}
+		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	writeJSON(w, map[string]string{
-		"status":  "accepted",
-		"message": "backup preflight passed; upload worker still stub in v1",
+	summary := fmt.Sprintf(
+		"uploaded config snapshot + %d data object(s) to %d destination(s)",
+		len(out.DataObjects),
+		out.UploadedDestinations,
+	)
+	if len(out.DataSkipped) > 0 {
+		summary += fmt.Sprintf("; %d skipped", len(out.DataSkipped))
+	}
+	writeJSON(w, map[string]any{
+		"status":        "ok",
+		"message":       summary,
+		"uploads":       out.UploadedDestinations,
+		"object_key":    out.ObjectKey,
+		"data_objects":  out.DataObjects,
+		"data_skipped":  out.DataSkipped,
 	})
 }

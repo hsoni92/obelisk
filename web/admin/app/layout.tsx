@@ -3,6 +3,7 @@ import { ThemeSync } from "@/components/theme/theme-sync";
 import { themeInitScript } from "@/lib/theme";
 import type { Metadata } from "next";
 import { Inter, Roboto_Mono } from "next/font/google";
+import Script from "next/script";
 import "./globals.css";
 
 const inter = Inter({
@@ -32,7 +33,11 @@ export default function RootLayout({
       <body
         className={`${inter.variable} ${robotoMono.variable} font-sans antialiased`}
       >
-        <script dangerouslySetInnerHTML={{ __html: themeInitScript }} />
+        <Script
+          id="obelisk-theme-init"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{ __html: themeInitScript }}
+        />
         <ThemeSync />
         <StoreProvider>{children}</StoreProvider>
       </body>

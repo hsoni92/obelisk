@@ -19,11 +19,12 @@ type InstanceCredentials struct {
 
 // ServiceInstance is one deployable data-service workload.
 type ServiceInstance struct {
-	ID          string              `yaml:"id" json:"id"`
-	Type        string              `yaml:"type" json:"type"` // postgres | mysql | redis | rustfs | qdrant | searxng
-	DisplayName string              `yaml:"display_name,omitempty" json:"display_name,omitempty"`
-	Enabled     bool                `yaml:"enabled" json:"enabled"`
-	Credentials InstanceCredentials `yaml:"credentials" json:"credentials"`
+	ID          string                 `yaml:"id" json:"id"`
+	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng
+	DisplayName string                 `yaml:"display_name,omitempty" json:"display_name,omitempty"`
+	Enabled     bool                   `yaml:"enabled" json:"enabled"`
+	Backup      InstanceBackupSettings `yaml:"backup,omitempty" json:"backup,omitempty"`
+	Credentials InstanceCredentials    `yaml:"credentials" json:"credentials"`
 }
 
 func (i ServiceInstance) ReleaseName() string {
@@ -40,7 +41,7 @@ func (i ServiceInstance) StateKey() string {
 // DefaultCredentialsForType returns dev defaults for a new instance.
 func DefaultCredentialsForType(typ string) InstanceCredentials {
 	switch typ {
-	case "postgres", "mysql":
+	case "postgres", "mysql", "mongodb":
 		return InstanceCredentials{
 			Username: "obelisk",
 			Password: randomDevSecret(16),
@@ -89,6 +90,7 @@ func NewServiceInstance(typ, displayName string) (ServiceInstance, error) {
 		Type:        typ,
 		DisplayName: displayNameOr(id, displayName),
 		Enabled:     true,
+		Backup:      DefaultInstanceBackupSettings(typ),
 		Credentials: DefaultCredentialsForType(typ),
 	}, nil
 }
@@ -115,10 +117,10 @@ func SlugID(s string) string {
 
 func ValidateServiceType(typ string) error {
 	switch typ {
-	case "postgres", "mysql", "redis", "rustfs", "qdrant", "searxng":
+	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng":
 		return nil
 	default:
-		return fmt.Errorf("type must be postgres, mysql, redis, rustfs, qdrant, or searxng")
+		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, or searxng")
 	}
 }
 
@@ -130,6 +132,9 @@ func NormalizeInstances(spec *Spec) {
 		}
 		if spec.Services.MySQL.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("mysql", "default", spec))
+		}
+		if spec.Services.MongoDB.Enabled {
+			spec.Instances = append(spec.Instances, legacyInstance("mongodb", "default", spec))
 		}
 		if spec.Services.Redis.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("redis", "default", spec))
@@ -151,7 +156,7 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 	c := DefaultCredentialsForType(typ)
 	// preserve chart dev passwords when migrating existing clusters
 	switch typ {
-	case "postgres", "mysql":
+	case "postgres", "mysql", "mongodb":
 		c.Password = "changeme-in-ui"
 		c.Username = "obelisk"
 		c.Database = "obelisk"
@@ -169,6 +174,8 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		enabled = spec.Services.Postgres.Enabled
 	case "mysql":
 		enabled = spec.Services.MySQL.Enabled
+	case "mongodb":
+		enabled = spec.Services.MongoDB.Enabled
 	case "redis":
 		enabled = spec.Services.Redis.Enabled
 	case "rustfs":
@@ -183,6 +190,7 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		Type:        typ,
 		DisplayName: id,
 		Enabled:     enabled,
+		Backup:      DefaultInstanceBackupSettings(typ),
 		Credentials: c,
 	}
 }
@@ -191,6 +199,7 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 func SyncLegacyServiceFlags(spec *Spec) {
 	spec.Services.Postgres.Enabled = anyInstanceEnabled(spec, "postgres")
 	spec.Services.MySQL.Enabled = anyInstanceEnabled(spec, "mysql")
+	spec.Services.MongoDB.Enabled = anyInstanceEnabled(spec, "mongodb")
 	spec.Services.Redis.Enabled = anyInstanceEnabled(spec, "redis")
 	spec.Services.RustFS.Enabled = anyInstanceEnabled(spec, "rustfs")
 	spec.Services.Qdrant.Enabled = anyInstanceEnabled(spec, "qdrant")

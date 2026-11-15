@@ -37,21 +37,37 @@ const TYPES: {
   {
     id: "postgres",
     label: "PostgreSQL",
-    hint: "Relational database",
+    hint: "Relational · included in DR backups",
     icon: Database,
   },
-  { id: "mysql", label: "MySQL", hint: "Relational database", icon: Server },
-  { id: "redis", label: "Redis", hint: "Cache & queues", icon: Layers },
+  {
+    id: "mysql",
+    label: "MySQL",
+    hint: "Relational · included in DR backups",
+    icon: Server,
+  },
+  {
+    id: "mongodb",
+    label: "MongoDB",
+    hint: "Document store · included in DR backups",
+    icon: Database,
+  },
+  {
+    id: "redis",
+    label: "Redis",
+    hint: "Cache & queues (not in DR data backups)",
+    icon: Layers,
+  },
   {
     id: "rustfs",
     label: "RustFS",
-    hint: "S3-compatible storage",
+    hint: "S3-compatible · DR backups (when worker ships)",
     icon: HardDrive,
   },
   {
     id: "qdrant",
     label: "Qdrant",
-    hint: "Vector search & embeddings",
+    hint: "Vector search · DR backups (when worker ships)",
     icon: Box,
   },
   {

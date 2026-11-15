@@ -23,9 +23,9 @@ export const PAGE_TITLES: Record<
       "Manage instances in one table — sort, filter, copy connection strings per row.",
   },
   dr: {
-    title: "Disaster recovery",
+    title: "Disaster Recovery",
     subtitle:
-      "Configure R2/S3, test upload access, then run backups for every running data service.",
+      "Add S3/R2 destinations, set global policy and replication, then back up every running data service.",
   },
   exposure: {
     title: "Exposure",

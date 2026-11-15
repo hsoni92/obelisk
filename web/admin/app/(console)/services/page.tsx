@@ -4,7 +4,10 @@ import { PageHeader } from "@/components/layout/page-header";
 import { NewInstanceButton } from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
 import { ServicesTable } from "@/components/services/services-table";
-import { CredentialsDialog } from "@/components/ui/credentials-dialog";
+import {
+  ConfigureInstanceDialog,
+  type ConfigureInstanceSave,
+} from "@/components/services/configure-instance-dialog";
 import {
   rtkErrorMessage,
   statusPollOptions,
@@ -24,13 +27,22 @@ import { useSurfaceFilters } from "@/lib/store/hooks";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
-const TYPES = ["postgres", "mysql", "redis", "rustfs", "qdrant", "searxng"] as const;
+const TYPES = [
+  "postgres",
+  "mysql",
+  "mongodb",
+  "redis",
+  "rustfs",
+  "qdrant",
+  "searxng",
+] as const;
 
 function ServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
-  const [credTarget, setCredTarget] = useState<ServiceInstance | null>(null);
+  const [configureTarget, setConfigureTarget] =
+    useState<ServiceInstance | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
   const {
     filters: serviceFilters,
@@ -104,15 +116,12 @@ function ServicesPageContent() {
     }
   }
 
-  async function saveCredentials(
-    id: string,
-    creds: ServiceInstance["credentials"],
-  ) {
+  async function saveConfiguration(id: string, patch: ConfigureInstanceSave) {
     const inst = allTableRows.find((r) => r.instance.id === id)?.instance;
     setBusy(inst ? serviceRowKey(inst) : id);
     setActionError(null);
     try {
-      await patchInstance({ id, body: { credentials: creds } }).unwrap();
+      await patchInstance({ id, body: patch }).unwrap();
     } catch (e) {
       setActionError(rtkErrorMessage(e));
     } finally {
@@ -122,12 +131,12 @@ function ServicesPageContent() {
 
   return (
     <>
-      {credTarget && (
-        <CredentialsDialog
-          instance={credTarget}
-          open={!!credTarget}
-          onOpenChange={(open) => !open && setCredTarget(null)}
-          onSave={(creds) => saveCredentials(credTarget.id, creds)}
+      {configureTarget && (
+        <ConfigureInstanceDialog
+          instance={configureTarget}
+          open={!!configureTarget}
+          onOpenChange={(open) => !open && setConfigureTarget(null)}
+          onSave={(patch) => saveConfiguration(configureTarget.id, patch)}
         />
       )}
 
@@ -159,7 +168,7 @@ function ServicesPageContent() {
           }}
           onStart={(inst) => void setEnabled(inst, true)}
           onStop={(inst) => void setEnabled(inst, false)}
-          onCredentials={setCredTarget}
+          onConfigure={setConfigureTarget}
         />
       </div>
     </>

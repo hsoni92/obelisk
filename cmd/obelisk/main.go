@@ -47,7 +47,7 @@ Commands:
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
   status [--api URL] [--config path]
-  service enable|disable <postgres|mysql|redis|rustfs|qdrant|searxng> [--config path] [--helm-root path]
+  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng> [--config path] [--helm-root path]
   reconcile [--config path] [--helm-root path]
 `)
 }

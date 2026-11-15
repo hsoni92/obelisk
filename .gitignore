@@ -1,3 +1,6 @@
+# Air dev build output
+/tmp/
+
 # Binaries (Makefile: bin/obelisk, bin/obelisk-controller)
 /bin/
 /obelisk

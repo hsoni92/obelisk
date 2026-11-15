@@ -32,6 +32,7 @@ type Hardware struct {
 type ServiceFlags struct {
 	Postgres ServiceToggle `yaml:"postgres"`
 	MySQL    ServiceToggle `yaml:"mysql"`
+	MongoDB  ServiceToggle `yaml:"mongodb"`
 	Redis    ServiceToggle `yaml:"redis"`
 	RustFS   ServiceToggle `yaml:"rustfs"`
 	Qdrant   ServiceToggle `yaml:"qdrant"`
@@ -44,8 +45,10 @@ type ServiceToggle struct {
 }
 
 type Backup struct {
-	Remote            RemoteBackup `yaml:"remote"`
-	CredentialsSecret string       `yaml:"credentials_secret,omitempty" json:"credentials_secret,omitempty"`
+	Policy            BackupPolicy        `yaml:"policy,omitempty" json:"policy,omitempty"`
+	Destinations      []BackupDestination `yaml:"destinations,omitempty" json:"destinations,omitempty"`
+	Remote            RemoteBackup        `yaml:"remote"`
+	CredentialsSecret string              `yaml:"credentials_secret,omitempty" json:"credentials_secret,omitempty"`
 }
 
 type RemoteBackup struct {
@@ -96,6 +99,7 @@ func DefaultSpec(profile string) Spec {
 		Services: ServiceFlags{
 			Postgres: ServiceToggle{Enabled: false},
 			MySQL:    ServiceToggle{Enabled: false},
+			MongoDB:  ServiceToggle{Enabled: false},
 			Redis:    ServiceToggle{Enabled: false},
 			RustFS:   ServiceToggle{Enabled: false},
 			Qdrant:   ServiceToggle{Enabled: false},
@@ -109,6 +113,7 @@ func DefaultSpec(profile string) Spec {
 		Projects: []Project{},
 		Backup: Backup{
 			CredentialsSecret: DefaultBackupCredentialsSecret,
+			Policy:            DefaultBackupPolicy(),
 		},
 		OpenRouterGateway: OpenRouterGateway{Enabled: false},
 		MailGateway:       MailGateway{Enabled: false},

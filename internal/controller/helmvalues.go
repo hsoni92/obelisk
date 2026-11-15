@@ -10,7 +10,7 @@ import (
 func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup func(), err error) {
 	creds := map[string]string{}
 	switch inst.Type {
-	case "postgres", "mysql":
+	case "postgres", "mysql", "mongodb":
 		creds["username"] = inst.Credentials.Username
 		creds["password"] = inst.Credentials.Password
 		creds["database"] = inst.Credentials.Database
