@@ -8,6 +8,7 @@ services:
       - name: admin-api
         paths:
           - /api
+        strip_path: false
   - name: admin-ui
     url: http://obelisk-admin-ui:3000
     routes:

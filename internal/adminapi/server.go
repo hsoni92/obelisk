@@ -78,7 +78,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/blueprint/push", s.handleBlueprintPush)
 	mux.HandleFunc("POST /api/v1/restore/chain", s.handleRestoreChain)
 	mux.HandleFunc("GET /api/v1/restore/chain", s.handleRestoreChainStatus)
-	return s.requireGitHub(mux)
+	return normalizeLegacyAPIPath(s.requireGitHub(mux))
 }
 
 func (s *Server) handleHealth(w http.ResponseWriter, _ *http.Request) {

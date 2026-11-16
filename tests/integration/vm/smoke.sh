@@ -38,6 +38,14 @@ wait_platform_pods() {
 }
 
 resolve_kong_base() {
+  local helper="${OBELISK_ROOT}/install/resolve-admin-url.sh"
+  if [[ -f "$helper" ]]; then
+    # shellcheck source=install/resolve-admin-url.sh
+    source "$helper"
+    KONG_BASE="$(obelisk_resolve_kong_base)"
+    log "Kong base: $KONG_BASE"
+    return
+  fi
   if [[ -n "${OBELISK_KONG_URL:-}" ]]; then
     KONG_BASE="${OBELISK_KONG_URL%/}/"
     log "using OBELISK_KONG_URL=$KONG_BASE"

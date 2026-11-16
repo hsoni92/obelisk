@@ -12,6 +12,10 @@ if [[ -f "$SCRIPT_DIR/fetch-source.sh" ]]; then
   # shellcheck source=install/fetch-source.sh
   source "$SCRIPT_DIR/fetch-source.sh"
 fi
+if [[ -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
+  # shellcheck source=install/resolve-admin-url.sh
+  source "$SCRIPT_DIR/resolve-admin-url.sh"
+fi
 
 log() {
   printf '[obelisk-install] %s\n' "$*"
@@ -130,13 +134,20 @@ EOF
 }
 
 print_admin_url() {
-  local ip
-  ip="$(hostname -I 2>/dev/null | awk '{print $1}')"
-  if [[ -z "$ip" ]]; then
-    log "platform-ready — open admin UI via Kong on this host"
-    return
+  if declare -F obelisk_wait_kong_health >/dev/null; then
+    log "waiting for admin API via Kong (up to ${OBELISK_INSTALL_WAIT_SEC:-600}s)"
+    if ! obelisk_wait_kong_health; then
+      log "warning: /api/v1/health not ready — platform may still be starting"
+    fi
   fi
-  log "platform-ready — admin UI: http://${ip}/"
+  local base=""
+  if declare -F obelisk_resolve_kong_base >/dev/null; then
+    base="$(obelisk_resolve_kong_base)"
+  else
+    base="http://$(hostname -I 2>/dev/null | awk '{print $1}')/"
+  fi
+  log "platform-ready — admin UI: ${base}"
+  log "verify: curl -fsS ${base%/}/api/v1/health"
   log "next: sign in with GitHub and finish blueprint onboarding (see docs/runbooks/github-blueprint.md)"
 }
 
