@@ -2,8 +2,14 @@ package blueprint
 
 import (
 	"context"
+	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
+	"net/http"
+	"net/http/httptest"
 	"path/filepath"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -177,3 +183,159 @@ func TestSyncOverwritesJunkRemoteWhenNeverSynced(t *testing.T) {
 		t.Fatalf("generation = %d", spec.Blueprint.GitHub.Generation)
 	}
 }
+
+func TestSyncForcePushOverwritesRemoteAhead(t *testing.T) {
+	remote := &memRemote{files: map[string][]byte{
+		FileManifest: []byte(`{"blueprint_schema_version":1,"generation":105,"content_sha256":"different","machine_id":"obelisk-sync001"}`),
+		FilePublic:   []byte("apiVersion: obelisk.dev/v1\n"),
+		FileSecrets:  []byte("cipher"),
+	}}
+	s, path := newTestSyncer(t, remote)
+	spec, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	spec.Blueprint.GitHub.Generation = 103
+	spec.Blueprint.GitHub.LastCommitSHA = "abc"
+	spec.Blueprint.GitHub.SyncStatus = obelisk.SyncFailed
+	spec.Blueprint.GitHub.LastPushError = ErrImportRequired.Error()
+	if err := config.SaveQuiet(path, spec); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.ForcePush(context.Background()); err != nil {
+		t.Fatalf("ForcePush err = %v", err)
+	}
+	if remote.pushCount() != 1 {
+		t.Fatalf("pushes = %d, want 1", remote.pushCount())
+	}
+	got, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Blueprint.GitHub.Generation != 106 {
+		t.Fatalf("generation = %d, want 106", got.Blueprint.GitHub.Generation)
+	}
+	if got.Blueprint.GitHub.SyncStatus != obelisk.SyncSynced {
+		t.Fatalf("sync_status = %q, want %q", got.Blueprint.GitHub.SyncStatus, obelisk.SyncSynced)
+	}
+	if got.Blueprint.GitHub.LastPushError != "" {
+		t.Fatalf("last_push_error = %q, want empty", got.Blueprint.GitHub.LastPushError)
+	}
+}
+
+func TestImportUsesUnlockedSessionKeyWithoutPassphrase(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "obelisk.yaml")
+	local := obelisk.DefaultSpec("vps")
+	local.Machine.ID = "obelisk-same01"
+	local.Blueprint.GitHub.Repository = "octo/obelisk-appliance"
+	local.Blueprint.GitHub.Branch = "main"
+	local.Blueprint.GitHub.Generation = 103
+	local.Blueprint.GitHub.LastCommitSHA = "sha103"
+	if err := config.SaveQuiet(path, local); err != nil {
+		t.Fatal(err)
+	}
+
+	kdf := testKDF(t)
+	key, err := DeriveKey("phrase", kdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	remoteSpec := local
+	remoteSpec.Exposure.Funnel.RustFSS3.Enabled = true
+	bundle, err := Pack(remoteSpec, Secrets{}, key, kdf, 105)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeGitHubContentsServer(t, bundle.Files)
+	defer srv.Close()
+
+	rt, err := NewRuntime(path, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt.Git = &GitHub{
+		APIBase: srv.URL,
+		Client:  srv.Client(),
+		Token:   func(context.Context) (string, error) { return "tok", nil },
+	}
+	rt.Session.Set(key, kdf)
+
+	if err := rt.Import(context.Background(), "", "", ""); err != nil {
+		t.Fatalf("Import err = %v", err)
+	}
+	got, err := config.Load(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got.Blueprint.GitHub.Generation != 105 {
+		t.Fatalf("generation = %d, want 105", got.Blueprint.GitHub.Generation)
+	}
+	if !got.Exposure.Funnel.RustFSS3.Enabled {
+		t.Fatal("expected imported spec change to be applied")
+	}
+}
+
+func TestImportRejectsEmptyPassphraseWhenKeyDiffers(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "obelisk.yaml")
+	local := obelisk.DefaultSpec("vps")
+	local.Machine.ID = "obelisk-same01"
+	local.Blueprint.GitHub.Repository = "octo/obelisk-appliance"
+	local.Blueprint.GitHub.Branch = "main"
+	if err := config.SaveQuiet(path, local); err != nil {
+		t.Fatal(err)
+	}
+
+	kdf := testKDF(t)
+	remoteKey, err := DeriveKey("remote-phrase", kdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	localKey, err := DeriveKey("local-phrase", kdf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	bundle, err := Pack(local, Secrets{}, remoteKey, kdf, 105)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	srv := fakeGitHubContentsServer(t, bundle.Files)
+	defer srv.Close()
+
+	rt, err := NewRuntime(path, dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	rt.Git = &GitHub{
+		APIBase: srv.URL,
+		Client:  srv.Client(),
+		Token:   func(context.Context) (string, error) { return "tok", nil },
+	}
+	rt.Session.Set(localKey, kdf)
+
+	err = rt.Import(context.Background(), "", "", "")
+	if !errors.Is(err, ErrWrongPassphrase) {
+		t.Fatalf("err = %v, want ErrWrongPassphrase", err)
+	}
+}
+
+func fakeGitHubContentsServer(t *testing.T, files map[string][]byte) *httptest.Server {
+	t.Helper()
+	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		for name, content := range files {
+			if strings.HasSuffix(r.URL.Path, "/contents/"+name) {
+				_ = json.NewEncoder(w).Encode(map[string]string{
+					"encoding": "base64",
+					"content":  base64.StdEncoding.EncodeToString(content),
+				})
+				return
+			}
+		}
+		http.NotFound(w, r)
+	}))
+}
+
+

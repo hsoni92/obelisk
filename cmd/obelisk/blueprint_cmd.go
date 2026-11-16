@@ -16,13 +16,16 @@ import (
 
 func cmdBlueprint(args []string) {
 	if len(args) < 1 {
-		fmt.Fprintln(os.Stderr, "usage: obelisk blueprint status|unlock|lock|push")
+		fmt.Fprintln(os.Stderr, "usage: obelisk blueprint status|unlock|lock|push|import")
 		os.Exit(1)
 	}
 	fs := flag.NewFlagSet("blueprint", flag.ExitOnError)
 	api := fs.String("api", envAPI(), "admin API base URL")
 	cfg := fs.String("config", config.ResolvePath(), "config path")
 	pass := fs.String("passphrase", os.Getenv("OBELISK_BLUEPRINT_PASSPHRASE"), "blueprint passphrase")
+	force := fs.Bool("force", false, "overwrite GitHub even when remote generation is ahead")
+	adopt := fs.Bool("adopt-machine-id", false, "adopt machine.id from the blueprint on import")
+	keep := fs.Bool("keep-machine-id", false, "keep this host's machine.id on import")
 	_ = fs.Parse(args[1:])
 	switch args[0] {
 	case "status":
@@ -36,9 +39,25 @@ func cmdBlueprint(args []string) {
 	case "lock":
 		apiCallWith(*api, *cfg, http.MethodPost, "/api/v1/blueprint/lock", map[string]string{})
 	case "push":
-		apiCallWith(*api, *cfg, http.MethodPost, "/api/v1/blueprint/push", map[string]string{})
+		apiCallWith(*api, *cfg, http.MethodPost, "/api/v1/blueprint/push", map[string]bool{"force": *force})
+	case "import":
+		if *adopt && *keep {
+			fmt.Fprintln(os.Stderr, "choose only one of --adopt-machine-id or --keep-machine-id")
+			os.Exit(1)
+		}
+		choice := ""
+		if *adopt {
+			choice = "adopt"
+		}
+		if *keep {
+			choice = "keep"
+		}
+		apiCallWith(*api, *cfg, http.MethodPost, "/api/v1/blueprint/import", map[string]string{
+			"passphrase":        *pass,
+			"machine_id_choice": choice,
+		})
 	default:
-		fmt.Fprintln(os.Stderr, "usage: obelisk blueprint status|unlock|lock|push")
+		fmt.Fprintln(os.Stderr, "usage: obelisk blueprint status|unlock|lock|push|import")
 		os.Exit(1)
 	}
 }

@@ -174,6 +174,16 @@ func (s *Syncer) Loop(ctx context.Context) {
 
 // PushNow encrypts the current spec and pushes one commit.
 func (s *Syncer) PushNow(ctx context.Context) error {
+	return s.push(ctx, false)
+}
+
+// ForcePush encrypts the current spec and pushes one commit even when the
+// remote generation is ahead of this appliance.
+func (s *Syncer) ForcePush(ctx context.Context) error {
+	return s.push(ctx, true)
+}
+
+func (s *Syncer) push(ctx context.Context, force bool) error {
 	s.pushMu.Lock()
 	defer s.pushMu.Unlock()
 	if s.Session != nil && s.Session.Unlocked() {
@@ -240,7 +250,7 @@ func (s *Syncer) PushNow(ctx context.Context) error {
 			}
 			return nil
 		}
-		if remote.Generation > spec.Blueprint.GitHub.Generation && !localNeverSynced(spec) {
+		if !force && remote.Generation > spec.Blueprint.GitHub.Generation && !localNeverSynced(spec) {
 			err := ErrImportRequired
 			_ = s.fail(err)
 			return err

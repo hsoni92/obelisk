@@ -3,10 +3,13 @@ package adminapi
 import (
 	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/blueprint"
+	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/controller"
 )
 
 func (s *Server) handleBlueprintStatus(w http.ResponseWriter, r *http.Request) {
@@ -168,11 +171,29 @@ func (s *Server) handleBlueprintImport(w http.ResponseWriter, r *http.Request) {
 		writeBlueprintErr(w, err)
 		return
 	}
+	s.Blueprint.InvalidateProbe()
+	controller.ReconcileAsync(s.reconciler(config.EnsureReadablePath(s.ConfigPath)))
 	writeJSON(w, s.Blueprint.Status(r.Context(), loginFrom(r)))
 }
 
 func (s *Server) handleBlueprintPush(w http.ResponseWriter, r *http.Request) {
-	if err := s.Blueprint.Sync.PushNow(r.Context()); err != nil {
+	var body struct {
+		Force bool `json:"force"`
+	}
+	if r.Body != nil {
+		if err := json.NewDecoder(r.Body).Decode(&body); err != nil && !errors.Is(err, io.EOF) {
+			writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+			return
+		}
+	}
+	var err error
+	if body.Force {
+		err = s.Blueprint.Sync.ForcePush(r.Context())
+	} else {
+		err = s.Blueprint.Sync.PushNow(r.Context())
+	}
+	s.Blueprint.InvalidateProbe()
+	if err != nil {
 		writeBlueprintErr(w, err)
 		return
 	}

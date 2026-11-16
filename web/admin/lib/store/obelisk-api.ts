@@ -407,19 +407,28 @@ export const obeliskApi = createApi({
     }),
     importBlueprint: builder.mutation<
       BlueprintStatus,
-      { passphrase: string; repository?: string; machine_id_choice?: "adopt" | "keep" }
+      { passphrase?: string; repository?: string; machine_id_choice?: "adopt" | "keep" }
     >({
       query: (body) => ({
         url: "/blueprint/import",
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Blueprint", "Status", "BackupConfig"],
+      invalidatesTags: [
+        "Blueprint",
+        "Status",
+        "BackupConfig",
+        "Overview",
+        "Connections",
+        "OpenRouter",
+        "Mail",
+      ],
     }),
-    pushBlueprint: builder.mutation<BlueprintStatus, void>({
-      query: () => ({
+    pushBlueprint: builder.mutation<BlueprintStatus, { force?: boolean } | void>({
+      query: (body) => ({
         url: "/blueprint/push",
         method: "POST",
+        body: body ?? undefined,
       }),
       invalidatesTags: ["Blueprint"],
     }),

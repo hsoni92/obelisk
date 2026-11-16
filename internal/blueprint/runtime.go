@@ -221,7 +221,11 @@ func (rt *Runtime) Onboard(ctx context.Context, repository, branch, passphrase s
 	}); err != nil {
 		return err
 	}
-	return rt.Sync.PushNow(ctx)
+	if err := rt.Sync.PushNow(ctx); err != nil {
+		return err
+	}
+	rt.InvalidateProbe()
+	return nil
 }
 
 // Unlock derives the session key from the passphrase and the salt stored on the spec.
@@ -268,8 +272,9 @@ func (rt *Runtime) Lock() error {
 
 // Import pulls the remote bundle, decrypts it, and replaces local desired state.
 // choice is "adopt" or "keep" when machine ids differ.
+// When passphrase is empty, an already-unlocked session key is tried first.
 func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice string) error {
-	if strings.TrimSpace(passphrase) == "" {
+	if strings.TrimSpace(passphrase) == "" && !rt.Session.Unlocked() {
 		return fmt.Errorf("passphrase is required")
 	}
 	current, err := config.Load(rt.ConfigPath)
@@ -299,16 +304,35 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 	if err := json.Unmarshal(files[FileManifest], &manifest); err != nil {
 		return fmt.Errorf("parse manifest: %w", err)
 	}
-	kdf, err := KDFFromManifest(manifest)
-	if err != nil {
-		return err
-	}
-	key, err := DeriveKey(passphrase, kdf)
-	if err != nil {
-		return err
-	}
-	if manifest.KeyID != "" && KeyID(key) != manifest.KeyID {
-		return ErrWrongPassphrase
+	var (
+		kdf KDFParams
+		key []byte
+	)
+	if strings.TrimSpace(passphrase) != "" {
+		kdf, err = KDFFromManifest(manifest)
+		if err != nil {
+			return err
+		}
+		key, err = DeriveKey(passphrase, kdf)
+		if err != nil {
+			return err
+		}
+		if manifest.KeyID != "" && KeyID(key) != manifest.KeyID {
+			return ErrWrongPassphrase
+		}
+	} else {
+		sKey, sKeyID, sKDF, ok := rt.Session.Snapshot()
+		if !ok {
+			return ErrLocked
+		}
+		if manifest.KeyID != "" && sKeyID != manifest.KeyID {
+			return fmt.Errorf("passphrase is required to unlock remote blueprint: %w", ErrWrongPassphrase)
+		}
+		key = sKey
+		kdf, err = KDFFromManifest(manifest)
+		if err != nil {
+			kdf = sKDF
+		}
 	}
 	bundle, err := Unpack(files, key)
 	if err != nil {
@@ -347,6 +371,7 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 		return err
 	}
 	rt.Session.Set(key, kdf)
+	rt.InvalidateProbe()
 	return nil
 }
 
@@ -458,6 +483,8 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 	}
 	if probe.present && probe.generation > spec.Blueprint.GitHub.Generation && !localNeverSynced(spec) {
 		st.ImportRequired = true
+	} else if !probe.present && strings.Contains(st.LastPushError, "import required") && !localNeverSynced(spec) {
+		st.ImportRequired = true
 	}
 	if probe.machineID != "" && spec.Machine.ID != "" && probe.machineID != spec.Machine.ID {
 		st.MachineIDMismatch = true
@@ -466,6 +493,16 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 		st.DiscoveredRepository = repo
 		st.ImportRequired = true
 	}
+}
+
+// InvalidateProbe clears the cached remote probe so the next Status reads fresh GitHub state.
+func (rt *Runtime) InvalidateProbe() {
+	if rt == nil {
+		return
+	}
+	rt.probeMu.Lock()
+	rt.probe = probeCache{}
+	rt.probeMu.Unlock()
 }
 
 func (rt *Runtime) cachedProbe(repo string) (probeCache, bool) {
