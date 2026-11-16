@@ -1,7 +1,9 @@
 import type { ConnectionsResponse, ServiceInstance } from "@/lib/api";
+import type { VitalsRow } from "@/lib/types";
 
-export type InstanceConnection =
-  NonNullable<ConnectionsResponse["instances"]>[number];
+export type InstanceConnection = NonNullable<
+  ConnectionsResponse["instances"]
+>[number];
 
 export type ServiceRow = {
   rowKey: string;
@@ -10,6 +12,8 @@ export type ServiceRow = {
   connection?: InstanceConnection;
   /** ISO time of this instance's last successful backup, if any. */
   lastBackupAt?: string;
+  /** Latest CPU / memory / disk sample for this instance, if collected. */
+  vitals?: VitalsRow;
 };
 
 export function serviceRowKey(inst: { type: string; id: string }) {
@@ -22,6 +26,7 @@ export function buildServiceRows(
   connections: ConnectionsResponse | null,
   statusLoaded: boolean,
   lastBackups?: Record<string, string>,
+  vitals?: Record<string, VitalsRow>,
 ): ServiceRow[] {
   const connMap = new Map<string, InstanceConnection>();
   for (const c of connections?.instances ?? []) {
@@ -40,6 +45,7 @@ export function buildServiceRows(
       state,
       connection: connMap.get(key),
       lastBackupAt: lastBackups?.[`${inst.type}/${inst.id}`],
+      vitals: vitals?.[`${inst.type}/${inst.id}`],
     };
   });
 }
@@ -56,15 +62,45 @@ export function connectionEntries(
   if (conn.mongodb) out.push({ label: "MongoDB", value: conn.mongodb });
   if (conn.redis) out.push({ label: "Redis", value: conn.redis });
   if (conn.s3_http) out.push({ label: "S3 HTTP", value: conn.s3_http });
-  if (conn.qdrant_http) out.push({ label: "Qdrant REST", value: conn.qdrant_http });
-  if (conn.qdrant_grpc) out.push({ label: "Qdrant gRPC", value: conn.qdrant_grpc });
-  if (conn.searxng_http) out.push({ label: "SearXNG", value: conn.searxng_http });
+  if (conn.qdrant_http)
+    out.push({ label: "Qdrant REST", value: conn.qdrant_http });
+  if (conn.qdrant_grpc)
+    out.push({ label: "Qdrant gRPC", value: conn.qdrant_grpc });
+  if (conn.searxng_http)
+    out.push({ label: "SearXNG", value: conn.searxng_http });
   return out;
 }
 
 export function connectionPreview(conn?: InstanceConnection): string | null {
   const entries = connectionEntries(conn);
   return entries[0]?.value ?? null;
+}
+
+const CREDENTIAL_LABELS: Record<string, string> = {
+  username: "Username",
+  password: "Password",
+  database: "Database",
+  access_key: "Access key",
+  secret_key: "Secret key",
+};
+
+/** Copy-ready block: connection URLs plus any credential fields returned by the API. */
+export function connectionDetailsBlob(
+  conn?: InstanceConnection,
+  credentials?: ServiceInstance["credentials"],
+): string | null {
+  const lines: string[] = [];
+  for (const { label, value } of connectionEntries(conn)) {
+    lines.push(`${label}: ${value}`);
+  }
+  if (credentials) {
+    for (const [key, value] of Object.entries(credentials)) {
+      if (value) {
+        lines.push(`${CREDENTIAL_LABELS[key] ?? key}: ${value}`);
+      }
+    }
+  }
+  return lines.length > 0 ? lines.join("\n") : null;
 }
 
 export function stateBadgeVariant(state: string) {

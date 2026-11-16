@@ -280,6 +280,60 @@ export type ActivityHistoryResponse = {
   history_hours: number;
 };
 
+export type VitalsPoint = {
+  at: string;
+  percent: number;
+};
+
+export type VitalsMeter = {
+  used_bytes?: number;
+  total_bytes?: number;
+  percent: number;
+  known: boolean;
+  observed_at?: string;
+  not_running?: boolean;
+  volume_labels?: string[];
+  series?: VitalsPoint[];
+};
+
+export type VitalsRow = {
+  key: string;
+  name: string;
+  kind: string;
+  type?: string;
+  running: boolean;
+  rank_driver?: string;
+  memory: VitalsMeter;
+  cpu: VitalsMeter;
+  disk: VitalsMeter;
+};
+
+export type VitalsSnapshot = {
+  collected_at: string;
+  stale: boolean;
+  collecting: boolean;
+  scarce_resource?: string;
+  machine: {
+    memory_used_bytes: number;
+    memory_total_bytes: number;
+    disk_used_bytes: number;
+    disk_total_bytes: number;
+    cpu_percent: number;
+    memory_series?: VitalsPoint[];
+    disk_series?: VitalsPoint[];
+    cpu_series?: VitalsPoint[];
+    pressure_memory?: boolean;
+    pressure_disk?: boolean;
+    pressure_pid?: boolean;
+  };
+  unaccounted?: {
+    memory_bytes: number;
+    disk_bytes: number;
+    cpu_percent: number;
+  };
+  rows: VitalsRow[];
+};
+
 export type OverviewResponse = {
   generated_at: string;
   reconcileMode: string;
@@ -297,4 +351,5 @@ export type OverviewResponse = {
   };
   history: OverviewHistoryEvent[];
   history_hours: number;
+  vitals?: VitalsSnapshot;
 };

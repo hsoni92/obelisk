@@ -8,6 +8,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/history"
+	"github.com/hsoni92/obelisk/internal/vitals"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -47,6 +48,7 @@ type overviewResponse struct {
 	Summary       overviewSummary     `json:"summary"`
 	History       []history.Event     `json:"history"`
 	HistoryHours  float64             `json:"history_hours"`
+	Vitals        *vitals.Snapshot    `json:"vitals,omitempty"`
 }
 
 func (s *Server) overviewStore() *history.Store {
@@ -148,6 +150,9 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		Summary:       sum,
 		History:       events,
 		HistoryHours:  hours,
+	}
+	if s.Vitals != nil {
+		resp.Vitals = vitals.SnapshotForSpec(s.Vitals, spec, states)
 	}
 	writeJSON(w, resp)
 }

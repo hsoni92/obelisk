@@ -4,6 +4,7 @@ import { CopyButton } from "@/components/services/copy-button";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -151,7 +152,7 @@ function CreateInstanceBody({
   return (
     <>
       {result ? (
-        <div className="space-y-4">
+        <div className="contents">
           <DialogHeader>
             <div className="flex items-center gap-2 text-success">
               <CheckCircle2 className="size-4" />
@@ -165,25 +166,27 @@ function CreateInstanceBody({
               after you close this window (you can rotate them later).
             </DialogDescription>
           </DialogHeader>
-          <dl className="space-y-1.5 rounded-lg bg-muted p-3">
-            {creds.map(([k, v]) => (
-              <div key={k} className="flex items-center gap-2">
-                <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
-                  {CRED_LABELS[k] ?? k}
-                </dt>
-                <dd className="min-w-0 flex-1 truncate font-mono text-xs">
-                  {v}
-                </dd>
-                <CopyButton value={String(v)} />
-              </div>
-            ))}
-          </dl>
+          <DialogBody>
+            <dl className="space-y-1.5 rounded-lg bg-muted p-3">
+              {creds.map(([k, v]) => (
+                <div key={k} className="flex items-center gap-2">
+                  <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
+                    {CRED_LABELS[k] ?? k}
+                  </dt>
+                  <dd className="min-w-0 flex-1 truncate font-mono text-xs">
+                    {v}
+                  </dd>
+                  <CopyButton value={String(v)} />
+                </div>
+              ))}
+            </dl>
+          </DialogBody>
           <DialogFooter>
             <Button onClick={onClose}>Done</Button>
           </DialogFooter>
         </div>
       ) : (
-        <form onSubmit={(e) => void submit(e)} className="space-y-4">
+        <form onSubmit={(e) => void submit(e)} className="contents">
           <DialogHeader>
             <DialogTitle>New instance</DialogTitle>
             <DialogDescription>
@@ -191,32 +194,32 @@ function CreateInstanceBody({
               for you.
             </DialogDescription>
           </DialogHeader>
+          <DialogBody>
+            <div className="space-y-1">
+              <Label htmlFor="instance-type">Service type</Label>
+              <SelectField
+                id="instance-type"
+                value={type}
+                onValueChange={(v) => setType(v as InstanceType)}
+                options={TYPES.map((t) => ({ value: t.id, label: t.label }))}
+              />
+              <p className="text-metadata text-muted-foreground">
+                {TYPES.find((t) => t.id === type)?.hint}
+              </p>
+            </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="instance-type">Service type</Label>
-            <SelectField
-              id="instance-type"
-              value={type}
-              onValueChange={(v) => setType(v as InstanceType)}
-              options={TYPES.map((t) => ({ value: t.id, label: t.label }))}
-            />
-            <p className="text-metadata text-muted-foreground">
-              {TYPES.find((t) => t.id === type)?.hint}
-            </p>
-          </div>
-
-          <div className="space-y-1">
-            <Label htmlFor="instance-name">Name</Label>
-            <Input
-              id="instance-name"
-              autoFocus
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={`e.g. analytics (default: ${type})`}
-              autoComplete="off"
-            />
-          </div>
-
+            <div className="space-y-1">
+              <Label htmlFor="instance-name">Name</Label>
+              <Input
+                id="instance-name"
+                autoFocus
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={`e.g. analytics (default: ${type})`}
+                autoComplete="off"
+              />
+            </div>
+          </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>
               Cancel

@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+// KubeconfigEnv returns process environment for helm/kubectl subprocesses.
+func KubeconfigEnv() []string {
+	return kubeconfigEnv()
+}
+
 func kubeconfigEnv() []string {
 	env := os.Environ()
 	if strings.TrimSpace(os.Getenv("KUBECONFIG")) != "" {

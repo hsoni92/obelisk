@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -506,37 +507,37 @@ function AddAccountForm({
       );
       onClose();
     } catch (err) {
-      toast.error(
-        err instanceof Error ? err.message : "Could not add",
-      );
+      toast.error(err instanceof Error ? err.message : "Could not add");
     } finally {
       setSubmitting(false);
     }
   }
 
   return (
-    <form onSubmit={(e) => void submit(e)} className="space-y-3">
+    <form onSubmit={(e) => void submit(e)} className="contents">
       <DialogHeader>
         <DialogTitle>Add {noun}</DialogTitle>
         <DialogDescription>
           Added to {title}. Secrets are stored encrypted and never shown again.
         </DialogDescription>
       </DialogHeader>
-      {fields.map((f, i) => (
-        <Field
-          key={f.name}
-          id={`add-${f.name}`}
-          label={f.label}
-          type={f.type}
-          placeholder={f.placeholder}
-          autoFocus={i === 0}
-          autoComplete="off"
-          value={values[f.name] ?? ""}
-          onChange={(e) =>
-            setValues((v) => ({ ...v, [f.name]: e.target.value }))
-          }
-        />
-      ))}
+      <DialogBody>
+        {fields.map((f, i) => (
+          <Field
+            key={f.name}
+            id={`add-${f.name}`}
+            label={f.label}
+            type={f.type}
+            placeholder={f.placeholder}
+            autoFocus={i === 0}
+            autoComplete="off"
+            value={values[f.name] ?? ""}
+            onChange={(e) =>
+              setValues((v) => ({ ...v, [f.name]: e.target.value }))
+            }
+          />
+        ))}
+      </DialogBody>
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel

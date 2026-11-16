@@ -10,6 +10,7 @@ import { MultiSelect } from "@/components/ui/multi-select";
 import { SelectField } from "@/components/ui/select";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
   DialogFooter,
@@ -47,14 +48,8 @@ const ENDPOINT_OPTIONS = [
 ] as const;
 
 export function ServicesFilters() {
-  const {
-    filters,
-    activeCount,
-    setSetValues,
-    setTri,
-    reset,
-    setQuery,
-  } = useSurfaceFilters(SERVICES_SURFACE);
+  const { filters, activeCount, setSetValues, setTri, reset, setQuery } =
+    useSurfaceFilters(SERVICES_SURFACE);
   const [open, setOpen] = useState(false);
 
   const enabledTri = filters.tri.enabled ?? "all";
@@ -186,7 +181,7 @@ function FilterForm({
 
   return (
     <form
-      className="space-y-4"
+      className="contents"
       onSubmit={(e) => {
         e.preventDefault();
         onApply(d);
@@ -198,51 +193,51 @@ function FilterForm({
           Narrow the table. Leave a group empty to include everything.
         </DialogDescription>
       </DialogHeader>
+      <DialogBody>
+        <FacetRow label="Type">
+          <MultiSelect
+            aria-label="Type"
+            options={SERVICE_TYPES.map((t) => ({
+              value: t,
+              label: SERVICE_TYPE_LABEL[t],
+            }))}
+            value={d.types}
+            onValueChange={(v) => setD((x) => ({ ...x, types: v }))}
+            noun="types"
+          />
+        </FacetRow>
 
-      <FacetRow label="Type">
-        <MultiSelect
-          aria-label="Type"
-          options={SERVICE_TYPES.map((t) => ({
-            value: t,
-            label: SERVICE_TYPE_LABEL[t],
-          }))}
-          value={d.types}
-          onValueChange={(v) => setD((x) => ({ ...x, types: v }))}
-          noun="types"
-        />
-      </FacetRow>
+        <FacetRow label="Status">
+          <MultiSelect
+            aria-label="Status"
+            options={SERVICE_STATES.map((s) => ({ value: s, label: s }))}
+            value={d.states}
+            onValueChange={(v) => setD((x) => ({ ...x, states: v }))}
+            noun="statuses"
+          />
+        </FacetRow>
 
-      <FacetRow label="Status">
-        <MultiSelect
-          aria-label="Status"
-          options={SERVICE_STATES.map((s) => ({ value: s, label: s }))}
-          value={d.states}
-          onValueChange={(v) => setD((x) => ({ ...x, states: v }))}
-          noun="statuses"
-        />
-      </FacetRow>
+        <FacetRow label="Desired">
+          <SelectField
+            aria-label="Desired"
+            options={ENABLED_OPTIONS}
+            value={d.enabled}
+            onValueChange={(v) => setD((x) => ({ ...x, enabled: v as Tri }))}
+          />
+        </FacetRow>
 
-      <FacetRow label="Desired">
-        <SelectField
-          aria-label="Desired"
-          options={ENABLED_OPTIONS}
-          value={d.enabled}
-          onValueChange={(v) => setD((x) => ({ ...x, enabled: v as Tri }))}
-        />
-      </FacetRow>
-
-      <FacetRow label="Endpoint">
-        <SelectField
-          aria-label="Endpoint"
-          options={ENDPOINT_OPTIONS}
-          value={d.endpoint}
-          onValueChange={(v) => setD((x) => ({ ...x, endpoint: v as Tri }))}
-        />
-        <p className="mt-1.5 text-metadata text-muted-foreground">
-          “Exposed” means running with a connection string available to copy.
-        </p>
-      </FacetRow>
-
+        <FacetRow label="Endpoint">
+          <SelectField
+            aria-label="Endpoint"
+            options={ENDPOINT_OPTIONS}
+            value={d.endpoint}
+            onValueChange={(v) => setD((x) => ({ ...x, endpoint: v as Tri }))}
+          />
+          <p className="mt-1.5 text-metadata text-muted-foreground">
+            “Exposed” means running with a connection string available to copy.
+          </p>
+        </FacetRow>
+      </DialogBody>
       <DialogFooter className="items-center">
         <Button
           type="button"

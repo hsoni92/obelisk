@@ -13,7 +13,8 @@ import {
   Share2,
   type LucideIcon,
 } from "lucide-react";
-import { AnimatePresence, MotionConfig, motion } from "framer-motion";
+import { SidebarFooter } from "@/components/layout/sidebar-footer";
+import { MotionConfig, motion } from "framer-motion";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -112,26 +113,7 @@ export function AppShell({
             </nav>
           </>
 
-          <AnimatePresence initial={false}>
-            {!rail && (
-              <motion.div
-                key="feature"
-                initial={{ opacity: 0, y: 8 }}
-                animate={{
-                  opacity: 1,
-                  y: 0,
-                  transition: { delay: 0.18, duration: 0.2 },
-                }}
-                exit={{ opacity: 0, y: 8, transition: { duration: 0.1 } }}
-                className="mt-auto w-[220px] rounded-[28px] bg-feature p-4 text-feature-foreground shadow-rb-2"
-              >
-                <p className="text-sm font-medium">Middleware appliance</p>
-                <p className="mt-1 text-xs leading-4 text-white/70">
-                  Platform first, data services on demand.
-                </p>
-              </motion.div>
-            )}
-          </AnimatePresence>
+          <SidebarFooter rail={rail} />
         </motion.aside>
 
         <div className="scroll-stable flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">

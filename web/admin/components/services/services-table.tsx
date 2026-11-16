@@ -11,6 +11,7 @@ import {
   type ServiceRow,
 } from "@/lib/service-rows";
 import { relativeTime } from "@/lib/overview-series";
+import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
 import type { ServiceInstance } from "@/lib/api";
 import {
@@ -44,7 +45,7 @@ const TYPE_ICONS = {
 } as const;
 
 const GRID =
-  "grid grid-cols-[minmax(160px,1fr)_88px_100px_112px_minmax(140px,1fr)_208px] items-center gap-2";
+  "grid grid-cols-[minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_208px] items-center gap-2";
 
 const ROW_HEIGHT = 56;
 
@@ -64,6 +65,8 @@ type ServicesTableProps = {
 const SKELETON_HEADERS = [
   "Service",
   "Type",
+  "CPU",
+  "Memory",
   "Last backup",
   "Status",
   "Endpoint",
@@ -75,10 +78,10 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
   return (
     <SkeletonRegion
       label="Loading services"
-      className="flex min-h-0 flex-col rounded-2xl bg-card shadow-rb-2"
+      className="flex min-h-0 flex-col overflow-clip rounded-2xl bg-card shadow-rb-2"
     >
       <div
-        className={cn(GRID, "border-b border-border px-3 py-2.5")}
+        className={cn(GRID, "border-b border-border bg-muted px-3 py-2.5")}
         aria-hidden
       >
         {SKELETON_HEADERS.map((h, i) => (
@@ -99,6 +102,8 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
             <Skeleton className="h-4 w-24" />
           </div>
           <Skeleton className="h-4 w-14" />
+          <UsageSkeleton />
+          <UsageSkeleton />
           <Skeleton className="h-4 w-14" />
           <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="h-4 w-40 max-w-full" />
@@ -108,7 +113,7 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
           </div>
         </div>
       ))}
-      <div className="px-4 py-2" aria-hidden>
+      <div className="border-t border-border bg-muted px-4 py-3.5" aria-hidden>
         <Skeleton className="h-3 w-20" />
       </div>
     </SkeletonRegion>
@@ -204,6 +209,20 @@ export function ServicesTable({
             {String(getValue())}
           </span>
         ),
+      },
+      {
+        id: "cpu",
+        accessorFn: (r) => usageSortValue(r, "cpu"),
+        header: "CPU",
+        sortUndefined: "last",
+        cell: ({ row }) => <UsageCell row={row.original} kind="cpu" />,
+      },
+      {
+        id: "memory",
+        accessorFn: (r) => usageSortValue(r, "memory"),
+        header: "Memory",
+        sortUndefined: "last",
+        cell: ({ row }) => <UsageCell row={row.original} kind="memory" />,
       },
       {
         id: "backup",
@@ -389,7 +408,7 @@ export function ServicesTable({
   }
 
   return (
-    <div className="flex min-h-0 flex-col rounded-2xl bg-card shadow-rb-2">
+    <div className="flex min-h-0 flex-col overflow-clip rounded-2xl bg-card shadow-rb-2">
       <ServiceDetailsDialog
         row={detailsRow}
         onOpenChange={(o) => !o && setDetailsKey(null)}
@@ -404,7 +423,7 @@ export function ServicesTable({
         <div
           className={cn(
             GRID,
-            "sticky top-0 z-10 border-b border-border bg-card px-3 py-2.5",
+            "sticky top-0 z-10 border-b border-border bg-muted px-3 py-2.5",
           )}
           role="row"
         >
@@ -483,11 +502,81 @@ export function ServicesTable({
         </div>
       </div>
 
-      <div className="border-t border-border px-4 py-2 text-metadata text-muted-foreground">
+      <div className="flex shrink-0 items-center border-t border-border bg-muted px-4 py-3.5 text-metadata text-muted-foreground">
         {tableRows.length === totalCount
           ? `${totalCount} instance${totalCount === 1 ? "" : "s"}`
           : `${tableRows.length} of ${totalCount} instances`}
       </div>
+    </div>
+  );
+}
+
+type UsageKind = "cpu" | "memory";
+
+function usageMeter(row: ServiceRow, kind: UsageKind) {
+  const m = row.vitals?.[kind];
+  if (!row.vitals || !m || !m.known || m.not_running) return null;
+  return m;
+}
+
+function usageSortValue(row: ServiceRow, kind: UsageKind): number | undefined {
+  const m = usageMeter(row, kind);
+  if (!m) return undefined;
+  return kind === "memory" ? (m.used_bytes ?? m.percent) : m.percent;
+}
+
+function toneClass(pct: number) {
+  return pct >= 85 ? "bg-destructive" : pct >= 65 ? "bg-warning" : "bg-feature";
+}
+
+/** One compact value with a hairline meter beneath it; "—" when not sampled. */
+function UsageCell({ row, kind }: { row: ServiceRow; kind: UsageKind }) {
+  const m = usageMeter(row, kind);
+  if (!m) {
+    return (
+      <span
+        className="text-[13px] text-muted-foreground"
+        title={row.state === "running" ? "No sample yet" : "Not running"}
+      >
+        —
+      </span>
+    );
+  }
+  const pct = Math.min(100, Math.max(0, m.percent));
+  const text =
+    kind === "memory"
+      ? formatBytes(m.used_bytes ?? 0)
+      : m.percent > 0 && m.percent < 1
+        ? "<1%"
+        : `${m.percent < 10 ? m.percent.toFixed(1) : Math.round(m.percent)}%`;
+  const title =
+    kind === "memory" && m.total_bytes
+      ? `${formatBytes(m.used_bytes ?? 0)} of ${formatBytes(m.total_bytes)} machine memory (${pct.toFixed(1)}%)`
+      : `${pct.toFixed(1)}% of machine ${kind === "cpu" ? "CPU" : "memory"}`;
+  return (
+    <div className="w-full pr-2" title={title}>
+      <span className="text-[13px] tabular-nums">{text}</span>
+      <div
+        className="mt-1 h-[3px] overflow-hidden rounded-full bg-muted"
+        aria-hidden
+      >
+        <div
+          className={cn(
+            "h-full rounded-full transition-[width] duration-500",
+            toneClass(pct),
+          )}
+          style={{ width: `${Math.max(pct, 3)}%` }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function UsageSkeleton() {
+  return (
+    <div className="pr-2">
+      <Skeleton className="h-3.5 w-10" />
+      <Skeleton className="mt-1.5 h-[3px] w-full" />
     </div>
   );
 }

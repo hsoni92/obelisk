@@ -13,7 +13,9 @@ export function PageHeader({ section, action }: PageHeaderProps) {
     <div className="mb-8 flex items-end justify-between gap-4">
       <div>
         <h1 className="text-display">{title}</h1>
-        <p className="mt-1 text-lg font-light leading-6 tracking-tight text-muted-foreground">{subtitle}</p>
+        <p className="mt-1 text-lg font-light leading-6 tracking-tight text-muted-foreground">
+          {subtitle}
+        </p>
       </div>
       {action}
     </div>

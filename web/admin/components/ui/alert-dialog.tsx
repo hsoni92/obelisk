@@ -31,7 +31,7 @@ const AlertDialogContent = React.forwardRef<
     <AlertDialogPrimitive.Content
       ref={ref}
       className={cn(
-        "fixed left-1/2 top-1/2 z-50 w-full max-w-sm -translate-x-1/2 -translate-y-1/2 rounded-2xl bg-card p-6 shadow-rb-2 focus:outline-none",
+        "fixed left-1/2 top-1/2 z-50 flex max-h-[88vh] w-[calc(100%-2rem)] max-w-sm -translate-x-1/2 -translate-y-1/2 flex-col overflow-clip rounded-2xl bg-card p-0 shadow-rb-3 ring-1 ring-border focus:outline-none",
         className,
       )}
       {...props}
@@ -44,7 +44,15 @@ function AlertDialogHeader({
   className,
   ...props
 }: React.ComponentProps<"div">) {
-  return <div className={cn("space-y-1.5", className)} {...props} />;
+  return (
+    <div
+      className={cn(
+        "min-h-0 space-y-2 overflow-y-auto px-6 py-6 [scrollbar-gutter:auto]",
+        className,
+      )}
+      {...props}
+    />
+  );
 }
 
 function AlertDialogFooter({
@@ -52,7 +60,13 @@ function AlertDialogFooter({
   ...props
 }: React.ComponentProps<"div">) {
   return (
-    <div className={cn("mt-4 flex justify-end gap-2", className)} {...props} />
+    <div
+      className={cn(
+        "flex shrink-0 items-center justify-end gap-2 border-t border-border bg-muted px-6 py-4",
+        className,
+      )}
+      {...props}
+    />
   );
 }
 

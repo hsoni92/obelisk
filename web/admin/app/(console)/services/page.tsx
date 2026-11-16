@@ -3,7 +3,10 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { NewInstanceButton } from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
-import { ServicesTable, ServicesTableSkeleton } from "@/components/services/services-table";
+import {
+  ServicesTable,
+  ServicesTableSkeleton,
+} from "@/components/services/services-table";
 import {
   ConfigureInstanceDialog,
   type ConfigureInstanceSave,
@@ -14,6 +17,8 @@ import {
   useCreateInstanceMutation,
   useGetBackupConfigQuery,
   useGetConnectionsQuery,
+  useGetOverviewQuery,
+  overviewPollOptions,
   useGetStatusQuery,
   usePatchInstanceMutation,
   type ServiceInstance,
@@ -73,6 +78,17 @@ function ServicesPageContent() {
     pollingInterval: 30_000,
   });
 
+  // Same query args as the Overview page, so the cache entry is shared.
+  const { data: overview } = useGetOverviewQuery(
+    { hours: 6 },
+    overviewPollOptions,
+  );
+  const vitalsByKey = useMemo(
+    () =>
+      Object.fromEntries((overview?.vitals?.rows ?? []).map((r) => [r.key, r])),
+    [overview?.vitals?.rows],
+  );
+
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
 
@@ -92,8 +108,9 @@ function ServicesPageContent() {
         connections ?? null,
         !statusLoading && status !== undefined,
         backupConfig?.last_backup_by_instance,
+        vitalsByKey,
       ),
-    [status, connections, statusLoading, backupConfig],
+    [status, connections, statusLoading, backupConfig, vitalsByKey],
   );
 
   const tableRows = useMemo(

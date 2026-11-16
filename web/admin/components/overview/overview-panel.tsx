@@ -19,6 +19,7 @@ import {
   useGetOverviewQuery,
 } from "@/lib/api";
 import { BackupOverview } from "@/components/overview/backup-overview";
+import { ServiceVitals } from "@/components/overview/service-vitals";
 import { summarizeBackup } from "@/lib/backup-summary";
 import { formatBytes } from "@/lib/format-bytes";
 import { buildTimeline, relativeTime } from "@/lib/overview-series";
@@ -236,6 +237,8 @@ export function OverviewPanel({
           hint="across enabled destinations"
         />
       </div>
+
+      <ServiceVitals vitals={data?.vitals} />
 
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-3">

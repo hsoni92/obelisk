@@ -17,6 +17,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
 	"github.com/hsoni92/obelisk/internal/restore"
+	"github.com/hsoni92/obelisk/internal/vitals"
 )
 
 func main() {
@@ -54,6 +55,7 @@ func main() {
 	}
 	bp.Start(ctx)
 	config.SetAfterSave(func(string) { bp.Sync.Enqueue() })
+	vitalsStore := vitals.NewStore()
 	api := &adminapi.Server{
 		ConfigPath:            cfgFile,
 		HelmRoot:              *helmRoot,
@@ -63,7 +65,14 @@ func main() {
 		MailGatewayListenAddr: *mailGatewayAddr,
 		Blueprint:             bp,
 		Restore:               restore.New(),
+		Vitals:                vitalsStore,
 	}
+	ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE"))
+	vitals.StartSamplerLogged(ctx, vitalsStore, vitals.SamplerConfig{
+		ConfigPath: cfgFile,
+		HelmRoot:   *helmRoot,
+		Namespace:  ns,
+	})
 	srv := &http.Server{Addr: *addr, Handler: api.Handler()}
 	gwSrv := &http.Server{Addr: *gatewayAddr, Handler: gw.Handler()}
 	mailSrv := &http.Server{Addr: *mailGatewayAddr, Handler: mgw.Handler()}

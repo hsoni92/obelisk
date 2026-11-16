@@ -5,15 +5,17 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ServiceInstance } from "@/lib/api";
 import { relativeTime } from "@/lib/overview-series";
 import {
-  connectionEntries,
+  connectionDetailsBlob,
   stateBadgeVariant,
   type ServiceRow,
 } from "@/lib/service-rows";
@@ -69,109 +71,144 @@ type Props = {
   onConfigure: (inst: ServiceInstance) => void;
 };
 
-export function ServiceDetailsDialog({ row, onOpenChange, onConfigure }: Props) {
+export function ServiceDetailsDialog({
+  row,
+  onOpenChange,
+  onConfigure,
+}: Props) {
   const inst = row?.instance;
   const backup = inst?.deployment?.backup;
-  const conns = connectionEntries(row?.connection);
+  const connectionBlob = connectionDetailsBlob(
+    row?.connection,
+    inst?.credentials,
+  );
 
   return (
     <Dialog open={!!row} onOpenChange={onOpenChange}>
-      <DialogContent className="max-h-[90vh] max-w-lg overflow-y-auto">
+      <DialogContent className="max-w-lg">
         {row && inst && (
-          <div className="space-y-5">
+          <div className="contents">
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-lg font-normal capitalize">
                 {inst.display_name || inst.id}
-                <Badge variant={stateBadgeVariant(row.state)}>{row.state}</Badge>
+                <Badge variant={stateBadgeVariant(row.state)}>
+                  {row.state}
+                </Badge>
               </DialogTitle>
               <DialogDescription className="capitalize">
                 {inst.type} instance
               </DialogDescription>
             </DialogHeader>
+            <DialogBody className="space-y-5">
+              <Section title="Identity">
+                <dl>
+                  <Field
+                    label="Instance ID"
+                    value={inst.id}
+                    mono
+                    copy={inst.id}
+                  />
+                  <Field
+                    label="Type"
+                    value={<span className="capitalize">{inst.type}</span>}
+                  />
+                  <Field
+                    label="Helm release"
+                    value={inst.deployment?.release}
+                    mono
+                  />
+                  <Field
+                    label="Namespace"
+                    value={inst.deployment?.namespace}
+                    mono
+                  />
+                  <Field
+                    label="Desired state"
+                    value={inst.enabled ? "Enabled" : "Disabled"}
+                  />
+                </dl>
+              </Section>
 
-            <Section title="Identity">
-              <dl>
-                <Field label="Instance ID" value={inst.id} mono copy={inst.id} />
-                <Field label="Type" value={<span className="capitalize">{inst.type}</span>} />
-                <Field
-                  label="Helm release"
-                  value={inst.deployment?.release}
-                  mono
-                />
-                <Field
-                  label="Namespace"
-                  value={inst.deployment?.namespace}
-                  mono
-                />
-                <Field label="Desired state" value={inst.enabled ? "Enabled" : "Disabled"} />
-              </dl>
-            </Section>
+              <Section title="Backup">
+                <dl>
+                  {!backup?.supported ? (
+                    <Field label="Backup" value="Not supported" />
+                  ) : (
+                    <>
+                      <Field
+                        label="Status"
+                        value={backup.enabled ? "Enabled" : "Off"}
+                      />
+                      <Field
+                        label="Last backup"
+                        value={
+                          row.lastBackupAt
+                            ? `${relativeTime(row.lastBackupAt)} · ${new Date(row.lastBackupAt).toLocaleString()}`
+                            : "Never"
+                        }
+                      />
+                      <Field label="Method" value={backup.method} />
+                      {backup.policy && (
+                        <>
+                          <Field
+                            label="Schedule"
+                            value={backup.policy.schedule}
+                            mono
+                          />
+                          <Field
+                            label="Replication factor"
+                            value={String(backup.policy.replication_factor)}
+                          />
+                          <Field
+                            label="Retention"
+                            value={`${backup.policy.data_retention_days} days`}
+                          />
+                          <Field
+                            label="Policy"
+                            value={
+                              backup.policy.overridden
+                                ? "Custom override"
+                                : "Default"
+                            }
+                          />
+                        </>
+                      )}
+                      <Field
+                        label="Object prefix"
+                        value={backup.object_prefix}
+                        mono
+                      />
+                    </>
+                  )}
+                </dl>
+              </Section>
 
-            <Section title="Backup">
-              <dl>
-                {!backup?.supported ? (
-                  <Field label="Backup" value="Not supported" />
+              <Section title="Connection">
+                {connectionBlob ? (
+                  <div className="flex items-start gap-2 py-2">
+                    <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs text-foreground">
+                      {connectionBlob}
+                    </pre>
+                    <CopyButton
+                      value={connectionBlob}
+                      label="Copy connection details"
+                    />
+                  </div>
                 ) : (
-                  <>
-                    <Field label="Status" value={backup.enabled ? "Enabled" : "Off"} />
+                  <dl>
                     <Field
-                      label="Last backup"
+                      label="Endpoint"
                       value={
-                        row.lastBackupAt
-                          ? `${relativeTime(row.lastBackupAt)} · ${new Date(row.lastBackupAt).toLocaleString()}`
-                          : "Never"
+                        row.state === "running"
+                          ? "Pending connection…"
+                          : "Start to expose"
                       }
                     />
-                    <Field label="Method" value={backup.method} />
-                    {backup.policy && (
-                      <>
-                        <Field label="Schedule" value={backup.policy.schedule} mono />
-                        <Field
-                          label="Replication factor"
-                          value={String(backup.policy.replication_factor)}
-                        />
-                        <Field
-                          label="Retention"
-                          value={`${backup.policy.data_retention_days} days`}
-                        />
-                        <Field
-                          label="Policy"
-                          value={backup.policy.overridden ? "Custom override" : "Default"}
-                        />
-                      </>
-                    )}
-                    <Field label="Object prefix" value={backup.object_prefix} mono />
-                  </>
+                  </dl>
                 )}
-              </dl>
-            </Section>
-
-            <Section title="Connection">
-              <dl>
-                {conns.length === 0 ? (
-                  <Field
-                    label="Endpoint"
-                    value={
-                      row.state === "running"
-                        ? "Pending connection…"
-                        : "Start to expose"
-                    }
-                  />
-                ) : (
-                  conns.map((c) => (
-                    <Field
-                      key={c.label}
-                      label={c.label}
-                      value={c.value}
-                      mono
-                      copy={c.value}
-                    />
-                  ))
-                )}
-              </dl>
-            </Section>
-
-            <div className="flex justify-end">
+              </Section>
+            </DialogBody>
+            <DialogFooter>
               <Button
                 variant="ink"
                 onClick={() => {
@@ -181,7 +218,7 @@ export function ServiceDetailsDialog({ row, onOpenChange, onConfigure }: Props) 
               >
                 Configure
               </Button>
-            </div>
+            </DialogFooter>
           </div>
         )}
       </DialogContent>

@@ -14,6 +14,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
 	"github.com/hsoni92/obelisk/internal/restore"
+	"github.com/hsoni92/obelisk/internal/vitals"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -30,6 +31,7 @@ type Server struct {
 	mu                    sync.Mutex
 	historyOnce           sync.Once
 	historyStore          *history.Store
+	Vitals                *vitals.Store
 }
 
 func (s *Server) reconciler(cfg string) controller.Reconciler {
