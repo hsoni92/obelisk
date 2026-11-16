@@ -5,8 +5,9 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/../../.." && pwd)"
 VM_NAME="${OBELISK_VM_NAME:-obelisk-vm}"
 MOUNT_PATH="${OBELISK_VM_MOUNT:-/mnt/obelisk-src}"
-CPUS="${OBELISK_VM_CPUS:-4}"
-MEM="${OBELISK_VM_MEM:-8G}"
+# Sized in resolve_vm_size: manual (test-vm) is 2 CPU / 2G; full automation stays at the design floor.
+CPUS=""
+MEM=""
 DISK="${OBELISK_VM_DISK:-40G}"
 CLOUD_INIT_FULL="${ROOT}/tests/integration/multipass/cloud-init.yaml"
 CLOUD_INIT_MANUAL="${ROOT}/tests/integration/multipass/cloud-init-manual.yaml"
@@ -44,6 +45,7 @@ Commands:
   login     Print SSH address and credentials (VM must be running)
   install   Sync repo in VM and run install/bootstrap.sh (VPS profile; needs mount)
   smoke     Run in-VM smoke (basic or OBELISK_SMOKE_LEVEL=full)
+  uninstall Run in-VM uninstall test (after install)
   all       up (full mode) + install + smoke
   url       Print Kong URL on the VM (after install)
   shell     Interactive shell on the VM (Multipass)
@@ -52,6 +54,7 @@ Commands:
 
 Environment:
   OBELISK_VM_NAME, OBELISK_VM_CPUS, OBELISK_VM_MEM, OBELISK_VM_DISK
+  Defaults: manual (test-vm) 2 CPU / 2G / 40G; full 4 CPU / 8G / 40G
   OBELISK_VM_MODE=manual|full   manual: minimal OS, SSH password, no repo mount
   OBELISK_VM_CLOUD_INIT         Override cloud-init (full mode only)
   OBELISK_VM_MOUNT=true         Mount repo (full/dev automation only; never default in manual)
@@ -60,6 +63,23 @@ Environment:
 
 Repo: $ROOT
 EOF
+}
+
+resolve_vm_size() {
+  if [[ -n "${OBELISK_VM_CPUS:-}" ]]; then
+    CPUS="$OBELISK_VM_CPUS"
+  elif [[ "$OBELISK_VM_MODE" == "manual" ]]; then
+    CPUS=2
+  else
+    CPUS=4
+  fi
+  if [[ -n "${OBELISK_VM_MEM:-}" ]]; then
+    MEM="$OBELISK_VM_MEM"
+  elif [[ "$OBELISK_VM_MODE" == "manual" ]]; then
+    MEM=2G
+  else
+    MEM=8G
+  fi
 }
 
 should_mount() {
@@ -82,6 +102,8 @@ cmd_up() {
   need multipass
   local cloud_init
   cloud_init="$(cloud_init_file)"
+
+  resolve_vm_size
 
   if vm_exists; then
     log "VM $VM_NAME already exists — starting"
@@ -202,6 +224,14 @@ cmd_destroy() {
   multipass delete "$VM_NAME" --purge 2>/dev/null || true
 }
 
+cmd_uninstall() {
+  vm_exists || die "VM missing — run install first"
+  local script="${ROOT}/tests/integration/vm/uninstall-in-vm.sh"
+  [[ -f "$script" ]] || die "missing $script"
+  chmod +x "$script"
+  multipass exec "$VM_NAME" -- sudo OBELISK_ROOT=/opt/obelisk "$script"
+}
+
 main() {
   [[ $# -ge 1 ]] || { usage; exit 1; }
   case "$1" in
@@ -210,6 +240,7 @@ main() {
     login) cmd_login ;;
     install) cmd_install ;;
     smoke) cmd_smoke ;;
+    uninstall) cmd_uninstall ;;
     all) OBELISK_VM_MODE=full cmd_up; cmd_install; cmd_smoke; cmd_url ;;
     url) cmd_url ;;
     shell) cmd_shell ;;

@@ -8,6 +8,7 @@ import {
   useCompleteGitHubCallbackMutation,
   useGetBlueprintStatusQuery,
 } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -16,7 +17,6 @@ export default function LoginPage() {
   const { data: status } = useGetBlueprintStatusQuery();
   const [authorize, { isLoading }] = useAuthorizeGitHubMutation();
   const [complete] = useCompleteGitHubCallbackMutation();
-  const [error, setError] = useState<string | null>(null);
   const [device, setDevice] = useState<{
     userCode: string;
     verificationURI: string;
@@ -45,7 +45,7 @@ export default function LoginPage() {
       } catch (e) {
         const msg = rtkErrorMessage(e);
         if (!msg.toLowerCase().includes("pending")) {
-          setError(msg);
+          toast.error(msg);
           return;
         }
       }
@@ -59,7 +59,6 @@ export default function LoginPage() {
   }, [device, complete, router]);
 
   async function browserLogin() {
-    setError(null);
     try {
       const start = await authorize({
         flow: "code",
@@ -69,16 +68,21 @@ export default function LoginPage() {
         window.location.assign(start.authorize_url);
       }
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      const msg = rtkErrorMessage(e);
+      const callback = `${window.location.origin}/login/callback`;
+      if (msg.toLowerCase().includes("redirect")) {
+        toast.error("GitHub redirect URL mismatch", callback);
+      } else {
+        toast.error(msg);
+      }
     }
   }
 
   async function deviceLogin() {
-    setError(null);
     try {
       const start = await authorize({ flow: "device" }).unwrap();
       if (!start.device_code || !start.user_code || !start.verification_uri) {
-        setError("GitHub did not return a device code");
+        toast.error("GitHub did not return a device code");
         return;
       }
       setDevice({
@@ -88,7 +92,7 @@ export default function LoginPage() {
         interval: start.interval && start.interval > 0 ? start.interval : 5,
       });
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     }
   }
 
@@ -118,17 +122,6 @@ export default function LoginPage() {
           to 10) or use{" "}
           <span className="font-medium text-foreground">Use a device code</span>{" "}
           below — it does not depend on redirect URLs.
-        </p>
-      )}
-      {error && (
-        <p className="mb-4 text-xs text-destructive" role="alert">
-          {error}
-          {typeof window !== "undefined" &&
-            error.toLowerCase().includes("redirect") && (
-              <code className="mt-2 block break-all font-mono">
-                {`${window.location.origin}/login/callback`}
-              </code>
-            )}
         </p>
       )}
       <Button type="button" onClick={() => void browserLogin()} disabled={isLoading}>

@@ -9,6 +9,7 @@ import {
   useStartRestoreChainMutation,
 } from "@/lib/api";
 import { readPassphrase } from "@/lib/blueprint-storage";
+import { toast } from "@/lib/toast";
 import Link from "next/link";
 import { useEffect, useState } from "react";
 
@@ -24,7 +25,6 @@ export function RestoreWizard() {
   });
   const [passphrase, setPassphrase] = useState("");
   const [choice, setChoice] = useState<"adopt" | "keep" | "">("");
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const stored = readPassphrase();
@@ -41,9 +41,8 @@ export function RestoreWizard() {
 
   async function run(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
     if (mismatch && choice !== "adopt" && choice !== "keep") {
-      setError("Choose adopt or keep before restoring.");
+      toast.warning("Choose adopt or keep before restoring.");
       return;
     }
     try {
@@ -53,8 +52,9 @@ export function RestoreWizard() {
         repository: blueprint?.repository,
       }).unwrap();
       setWatching(true);
+      toast.info("Restore chain started");
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     }
   }
 
@@ -77,11 +77,6 @@ export function RestoreWizard() {
           Sync {blueprint.sync_status.replaceAll("_", " ")}
           {blueprint.generation ? ` · generation ${blueprint.generation}` : ""}
           {blueprint.last_commit_sha ? ` · ${blueprint.last_commit_sha.slice(0, 7)}` : ""}
-        </p>
-      )}
-      {error && (
-        <p className="mt-2 text-xs text-destructive" role="alert">
-          {error}
         </p>
       )}
       {chain && chain.phase !== "idle" && (

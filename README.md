@@ -54,7 +54,7 @@ sudo -E ./install/bootstrap.sh
 
 **VM test (Multipass):** `make test-vm` — prod-like VM, curl install from public GitHub (see [tests/integration/README.md](tests/integration/README.md)).
 
-After install: `sudo obelisk configure github` (OAuth wizard). Upgrade: `sudo obelisk update [--ref REF]`.
+After install: `sudo obelisk configure github` (OAuth wizard). Upgrade: `sudo obelisk update [--ref REF]`. Remove: `sudo obelisk uninstall --dry-run` then `sudo obelisk uninstall` ([uninstall runbook](docs/runbooks/uninstall.md)).
 
 ## Layout
 

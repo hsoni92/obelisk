@@ -10,8 +10,8 @@ import {
   usePushBlueprintMutation,
 } from "@/lib/api";
 import { forgetPassphrase } from "@/lib/blueprint-storage";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
 
 export function BlueprintPanel() {
   const router = useRouter();
@@ -21,28 +21,29 @@ export function BlueprintPanel() {
   const [push, { isLoading: pushing }] = usePushBlueprintMutation();
   const [lock] = useLockBlueprintMutation();
   const [logout] = useLogoutGitHubMutation();
-  const [message, setMessage] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
   async function pushNow() {
-    setError(null);
-    setMessage(null);
     try {
       const next = await push().unwrap();
-      setMessage(
-        next.last_commit_sha
-          ? `Pushed ${next.last_commit_sha.slice(0, 7)} (generation ${next.generation})`
-          : "Blueprint is already current",
-      );
+      if (next.last_commit_sha) {
+        toast.success(
+          "Blueprint pushed",
+          `${next.last_commit_sha.slice(0, 7)} (generation ${next.generation})`,
+        );
+      } else {
+        toast.info("Blueprint is already current");
+      }
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      toast.error("Push failed", rtkErrorMessage(e));
     }
   }
 
   async function forget() {
     forgetPassphrase();
     await lock().unwrap().catch(() => undefined);
-    setMessage("Passphrase forgotten on this browser. Push stays paused until unlock.");
+    toast.info(
+      "Passphrase forgotten",
+      "Push stays paused until you unlock on this browser.",
+    );
   }
 
   async function signOut() {
@@ -84,12 +85,6 @@ export function BlueprintPanel() {
         {data.last_push_error && (
           <p className="mt-3 text-xs text-destructive">{data.last_push_error}</p>
         )}
-        {error && (
-          <p className="mt-3 text-xs text-destructive" role="alert">
-            {error}
-          </p>
-        )}
-        {message && <p className="mt-3 text-xs text-muted-foreground">{message}</p>}
         <div className="mt-4 flex flex-wrap gap-2">
           <Button type="button" onClick={() => void pushNow()} disabled={pushing || !data.crypto_unlocked}>
             Push now

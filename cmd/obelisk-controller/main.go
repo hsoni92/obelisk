@@ -30,7 +30,9 @@ func main() {
 
 	config.LoadRepoDotEnv()
 
-	cfgFile := config.EnsureReadablePath(*configPath)
+	// Appliance installs write the live file to /var/lib even when -config points at /etc.
+	cfgFile := config.ActiveConfigPath(*configPath)
+	cfgFile = config.EnsureReadablePath(cfgFile)
 	if cfgFile != *configPath {
 		log.Printf("config: using %s (%s not present)", cfgFile, *configPath)
 	}

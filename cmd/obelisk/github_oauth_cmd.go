@@ -14,6 +14,7 @@ import (
 )
 
 func cmdGitHub(args []string) {
+	reexecWithSudoForK3s()
 	if len(args) < 2 || args[0] != "oauth" {
 		fmt.Fprintln(os.Stderr, "usage: obelisk github oauth set|configure|status")
 		os.Exit(1)

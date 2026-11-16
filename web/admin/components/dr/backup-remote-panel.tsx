@@ -18,14 +18,13 @@ import {
   usePatchBackupTargetMutation,
   useTestBackupRemoteMutation,
 } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { useMemo, useState } from "react";
 
 export function BackupRemotePanel({
   onBusy,
-  onError,
 }: {
   onBusy: (key: string | null) => void;
-  onError: (message: string | null) => void;
 }) {
   const { data: target } = useGetBackupTargetQuery();
   const [patchBackupTarget] = usePatchBackupTargetMutation();
@@ -68,7 +67,6 @@ export function BackupRemotePanel({
 
   const [accessKey, setAccessKey] = useState("");
   const [secretKey, setSecretKey] = useState("");
-  const [message, setMessage] = useState<string | null>(null);
 
   function clearEndpointDrafts() {
     setProviderDraft(null);
@@ -78,8 +76,6 @@ export function BackupRemotePanel({
 
   async function save() {
     onBusy("dr-save");
-    onError(null);
-    setMessage(null);
     try {
       const body: Parameters<typeof patchBackupTarget>[0] = {
         remote: { endpoint },
@@ -94,9 +90,9 @@ export function BackupRemotePanel({
       clearEndpointDrafts();
       setAccessKey("");
       setSecretKey("");
-      setMessage("Remote backup settings saved.");
+      toast.success("Remote backup settings saved");
     } catch (e) {
-      onError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     } finally {
       onBusy(null);
     }
@@ -104,8 +100,6 @@ export function BackupRemotePanel({
 
   async function testConnection() {
     onBusy("dr-test");
-    onError(null);
-    setMessage(null);
     try {
       if (accessKey && secretKey) {
         await patchBackupTarget({
@@ -119,9 +113,9 @@ export function BackupRemotePanel({
         setSecretKey("");
       }
       const res = await testBackupRemote().unwrap();
-      setMessage(res.last_test_message ?? "Test complete.");
+      toast.success(res.last_test_message ?? "Connection test complete");
     } catch (e) {
-      onError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     } finally {
       onBusy(null);
     }
@@ -240,7 +234,6 @@ export function BackupRemotePanel({
         />
       </div>
 
-      {message && <p className="text-xs font-medium text-link">{message}</p>}
       {target?.last_test_at && (
         <p className="text-metadata text-muted-foreground">
           Last test {target.last_test_at}:{" "}

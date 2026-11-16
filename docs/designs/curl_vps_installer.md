@@ -37,7 +37,7 @@ The gap is not the bootstrap engine (k3s, Helm, config, images)—it is **how th
 * **Tailscale on VPS** (unchanged: `bootstrap.sh` rejects Tailscale on `vps`).
 * **Registry-first image delivery** or GHCR publish as a v1 requirement.
 * **Signed release bundles**, cosign, or stable/canary channels in v1 (documented follow-on).
-* **`obelisk uninstall`** or full resumable install state machine beyond bootstrap idempotency today.
+* Full **resumable install** state machine beyond bootstrap idempotency today (`obelisk uninstall` is [documented separately](./obelisk_uninstaller.md)).
 * Removing **git clone + bootstrap** for contributors (fallback remains valid).
 * Promising **≤5 minute wall-clock** install while v1 still **builds container images on the VPS** (honest timing documented separately from CUJ 1 aspirational text in the parent design).
 

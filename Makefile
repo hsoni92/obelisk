@@ -1,4 +1,4 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-observe dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-destroy ci hooks-install gitleaks
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-observe dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-uninstall vm-destroy ci hooks-install gitleaks
 
 GITLEAKS ?= gitleaks
 PRE_COMMIT ?= pre-commit
@@ -99,6 +99,10 @@ vm-install:
 vm-smoke:
 	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh
 	./tests/integration/multipass/harness.sh smoke
+
+vm-uninstall:
+	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/*.sh
+	./tests/integration/multipass/harness.sh uninstall
 
 vm-destroy:
 	./tests/integration/multipass/harness.sh destroy

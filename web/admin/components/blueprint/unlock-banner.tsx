@@ -8,13 +8,13 @@ import {
   useUnlockBlueprintMutation,
 } from "@/lib/api";
 import { readPassphrase, writePassphrase } from "@/lib/blueprint-storage";
+import { toast } from "@/lib/toast";
 import { useEffect, useRef, useState } from "react";
 
 export function UnlockBanner() {
   const { data } = useGetBlueprintStatusQuery(undefined, { pollingInterval: 5000 });
   const [unlock, { isLoading }] = useUnlockBlueprintMutation();
   const [passphrase, setPassphrase] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const tried = useRef(false);
 
   useEffect(() => {
@@ -24,20 +24,20 @@ export function UnlockBanner() {
     tried.current = true;
     unlock({ passphrase: stored })
       .unwrap()
-      .catch((e) => setError(rtkErrorMessage(e)));
+      .catch((e) => toast.error(rtkErrorMessage(e)));
   }, [data, unlock]);
 
   if (!data?.repository || data.crypto_unlocked) return null;
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
     try {
       await unlock({ passphrase }).unwrap();
       writePassphrase(passphrase);
       setPassphrase("");
+      toast.success("Blueprint unlocked");
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     }
   }
 
@@ -52,11 +52,6 @@ export function UnlockBanner() {
         the passphrase to resume GitHub sync.
         {data.import_required ? " Import is required before the next push." : ""}
       </p>
-      {error && (
-        <p className="mt-2 text-xs text-destructive" role="alert">
-          {error}
-        </p>
-      )}
       {data.last_push_error && (
         <p className="mt-2 text-xs text-muted-foreground">{data.last_push_error}</p>
       )}

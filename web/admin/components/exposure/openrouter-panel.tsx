@@ -14,15 +14,14 @@ import {
   usePostOpenRouterAccountMutation,
   useTestOpenRouterMutation,
 } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { Sparkles } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export function OpenRouterPanel({
   onBusy,
-  onError,
 }: {
   onBusy: (key: string | null) => void;
-  onError: (message: string | null) => void;
 }) {
   const { data: config, refetch, isLoading } = useGetOpenRouterConfigQuery();
   const [patchConfig] = usePatchOpenRouterConfigMutation();
@@ -32,7 +31,6 @@ export function OpenRouterPanel({
   const [testOpenRouter] = useTestOpenRouterMutation();
 
   const [tokenReveal, setTokenReveal] = useState<string | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
 
   const baseURL = useMemo(() => {
     const path = config?.gateway_public_path ?? "/openrouter/api/v1";
@@ -41,14 +39,12 @@ export function OpenRouterPanel({
       : `${window.location.origin}${path}`;
   }, [config?.gateway_public_path]);
 
-  /** Runs an action, surfacing failures in the page-level alert. */
   async function act(key: string, fn: () => Promise<void>) {
     onBusy(key);
-    onError(null);
     try {
       await fn();
     } catch (e) {
-      onError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     } finally {
       onBusy(null);
     }
@@ -87,7 +83,6 @@ export function OpenRouterPanel({
           placeholder: "sk-or-…",
         },
       ]}
-      message={message}
       tokenReveal={tokenReveal}
       onDismissToken={() => setTokenReveal(null)}
       testLabel="Test /models"
@@ -101,7 +96,9 @@ export function OpenRouterPanel({
       onToggle={(enabled) =>
         act("or-enable", async () => {
           await patchConfig({ enabled }).unwrap();
-          setMessage(enabled ? "Gateway enabled." : "Gateway disabled.");
+          toast.success(
+            enabled ? "Gateway enabled" : "Gateway disabled",
+          );
         })
       }
       onRotateToken={() =>
@@ -111,20 +108,19 @@ export function OpenRouterPanel({
           }).unwrap();
           if ("gateway_token" in res) {
             setTokenReveal(res.gateway_token);
-            setMessage("New gateway token generated.");
+            toast.info("New gateway token generated");
           }
           await refetch();
         })
       }
       onTest={() =>
         act("or-test", async () => {
-          setMessage(null);
           const res = await testOpenRouter({
             gateway_url:
               config?.gateway_local_base_url ?? "http://127.0.0.1:18081",
           }).unwrap();
           if (res.ok) {
-            setMessage(`Test OK (HTTP ${res.status_code})`);
+            toast.success(`Test OK (HTTP ${res.status_code})`);
           } else {
             const detail =
               ("message" in res &&
@@ -133,14 +129,14 @@ export function OpenRouterPanel({
               res.body_preview?.trim() ||
               res.error ||
               `HTTP ${res.status_code ?? "?"}`;
-            setMessage(`Test failed: ${detail}`);
+            toast.error("Gateway test failed", detail);
           }
         })
       }
       onAdd={async (v) => {
         try {
           await postAccount({ label: v.label, api_key: v.api_key }).unwrap();
-          setMessage("Account added.");
+          toast.success("Account added");
         } catch (e) {
           throw new Error(rtkErrorMessage(e));
         }
@@ -148,13 +144,13 @@ export function OpenRouterPanel({
       onToggleAccount={(id, enabled) =>
         act(`or-acc-${id}`, async () => {
           await patchAccount({ id, body: { enabled } }).unwrap();
-          setMessage(`Account ${enabled ? "enabled" : "disabled"}.`);
+          toast.success(`Account ${enabled ? "enabled" : "disabled"}`);
         })
       }
       onRemoveAccount={(id) =>
         act(`or-del-${id}`, async () => {
           await deleteAccount({ id }).unwrap();
-          setMessage("Account removed.");
+          toast.success("Account removed");
         })
       }
     />

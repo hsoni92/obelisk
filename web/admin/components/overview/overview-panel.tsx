@@ -35,7 +35,8 @@ import {
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { toast } from "@/lib/toast";
+import { useEffect, useMemo, useState } from "react";
 import {
   Area,
   AreaChart,
@@ -53,16 +54,16 @@ const RANGE_OPTIONS = [
 ];
 
 const timelineConfig = {
-  healthy: { label: "Running", color: "#22c55e" },
-  attention: { label: "Degraded / pending", color: "#ef4444" },
+  healthy: { label: "Running", color: "var(--success)" },
+  attention: { label: "Degraded / pending", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
 const stateConfig = {
-  running: { label: "Running", color: "#22c55e" },
-  starting: { label: "Starting", color: "#eab308" },
-  stopping: { label: "Stopping", color: "#eab308" },
-  pending: { label: "Pending", color: "#eab308" },
-  degraded: { label: "Degraded", color: "#ef4444" },
+  running: { label: "Running", color: "var(--success)" },
+  starting: { label: "Starting", color: "var(--warning)" },
+  stopping: { label: "Stopping", color: "var(--warning)" },
+  pending: { label: "Pending", color: "var(--warning)" },
+  degraded: { label: "Degraded", color: "var(--destructive)" },
   stopped: { label: "Stopped", color: "var(--chart-4)" },
 } satisfies ChartConfig;
 
@@ -80,6 +81,13 @@ export function OverviewPanel({
     { hours },
     overviewPollOptions,
   );
+
+  const errorMsg = error ? rtkErrorMessage(error) : null;
+  useEffect(() => {
+    if (errorMsg) {
+      toast.error("Could not load overview", errorMsg);
+    }
+  }, [errorMsg]);
 
   const { data: backupConfig } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 8000,
@@ -140,8 +148,8 @@ export function OverviewPanel({
 
   if (error) {
     return (
-      <p className="inline-block rounded-full bg-broadcast-tint px-3 py-1 text-xs font-medium text-foreground">
-        {rtkErrorMessage(error)}
+      <p className="text-sm text-muted-foreground">
+        Overview data is temporarily unavailable.
       </p>
     );
   }

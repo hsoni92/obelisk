@@ -2,6 +2,11 @@
 # Obelisk platform bootstrap — idempotent where possible.
 set -euo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+if [[ -f "$SCRIPT_DIR/obelisk-paths.sh" ]]; then
+  # shellcheck source=install/obelisk-paths.sh
+  source "$SCRIPT_DIR/obelisk-paths.sh"
+fi
 OBELISK_ROOT="${OBELISK_ROOT:-/opt/obelisk}"
 CONFIG_PATH="${OBELISK_CONFIG:-/etc/obelisk/obelisk.yaml}"
 NAMESPACE="${OBELISK_NAMESPACE:-obelisk}"

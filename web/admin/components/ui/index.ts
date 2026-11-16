@@ -147,6 +147,7 @@ export {
   ToastTitle,
   ToastViewport,
 } from "./toast";
+export { Toaster } from "./toaster";
 export { Toggle } from "./toggle";
 export { ToggleGroup, ToggleGroupItem, ToggleGroupScroll } from "./toggle-group";
 export {

@@ -91,8 +91,8 @@ func ApplyClusterGitHubOAuthSecret(ctx context.Context, o GitHubOAuth, opt Clust
 		"--from-literal=redirect_uri=" + o.RedirectURI,
 		"--dry-run=client", "-o", "yaml",
 	}
-	create := exec.CommandContext(ctx, "kubectl", args...)
-	apply := exec.CommandContext(ctx, "kubectl", "apply", "-f", "-")
+	create := kubectlCmd(ctx, args...)
+	apply := kubectlCmd(ctx, "apply", "-f", "-")
 	pipe, err := create.StdoutPipe()
 	if err != nil {
 		return err
@@ -106,25 +106,55 @@ func ApplyClusterGitHubOAuthSecret(ctx context.Context, o GitHubOAuth, opt Clust
 	}
 	if err := apply.Start(); err != nil {
 		_ = create.Process.Kill()
+		_ = create.Wait()
 		return err
 	}
-	if err := create.Wait(); err != nil {
-		return fmt.Errorf("kubectl create secret: %w", err)
+	createErr := create.Wait()
+	applyErr := apply.Wait()
+	if createErr != nil {
+		return annotateKubeconfig(fmt.Errorf("kubectl create secret: %w", createErr))
 	}
-	if err := apply.Wait(); err != nil {
-		return fmt.Errorf("kubectl apply secret: %w", err)
+	if applyErr != nil {
+		return annotateKubeconfig(fmt.Errorf("kubectl apply secret: %w", applyErr))
 	}
 	if !opt.RestartDeploy {
 		return nil
 	}
-	restart := exec.CommandContext(ctx, "kubectl", "rollout", "restart",
+	restart := kubectlCmd(ctx, "rollout", "restart",
 		"deployment/obelisk-controller", "--namespace", ns)
 	restart.Stdout = os.Stdout
 	restart.Stderr = os.Stderr
 	if err := restart.Run(); err != nil {
-		return fmt.Errorf("kubectl rollout restart: %w", err)
+		return annotateKubeconfig(fmt.Errorf("kubectl rollout restart: %w", err))
 	}
 	return nil
+}
+
+func kubectlCmd(ctx context.Context, args ...string) *exec.Cmd {
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd.Env = kubeconfigEnv()
+	return cmd
+}
+
+func kubeconfigEnv() []string {
+	env := os.Environ()
+	if strings.TrimSpace(os.Getenv("KUBECONFIG")) != "" {
+		return env
+	}
+	if _, err := os.Stat(k3sKubeconfigPath); err == nil {
+		return append(env, "KUBECONFIG="+k3sKubeconfigPath)
+	}
+	return env
+}
+
+func annotateKubeconfig(err error) error {
+	if err == nil || os.Geteuid() == 0 {
+		return err
+	}
+	if !strings.Contains(err.Error(), "permission denied") {
+		return err
+	}
+	return fmt.Errorf("%w\nre-run as root: sudo obelisk configure github", err)
 }
 
 // CredentialsDirForConfig resolves where oauth and gateway credential files should live.

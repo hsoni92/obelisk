@@ -1,3 +1,4 @@
+import { AppToasts } from "@/components/providers/toast-provider";
 import { StoreProvider } from "@/components/providers/store-provider";
 import { ThemeSync } from "@/components/theme/theme-sync";
 import { themeInitScript } from "@/lib/theme";
@@ -39,7 +40,10 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{ __html: themeInitScript }}
         />
         <ThemeSync />
-        <StoreProvider>{children}</StoreProvider>
+        <StoreProvider>
+          {children}
+          <AppToasts />
+        </StoreProvider>
       </body>
     </html>
   );

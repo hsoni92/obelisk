@@ -25,6 +25,7 @@ import {
 } from "@/lib/filters";
 import { buildServiceRows, serviceRowKey } from "@/lib/service-rows";
 import { useSurfaceFilters } from "@/lib/store/hooks";
+import { toast } from "@/lib/toast";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
@@ -44,7 +45,6 @@ function ServicesPageContent() {
   const [busy, setBusy] = useState<string | null>(null);
   const [configureTarget, setConfigureTarget] =
     useState<ServiceInstance | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
   const {
     filters: serviceFilters,
     activeCount: serviceFilterCount,
@@ -77,8 +77,12 @@ function ServicesPageContent() {
   const [patchInstance] = usePatchInstanceMutation();
 
   const queryError = statusError ?? connectionsError;
-  const error =
-    actionError ?? (queryError ? rtkErrorMessage(queryError) : null);
+  const queryErrorMsg = queryError ? rtkErrorMessage(queryError) : null;
+  useEffect(() => {
+    if (queryErrorMsg) {
+      toast.error("Could not load services", queryErrorMsg);
+    }
+  }, [queryErrorMsg]);
 
   const allTableRows = useMemo(
     () =>
@@ -98,7 +102,6 @@ function ServicesPageContent() {
   );
 
   async function addInstance(type: (typeof TYPES)[number], name: string) {
-    setActionError(null);
     const res = await createInstance({
       type,
       display_name: name,
@@ -113,7 +116,6 @@ function ServicesPageContent() {
   ): Promise<boolean> {
     const key = serviceRowKey(inst);
     setBusy(key);
-    setActionError(null);
     try {
       await patchInstance({
         id: inst.id,
@@ -121,7 +123,7 @@ function ServicesPageContent() {
       }).unwrap();
       return true;
     } catch (e) {
-      setActionError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
       return false;
     } finally {
       setBusy(null);
@@ -131,14 +133,14 @@ function ServicesPageContent() {
   async function saveConfiguration(id: string, patch: ConfigureInstanceSave) {
     const inst = allTableRows.find((r) => r.instance.id === id)?.instance;
     setBusy(inst ? serviceRowKey(inst) : id);
-    setActionError(null);
     try {
       await patchInstance({
         id,
         body: { ...patch, type: inst?.type },
       }).unwrap();
+      toast.success("Instance updated");
     } catch (e) {
-      setActionError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     } finally {
       setBusy(null);
     }
@@ -159,15 +161,6 @@ function ServicesPageContent() {
         section="services"
         action={<NewInstanceButton onCreate={addInstance} />}
       />
-
-      {error && (
-        <p
-          className="text-xs font-medium text-foreground bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
 
       <div className="space-y-4">
         <ServicesFilters />

@@ -14,7 +14,7 @@ make vm-smoke
 make vm-destroy
 ```
 
-Specs match design floor: 4 CPU, 8G RAM, 40G disk (`OBELISK_VM_CPUS`, `OBELISK_VM_MEM`, `OBELISK_VM_DISK`).
+`test-vm` is install and basic-usage only: 2 CPU, 2G RAM, 40G disk. Full automation (`vm-test-all`) stays at the design floor (4 CPU, 8G). Override with `OBELISK_VM_CPUS`, `OBELISK_VM_MEM`, `OBELISK_VM_DISK`.
 
 SSH: `ubuntu@<ip>` / password `obelisk-vm` (Multipass manual cloud-init only).
 

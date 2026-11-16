@@ -148,13 +148,13 @@ print_admin_url() {
   fi
   log "platform-ready — admin UI: ${base}"
   log "verify: curl -fsS ${base%/}/api/v1/health"
-  log "next: obelisk configure github   # interactive OAuth wizard"
-  log "       or: obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
+  log "next: sudo obelisk configure github   # interactive OAuth wizard"
+  log "       or: sudo obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
   log "       then sign in with GitHub (see docs/runbooks/github-blueprint.md)"
   if [[ -t 0 && -t 1 && "${OBELISK_SKIP_GITHUB_WIZARD:-false}" != "true" && "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
     if command -v obelisk >/dev/null; then
       log "starting GitHub OAuth wizard (OBELISK_SKIP_GITHUB_WIZARD=true to skip)"
-      obelisk configure github || log "wizard skipped or failed — configure later with: obelisk configure github"
+      obelisk configure github || log "wizard skipped or failed — configure later with: sudo obelisk configure github"
     fi
   fi
 }

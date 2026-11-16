@@ -11,12 +11,11 @@ import {
   useGetStatusQuery,
   useRunBackupMutation,
 } from "@/lib/api";
-import { useState } from "react";
+import { toast } from "@/lib/toast";
+import { useEffect, useState } from "react";
 
 export default function DRPage() {
   const [busy, setBusy] = useState<string | null>(null);
-  const [actionError, setActionError] = useState<string | null>(null);
-  const [actionInfo, setActionInfo] = useState<string | null>(null);
 
   const { data: status, error: statusError } = useGetStatusQuery(
     undefined,
@@ -26,12 +25,16 @@ export default function DRPage() {
   const [runBackup] = useRunBackupMutation();
 
   const backupReady = backupCfg?.backup_ready ?? status?.backup?.ready;
-  const error = actionError ?? (statusError ? rtkErrorMessage(statusError) : null);
+
+  const statusErrorMsg = statusError ? rtkErrorMessage(statusError) : null;
+  useEffect(() => {
+    if (statusErrorMsg) {
+      toast.error("Could not load appliance status", statusErrorMsg);
+    }
+  }, [statusErrorMsg]);
 
   async function backupNow() {
     setBusy("backup");
-    setActionError(null);
-    setActionInfo(null);
     try {
       const res = await runBackup().unwrap();
       const parts = [res.message ?? "Backup accepted"];
@@ -42,16 +45,17 @@ export default function DRPage() {
       if (res.data_skipped?.length) {
         parts.push(`skipped: ${res.data_skipped.join("; ")}`);
       }
+      const detail = parts.join(" · ");
       if (
         res.data_skipped?.length &&
         (!res.data_objects || res.data_objects.length === 0)
       ) {
-        setActionError(parts.join(" · "));
+        toast.warning("Backup finished with skips", detail);
       } else {
-        setActionInfo(parts.join(" · "));
+        toast.success("Backup started", detail);
       }
     } catch (e) {
-      setActionError(rtkErrorMessage(e));
+      toast.error("Backup failed", rtkErrorMessage(e));
     } finally {
       setBusy(null);
     }
@@ -61,21 +65,9 @@ export default function DRPage() {
     <>
       <PageHeader section="dr" />
 
-      {error && (
-        <p
-          className="text-xs font-medium text-foreground bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
-          role="alert"
-        >
-          {error}
-        </p>
-      )}
-      {actionInfo && !error && (
-        <p className="text-xs text-muted-foreground mb-3">{actionInfo}</p>
-      )}
-
       <div className="space-y-4">
         <RestoreWizard />
-        <DRPanel onBusy={setBusy} onError={setActionError} />
+        <DRPanel onBusy={setBusy} />
         <div className="flex flex-wrap items-center gap-3">
           <Button
             onClick={() => void backupNow()}

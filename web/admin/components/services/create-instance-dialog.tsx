@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { SelectField } from "@/components/ui/select";
 import type { ServiceInstance } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import {
   CheckCircle2,
   Database,
@@ -124,17 +125,15 @@ function CreateInstanceBody({
   const [type, setType] = React.useState<InstanceType>("postgres");
   const [name, setName] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const [result, setResult] = React.useState<CreateResult | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
     try {
       setResult(await onCreate(type, name.trim() || type));
     } catch (err) {
-      setError(
+      toast.error(
         err instanceof Error ? err.message : "Could not create instance",
       );
     } finally {
@@ -217,15 +216,6 @@ function CreateInstanceBody({
               autoComplete="off"
             />
           </div>
-
-          {error && (
-            <p
-              role="alert"
-              className="rounded-md bg-destructive-tint px-3 py-2 text-xs font-medium text-destructive"
-            >
-              {error}
-            </p>
-          )}
 
           <DialogFooter>
             <Button type="button" variant="outline" onClick={onClose}>

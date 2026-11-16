@@ -2,8 +2,10 @@
 
 import { AuthSkeleton } from "@/components/skeletons";
 import { rtkErrorMessage, useCompleteGitHubCallbackMutation } from "@/lib/api";
+import { toast } from "@/lib/toast";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 const inFlight = new Map<string, Promise<void>>();
 
@@ -32,35 +34,54 @@ export function CallbackClient() {
   const params = useSearchParams();
   const router = useRouter();
   const [complete] = useCompleteGitHubCallbackMutation();
-  const [error, setError] = useState<string | null>(null);
+  const [asyncFailed, setAsyncFailed] = useState(false);
+  const toasted = useRef(false);
+
+  const code = params.get("code");
+  const state = params.get("state");
+  const oauthError = params.get("error_description") || params.get("error");
+  const syncFailed =
+    Boolean(oauthError) || (!oauthError && (!code || !state));
 
   useEffect(() => {
-    const code = params.get("code");
-    const state = params.get("state");
-    const oauthError = params.get("error_description") || params.get("error");
-    if (oauthError) {
-      setError(oauthError);
-      return;
-    }
-    if (!code || !state) {
-      setError("GitHub did not return an authorization code");
-      return;
-    }
+    if (!syncFailed || toasted.current) return;
+    toasted.current = true;
+    toast.error(
+      oauthError ?? "GitHub did not return an authorization code",
+    );
+  }, [syncFailed, oauthError]);
+
+  useEffect(() => {
+    if (syncFailed || !code || !state) return;
     let cancelled = false;
     void finishGitHubOAuth(complete, router, code, state).catch((e) => {
-      if (!cancelled) setError(rtkErrorMessage(e));
+      if (!cancelled) {
+        if (!toasted.current) {
+          toasted.current = true;
+          toast.error(rtkErrorMessage(e));
+        }
+        setAsyncFailed(true);
+      }
     });
     return () => {
       cancelled = true;
     };
-  }, [params, complete, router]);
+  }, [syncFailed, code, state, complete, router]);
 
-  if (!error) return <AuthSkeleton caption="Finishing GitHub sign-in" />;
-  return (
-    <div className="min-h-screen flex items-center justify-center px-4">
-      <p className="text-body text-destructive" role="alert">
-        {error}
-      </p>
-    </div>
-  );
+  const failed = syncFailed || asyncFailed;
+
+  if (failed) {
+    return (
+      <div className="flex min-h-screen flex-col items-center justify-center gap-3 px-4 text-center">
+        <p className="text-body text-muted-foreground">
+          GitHub sign-in could not be completed.
+        </p>
+        <Link href="/login" className="text-sm font-medium text-link">
+          Back to sign in
+        </Link>
+      </div>
+    );
+  }
+
+  return <AuthSkeleton caption="Finishing GitHub sign-in" />;
 }

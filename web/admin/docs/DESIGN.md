@@ -43,7 +43,7 @@ Unstyled namespaces are also available from `lib/radix-primitives.ts` when you n
 | Slot | `button.tsx` (`asChild`) |
 | Switch | `switch.tsx` |
 | Tabs | `tabs.tsx` |
-| Toast | `toast.tsx` |
+| Toast | `toast.tsx`, `toaster.tsx` — imperative API: `toast` from `@/lib/toast` |
 | Toggle | `toggle.tsx` |
 | Toggle Group | `toggle-group.tsx` |
 | Toolbar | `toolbar.tsx` |

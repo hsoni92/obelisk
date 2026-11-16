@@ -38,6 +38,17 @@ sudo obelisk update --skip-images   # helm/controller rollout only
 
 This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
 
+## Uninstall / failed install
+
+If bootstrap failed or you need to reclaim the VPS:
+
+```bash
+sudo obelisk uninstall --dry-run
+sudo obelisk uninstall --yes
+```
+
+Shallow teardown (keep PVCs for debugging): `sudo obelisk uninstall --tier platform --yes`. See [uninstall.md](./uninstall.md).
+
 ## Contributor / fallback (git checkout)
 
 1. Clone or copy Obelisk to `/opt/obelisk`.

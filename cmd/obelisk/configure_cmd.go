@@ -20,5 +20,6 @@ func cmdConfigure(args []string) {
 }
 
 func cmdConfigureGitHub(args []string) {
+	reexecWithSudoForK3s()
 	cmdGitHubOAuthConfigure(args)
 }

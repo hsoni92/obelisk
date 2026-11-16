@@ -124,8 +124,10 @@ func dumpInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance) ([]byte,
 			user, pass,
 		)
 		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "mongodb", "--", "sh", "-ec", inner)
-	case "rustfs", "qdrant":
-		return nil, fmt.Errorf("%s data backup worker not implemented yet", inst.Type)
+	case "rustfs":
+		return rustfsDumpK8s(ctx, ns, pod)
+	case "qdrant":
+		return qdrantDumpK8s(ctx, ns, pod, qdrantAPIKey(inst))
 	default:
 		return nil, fmt.Errorf("unsupported type %q", inst.Type)
 	}

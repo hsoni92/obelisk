@@ -23,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
+import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
   Check,
@@ -64,7 +65,6 @@ export type GatewayCardProps = {
   /** Noun for accounts, e.g. "account" / "mailbox". */
   noun: string;
   addFields: AddField[];
-  message?: string | null;
   tokenReveal?: string | null;
   onDismissToken?: () => void;
   testLabel: string;
@@ -166,7 +166,7 @@ export function GatewayCard(p: GatewayCardProps) {
                   className={cn(
                     "flex size-4 items-center justify-center rounded-full text-[10px] font-bold",
                     s.done
-                      ? "bg-success text-white"
+                      ? "bg-success text-background"
                       : s.id === nextStep
                         ? "bg-broadcast text-broadcast-foreground"
                         : "bg-border text-muted-foreground",
@@ -341,12 +341,8 @@ export function GatewayCard(p: GatewayCardProps) {
 
         <Row icon={FlaskConical} title="Verify" hint="Send a live test request">
           <div className="flex items-center gap-3">
-            <p
-              aria-live="polite"
-              className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground"
-            >
-              {p.message ??
-                (ready ? "Ready for traffic." : p.testDisabledReason)}
+            <p className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
+              {ready ? "Ready for traffic." : p.testDisabledReason}
             </p>
             <Button
               size="sm"
@@ -497,13 +493,11 @@ function AddAccountForm({
 }) {
   const [values, setValues] = React.useState<Record<string, string>>({});
   const [submitting, setSubmitting] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
   const complete = fields.every((f) => values[f.name]?.trim());
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setSubmitting(true);
-    setError(null);
     try {
       await onAdd(
         Object.fromEntries(
@@ -512,7 +506,9 @@ function AddAccountForm({
       );
       onClose();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Could not add");
+      toast.error(
+        err instanceof Error ? err.message : "Could not add",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -541,14 +537,6 @@ function AddAccountForm({
           }
         />
       ))}
-      {error && (
-        <p
-          role="alert"
-          className="rounded-md bg-destructive-tint px-3 py-2 text-xs font-medium text-destructive"
-        >
-          {error}
-        </p>
-      )}
       <DialogFooter>
         <Button type="button" variant="outline" onClick={onClose}>
           Cancel

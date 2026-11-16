@@ -10,6 +10,7 @@ import {
   useOnboardBlueprintMutation,
 } from "@/lib/api";
 import { writePassphrase } from "@/lib/blueprint-storage";
+import { toast } from "@/lib/toast";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -25,7 +26,6 @@ export default function OnboardPage() {
   const [repo, setRepo] = useState("obelisk-appliance");
   const [consent, setConsent] = useState(false);
   const [choice, setChoice] = useState<"adopt" | "keep" | "">("");
-  const [error, setError] = useState<string | null>(null);
   const seededRepo = useRef(false);
 
   useEffect(() => {
@@ -50,21 +50,20 @@ export default function OnboardPage() {
 
   async function submit(event: React.FormEvent) {
     event.preventDefault();
-    setError(null);
     if (passphrase.length < 8) {
-      setError("Use at least 8 characters. This passphrase cannot be recovered.");
+      toast.warning("Use at least 8 characters. This passphrase cannot be recovered.");
       return;
     }
     if (!restoring && passphrase !== confirm) {
-      setError("Passphrases do not match.");
+      toast.warning("Passphrases do not match.");
       return;
     }
     if (!consent) {
-      setError("Confirm that this browser may remember the passphrase.");
+      toast.warning("Confirm that this browser may remember the passphrase.");
       return;
     }
     if (mismatch && choice !== "adopt" && choice !== "keep") {
-      setError("Choose whether to adopt the blueprint machine id.");
+      toast.warning("Choose whether to adopt the blueprint machine id.");
       return;
     }
     try {
@@ -84,7 +83,7 @@ export default function OnboardPage() {
       writePassphrase(passphrase);
       router.replace("/overview");
     } catch (e) {
-      setError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     }
   }
 
@@ -98,11 +97,6 @@ export default function OnboardPage() {
       }
     >
       <form onSubmit={(e) => void submit(e)} className="space-y-4">
-        {error && (
-          <p className="text-xs text-destructive" role="alert">
-            {error}
-          </p>
-        )}
         <Field
           id="blueprint-repo"
           label="GitHub repository"

@@ -2,6 +2,7 @@ package backup
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -32,13 +33,31 @@ func obeliskNamespace() string {
 }
 
 func kubectlOutput(ctx context.Context, args ...string) ([]byte, error) {
+	out, err := kubectlStdout(ctx, args...)
+	if err != nil {
+		stderr := ""
+		var ee *exec.ExitError
+		if errors.As(err, &ee) {
+			stderr = strings.TrimSpace(string(ee.Stderr))
+		}
+		msg := strings.Join(args, " ")
+		if stderr != "" {
+			return nil, fmt.Errorf("kubectl %s: %w (%s)", msg, err, stderr)
+		}
+		return nil, fmt.Errorf("kubectl %s: %w", msg, err)
+	}
+	return out, nil
+}
+
+// kubectlStdout captures stdout only (safe for binary dumps such as tar).
+func kubectlStdout(ctx context.Context, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
 	cmd.Env = kubeconfigEnv()
-	out, err := cmd.CombinedOutput()
+	out, err := cmd.Output()
 	if err != nil {
-		return nil, fmt.Errorf("kubectl %s: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
+		return nil, err
 	}
 	return out, nil
 }

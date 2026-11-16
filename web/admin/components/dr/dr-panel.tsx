@@ -31,15 +31,14 @@ import {
   useTestAllBackupDestinationsMutation,
   useTestBackupDestinationMutation,
 } from "@/lib/api";
+import { toast } from "@/lib/toast";
 import { Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export function DRPanel({
   onBusy,
-  onError,
 }: {
   onBusy: (key: string | null) => void;
-  onError: (message: string | null) => void;
 }) {
   const { data: config, isLoading } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 8000,
@@ -53,7 +52,6 @@ export function DRPanel({
 
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [message, setMessage] = useState<string | null>(null);
 
   const [label, setLabel] = useState("");
   const [provider, setProvider] = useState<BackupRemoteProvider>("r2");
@@ -67,11 +65,10 @@ export function DRPanel({
   async function act(key: string, fn: () => Promise<void>) {
     setBusyKey(key);
     onBusy(key);
-    onError(null);
     try {
       await fn();
     } catch (e) {
-      onError(rtkErrorMessage(e));
+      toast.error(rtkErrorMessage(e));
     } finally {
       setBusyKey(null);
       onBusy(null);
@@ -107,7 +104,7 @@ export function DRPanel({
         onSave={async (patch) => {
           await act("policy", async () => {
             await patchPolicy(patch).unwrap();
-            setMessage("Policy saved.");
+            toast.success("Backup policy saved");
           });
         }}
       />
@@ -126,7 +123,7 @@ export function DRPanel({
               onClick={() =>
                 act("test-all", async () => {
                   await testAll().unwrap();
-                  setMessage("Connection tests finished.");
+                  toast.success("Connection tests finished");
                 })
               }
             >
@@ -147,16 +144,13 @@ export function DRPanel({
             </Button>
           </div>
         </div>
-        {message && (
-          <p className="text-metadata text-muted-foreground">{message}</p>
-        )}
         <DestinationsTable
           rows={config.destinations}
           busyKey={busyKey}
           onTest={(id) =>
             act(`test-${id}`, async () => {
               await testDestination({ id }).unwrap();
-              setMessage("Test complete.");
+              toast.success("Destination test complete");
             })
           }
           onToggle={(id, enabled) =>
@@ -251,7 +245,10 @@ export function DRPanel({
                     },
                   }).unwrap();
                   setAddOpen(false);
-                  setMessage("Destination added. Run test to verify upload.");
+                  toast.info(
+                    "Destination added",
+                    "Run test to verify upload.",
+                  );
                 })
               }
             >

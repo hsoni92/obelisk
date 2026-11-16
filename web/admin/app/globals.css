@@ -79,10 +79,10 @@
   --scrollbar-thumb-hover: rgb(16 19 10 / 0.32);
   --link: #3f6a52;
   --link-tint: #e3efe8;
-  --success: #2f7a4a;
-  --success-tint: #dff3e4;
-  --warning: #8a5a00;
-  --warning-tint: #fbefc4;
+  --success: #3b6b1f;
+  --success-tint: #e6f3bd;
+  --warning: #9a5a17;
+  --warning-tint: #fbe5cf;
   --background: #ebebed;
   --sidebar: transparent;
   --surface: #e4e4e8;
@@ -100,8 +100,8 @@
   --muted: #f4f4f6;
   --accent: #f4f4f6;
   --accent-foreground: #0e0f0c;
-  --destructive: #d6403a;
-  --destructive-tint: #fde9e7;
+  --destructive: #c2392f;
+  --destructive-tint: #fbe2dc;
   --input: #f4f4f6;
   --ring: #a9c524;
   /* Ambient canvas gradients */
@@ -121,10 +121,10 @@
   --card-foreground: #f1f3ee;
   --broadcast-tint: #2b3314;
   --link-tint: #1d2c24;
-  --success-tint: #16301f;
-  --warning-tint: #3a2e0d;
-  --success: #6fd58f;
-  --warning: #f0c040;
+  --success-tint: #27341a;
+  --warning-tint: #3b2a1b;
+  --success: #b5de4f;
+  --warning: #f0b06a;
   --ink: #f1f3ee;
   --ink-foreground: #0e0f0c;
   --feature: #3f5a49;
@@ -145,8 +145,8 @@
   --primary-foreground: #0e0f0c;
   --secondary: #8fb79f;
   --secondary-foreground: #0e0f0c;
-  --destructive: #ef5b54;
-  --destructive-tint: #3a1d1b;
+  --destructive: #f27c72;
+  --destructive-tint: #3d2220;
   --ring: #d7f249;
   --canvas-mint: #16302e;
   --canvas-peach: #2f2420;
