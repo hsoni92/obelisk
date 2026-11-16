@@ -33,8 +33,15 @@ function genId() {
   return `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
 }
 
+const serverToastsSnapshot: ToastRecord[] = [];
+
 export function getToasts() {
   return memoryState;
+}
+
+/** Stable empty snapshot for useSyncExternalStore during SSR. */
+export function getToastsServerSnapshot() {
+  return serverToastsSnapshot;
 }
 
 export function subscribe(listener: (state: ToastRecord[]) => void) {

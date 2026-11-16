@@ -12,7 +12,6 @@ import {
 import { SelectField } from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { OverviewSkeleton } from "@/components/skeletons";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   overviewPollOptions,
   rtkErrorMessage,
@@ -22,12 +21,10 @@ import {
 import { BackupOverview } from "@/components/overview/backup-overview";
 import { summarizeBackup } from "@/lib/backup-summary";
 import { formatBytes } from "@/lib/format-bytes";
-import { buildTimeline, relativeTime, severity } from "@/lib/overview-series";
-import { stateBadgeVariant } from "@/lib/service-rows";
+import { buildTimeline, relativeTime } from "@/lib/overview-series";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
-  ArrowUpRight,
   CheckCircle2,
   Clock,
   DatabaseBackup,
@@ -75,8 +72,6 @@ export function OverviewPanel({
   onOpenDR: () => void;
 }) {
   const [hours, setHours] = useState(6);
-  const [view, setView] = useState<"attention" | "all" | null>(null);
-  const [showAllEvents, setShowAllEvents] = useState(false);
   const { data, error, isLoading, fulfilledTimeStamp } = useGetOverviewQuery(
     { hours },
     overviewPollOptions,
@@ -120,29 +115,6 @@ export function OverviewPanel({
       pct: total ? Math.round((r.count / total) * 100) : 0,
     }));
   }, [components, total]);
-
-  const attention = useMemo(
-    () => components.filter((c) => c.state !== "running" && c.desired),
-    [components],
-  );
-  const activeView = view ?? (attention.length > 0 ? "attention" : "all");
-  const rows = useMemo(
-    () =>
-      [...(activeView === "attention" ? attention : components)].sort(
-        (a, b) =>
-          severity(a.state) - severity(b.state) || a.name.localeCompare(b.name),
-      ),
-    [activeView, attention, components],
-  );
-
-  const events = useMemo(
-    () =>
-      [...(data?.history ?? [])].sort(
-        (a, b) => new Date(b.at).getTime() - new Date(a.at).getTime(),
-      ),
-    [data?.history],
-  );
-  const shownEvents = showAllEvents ? events : events.slice(0, 8);
 
   if (isLoading) return <OverviewSkeleton />;
 
@@ -202,7 +174,7 @@ export function OverviewPanel({
         backupTone={backup?.tone}
         backupDetail={backup?.detail}
         onOpenDR={onOpenDR}
-        onShowAttention={() => setView("attention")}
+        onOpenServices={() => onOpenServices()}
       />
 
       {/* KPIs */}
@@ -437,194 +409,6 @@ export function OverviewPanel({
         summary={backup}
         onOpenDR={onOpenDR}
       />
-
-      {/* Components */}
-      <Card className="overflow-hidden">
-        <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-3">
-          <div>
-            <h2 className="text-section-title">Components</h2>
-            <p className="text-metadata text-muted-foreground">
-              Sorted by severity — problems first
-            </p>
-          </div>
-          <Tabs
-            value={activeView}
-            onValueChange={(v) => setView(v as "attention" | "all")}
-          >
-            <TabsList className="bg-transparent p-0">
-              <TabsTrigger value="attention">
-                Needs attention
-                <span className="ml-1.5 tabular-nums opacity-70">
-                  {attention.length}
-                </span>
-              </TabsTrigger>
-              <TabsTrigger value="all">
-                All
-                <span className="ml-1.5 tabular-nums opacity-70">{total}</span>
-              </TabsTrigger>
-            </TabsList>
-          </Tabs>
-        </div>
-        <div className="max-h-80 overflow-auto border-t border-border">
-          <table className="w-full text-[13px]">
-            <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
-              <tr className="text-left text-eyebrow text-muted-foreground">
-                <th className="px-4 py-2 font-semibold">Component</th>
-                <th className="px-4 py-2 font-semibold">Status</th>
-                <th className="hidden px-4 py-2 font-semibold sm:table-cell">
-                  Pods
-                </th>
-                <th className="hidden px-4 py-2 font-semibold md:table-cell">
-                  Helm
-                </th>
-                <th className="w-10 px-4 py-2" />
-              </tr>
-            </thead>
-            <tbody>
-              {rows.map((c) => (
-                <tr
-                  key={c.key}
-                  className="border-t border-border hover:bg-muted/40"
-                >
-                  <td className="px-4 py-2">
-                    <p className="font-semibold">{c.name}</p>
-                    <p className="text-metadata text-muted-foreground">
-                      {c.kind === "platform"
-                        ? "platform"
-                        : `${c.type} · ${c.instance_id}`}
-                      {c.reason ? ` — ${c.reason}` : ""}
-                    </p>
-                  </td>
-                  <td className="px-4 py-2">
-                    <Badge variant={stateBadgeVariant(c.state)}>
-                      {c.state}
-                    </Badge>
-                  </td>
-                  <td className="hidden px-4 py-2 sm:table-cell">
-                    {c.pods_total ? (
-                      <div className="flex w-24 items-center gap-2">
-                        <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-muted">
-                          <div
-                            className={cn(
-                              "h-full rounded-full",
-                              c.pods_ready === c.pods_total
-                                ? "bg-success"
-                                : "bg-warning",
-                            )}
-                            style={{
-                              width: `${((c.pods_ready ?? 0) / c.pods_total) * 100}%`,
-                            }}
-                          />
-                        </div>
-                        <span className="tabular-nums text-metadata text-muted-foreground">
-                          {c.pods_ready}/{c.pods_total}
-                        </span>
-                      </div>
-                    ) : (
-                      <span className="text-muted-foreground">—</span>
-                    )}
-                  </td>
-                  <td className="hidden px-4 py-2 text-metadata text-muted-foreground md:table-cell">
-                    {c.helm_status ?? "—"}
-                    {c.revision ? ` · r${c.revision}` : ""}
-                  </td>
-                  <td className="px-4 py-2 text-right">
-                    {c.kind === "instance" && (
-                      <button
-                        type="button"
-                        aria-label={`Open ${c.name} in Services`}
-                        title="Open in Services"
-                        onClick={() => onOpenServices(c.key)}
-                        className="rounded-full p-1 text-muted-foreground hover:bg-surface hover:text-foreground"
-                      >
-                        <ArrowUpRight className="size-4" />
-                      </button>
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {!isLoading && rows.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={5}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    {activeView === "attention"
-                      ? "Everything is healthy — nothing needs attention."
-                      : "No components."}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
-
-      {/* Activity */}
-      <Card className="overflow-hidden">
-        <div className="flex items-center justify-between p-4 pb-3">
-          <div>
-            <h2 className="text-section-title">Recent activity</h2>
-            <p className="text-metadata text-muted-foreground">
-              State transitions · {events.length} in window
-            </p>
-          </div>
-          {events.length > 8 && (
-            <Button variant="link" onClick={() => setShowAllEvents((s) => !s)}>
-              {showAllEvents ? "Show less" : `View all (${events.length})`}
-            </Button>
-          )}
-        </div>
-        <div className="max-h-80 overflow-auto border-t border-border">
-          <table className="w-full text-[13px]">
-            <thead className="sticky top-0 z-10 bg-muted/90 backdrop-blur">
-              <tr className="text-left text-eyebrow text-muted-foreground">
-                <th className="px-4 py-2 font-semibold">When</th>
-                <th className="px-4 py-2 font-semibold">Component</th>
-                <th className="px-4 py-2 font-semibold">Status</th>
-                <th className="hidden px-4 py-2 font-semibold md:table-cell">
-                  Detail
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {shownEvents.map((ev, i) => (
-                <tr
-                  key={`${ev.at}-${ev.key}-${i}`}
-                  className="border-t border-border hover:bg-muted/40"
-                >
-                  <td
-                    className="whitespace-nowrap px-4 py-2 text-muted-foreground"
-                    title={new Date(ev.at).toLocaleString()}
-                  >
-                    {relativeTime(ev.at)}
-                  </td>
-                  <td className="px-4 py-2 font-medium">{ev.key}</td>
-                  <td className="px-4 py-2">
-                    <Badge variant={stateBadgeVariant(ev.state)}>
-                      {ev.state}
-                    </Badge>
-                  </td>
-                  <td className="hidden max-w-xs truncate px-4 py-2 text-metadata text-muted-foreground md:table-cell">
-                    {ev.detail ?? "—"}
-                  </td>
-                </tr>
-              ))}
-              {events.length === 0 && (
-                <tr>
-                  <td
-                    colSpan={4}
-                    className="px-4 py-8 text-center text-muted-foreground"
-                  >
-                    No transitions in this window. Changes appear as component
-                    state shifts.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </Card>
     </div>
   );
 }
@@ -723,7 +507,7 @@ function Verdict({
   backupTone,
   backupDetail,
   onOpenDR,
-  onShowAttention,
+  onOpenServices,
 }: {
   loading: boolean;
   degraded: number;
@@ -733,7 +517,7 @@ function Verdict({
   backupTone?: "success" | "warning" | "live" | "default";
   backupDetail?: string;
   onOpenDR: () => void;
-  onShowAttention: () => void;
+  onOpenServices: () => void;
 }) {
   if (loading) return null;
   const issues: string[] = [];
@@ -771,8 +555,8 @@ function Verdict({
         </p>
       </div>
       {!ok && (degraded > 0 || pending > 0) && (
-        <Button size="sm" variant="outline" onClick={onShowAttention}>
-          Show components
+        <Button size="sm" variant="outline" onClick={onOpenServices}>
+          View services
         </Button>
       )}
       {backupBad && (

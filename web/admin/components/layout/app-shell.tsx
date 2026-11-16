@@ -13,6 +13,7 @@ import {
   Share2,
   type LucideIcon,
 } from "lucide-react";
+import { AnimatePresence, MotionConfig, motion } from "framer-motion";
 import Link from "next/link";
 import * as React from "react";
 import { Button } from "@/components/ui/button";
@@ -33,6 +34,7 @@ type AppShellProps = {
   meta?: React.ReactNode;
   searchQuery?: string;
   onSearchChange?: (value: string) => void;
+  defaultRail?: boolean;
 };
 
 export function AppShell({
@@ -41,92 +43,141 @@ export function AppShell({
   meta,
   searchQuery = "",
   onSearchChange,
+  defaultRail = false,
 }: AppShellProps) {
-  const [rail, setRail] = React.useState(false);
+  const [rail, setRail] = React.useState(defaultRail);
+
+  const ease = [0.32, 0.72, 0, 1] as const;
 
   return (
-    <div className="min-h-screen text-foreground flex">
-      <aside
-        className={cn(
-          "sticky top-0 h-screen shrink-0 py-5 pl-5 transition-[width] flex flex-col",
-          rail ? "w-[76px]" : "w-60",
-        )}
-      >
-        <div className={cn("px-1", rail && "px-0")}>
-          <ObeliskWordmark compact={rail} />
-        </div>
+    <MotionConfig reducedMotion="user">
+      <div className="flex h-dvh overflow-hidden text-foreground">
+        <motion.aside
+          initial={false}
+          animate={{ width: rail ? 76 : 240 }}
+          // Collapse: labels fade first, then the rail narrows. Expand: width first.
+          transition={{ duration: 0.26, ease, delay: rail ? 0.1 : 0 }}
+          className="flex h-full shrink-0 flex-col overflow-clip py-5 pl-5"
+        >
+          <div className="pl-1">
+            <ObeliskWordmark compact={rail} />
+          </div>
 
-        <nav className="mt-6 flex flex-col gap-1 rounded-[28px] bg-card p-2 shadow-rb-2">
-          {NAV.map((item) => {
-            const selected = active === item.id;
-            const Icon = item.icon;
-            return (
-              <Link
-                key={item.id}
-                href={NAV_ROUTES[item.id]}
-                title={item.label}
-                className={cn(
-                  "flex items-center gap-2.5 rounded-full py-2.5 pl-4 pr-4 text-left text-sm transition-colors",
-                  selected
-                    ? "bg-ink font-medium text-ink-foreground"
-                    : "font-normal text-muted-foreground hover:bg-muted hover:text-foreground",
-                  rail && "justify-center px-0",
-                )}
+          <>
+            <nav className="mt-6 w-full flex flex-col gap-1 rounded-[28px] bg-card p-2 shadow-rb-2">
+              {NAV.map((item) => {
+                const selected = active === item.id;
+                const Icon = item.icon;
+                return (
+                  <Link
+                    key={item.id}
+                    href={NAV_ROUTES[item.id]}
+                    title={item.label}
+                    aria-label={item.label}
+                    className={cn(
+                      "relative flex w-full shrink-0 items-center overflow-clip rounded-full py-2.5 pl-3 pr-3 text-left text-sm transition-colors",
+                      selected
+                        ? "font-medium text-ink-foreground"
+                        : "font-normal text-muted-foreground hover:bg-muted hover:text-foreground",
+                    )}
+                  >
+                    <span
+                      aria-hidden
+                      className={cn(
+                        "absolute inset-0 rounded-full bg-ink transition-opacity duration-200",
+                        selected ? "opacity-100" : "opacity-0",
+                      )}
+                    />
+                    <Icon className="relative size-4 shrink-0" />
+                    <motion.span
+                      initial={false}
+                      animate={{
+                        opacity: rail ? 0 : 1,
+                        width: rail ? 0 : "auto",
+                        marginLeft: rail ? 0 : 10,
+                      }}
+                      transition={{
+                        opacity: { duration: 0.14, delay: rail ? 0 : 0.16 },
+                        width: { duration: 0.2, delay: rail ? 0.1 : 0 },
+                        marginLeft: { duration: 0.2, delay: rail ? 0.1 : 0 },
+                      }}
+                      aria-hidden={rail}
+                      className="relative overflow-clip whitespace-nowrap"
+                    >
+                      {item.label}
+                    </motion.span>
+                  </Link>
+                );
+              })}
+            </nav>
+          </>
+
+          <AnimatePresence initial={false}>
+            {!rail && (
+              <motion.div
+                key="feature"
+                initial={{ opacity: 0, y: 8 }}
+                animate={{
+                  opacity: 1,
+                  y: 0,
+                  transition: { delay: 0.18, duration: 0.2 },
+                }}
+                exit={{ opacity: 0, y: 8, transition: { duration: 0.1 } }}
+                className="mt-auto w-[220px] rounded-[28px] bg-feature p-4 text-feature-foreground shadow-rb-2"
               >
-                <Icon className="size-4 shrink-0" />
-                {!rail && item.label}
-              </Link>
-            );
-          })}
-        </nav>
+                <p className="text-sm font-medium">Middleware appliance</p>
+                <p className="mt-1 text-xs leading-4 text-white/70">
+                  Platform first, data services on demand.
+                </p>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.aside>
 
-        {!rail && (
-          <div className="mt-auto rounded-[28px] bg-feature p-4 text-feature-foreground shadow-rb-2">
-            <p className="text-sm font-medium">Middleware appliance</p>
-            <p className="mt-1 text-xs leading-4 text-white/70">
-              Platform first, data services on demand.
-            </p>
-          </div>
-        )}
-      </aside>
-
-      <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 px-6 backdrop-blur-sm">
-          <Button
-            type="button"
-            variant="icon"
-            size="icon"
-            aria-label="Toggle sidebar"
-            onClick={() => setRail((r) => !r)}
-          >
-            <Menu className="size-4" />
-          </Button>
-          <div className="flex-1 max-w-md">
-            <label className="sr-only" htmlFor="admin-search">
-              Search
-            </label>
-            <div className="flex h-10 items-center gap-2 rounded-full bg-card px-4 text-muted-foreground shadow-rb-1 focus-within:ring-2 focus-within:ring-ring/60">
-              <Search className="size-3.5 shrink-0" />
-              <input
-                id="admin-search"
-                placeholder={
-                  active === "services"
-                    ? "Filter services by name, type, endpoint…"
-                    : "Search admin…"
-                }
-                value={searchQuery}
-                onChange={(e) => onSearchChange?.(e.target.value)}
-                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
-              />
+        <div className="scroll-stable flex min-h-0 min-w-0 flex-1 flex-col overflow-y-auto overscroll-y-contain">
+          <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center gap-3 px-6 backdrop-blur-sm">
+            <Button
+              type="button"
+              variant="icon"
+              size="icon"
+              aria-label="Toggle sidebar"
+              onClick={() => setRail((r) => !r)}
+            >
+              <Menu className="size-4" />
+            </Button>
+            <div className="flex-1 max-w-md">
+              <label className="sr-only" htmlFor="admin-search">
+                Search
+              </label>
+              <div className="flex h-10 items-center gap-2 rounded-full bg-card px-4 text-muted-foreground shadow-rb-1 focus-within:ring-2 focus-within:ring-ring/60">
+                <Search className="size-3.5 shrink-0" />
+                <input
+                  id="admin-search"
+                  placeholder={
+                    active === "services"
+                      ? "Filter services by name, type, endpoint…"
+                      : "Search admin…"
+                  }
+                  value={searchQuery}
+                  onChange={(e) => onSearchChange?.(e.target.value)}
+                  className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
+                />
+              </div>
             </div>
-          </div>
-          <div className="ml-auto flex items-center gap-2">{meta}</div>
-        </header>
+            <div className="ml-auto flex items-center gap-2">{meta}</div>
+          </header>
 
-        <main className="flex-1 min-w-0 px-6 pb-10 pt-4 max-w-[1400px] w-full mx-auto">
-          {children}
-        </main>
+          <motion.main
+            key={active}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.25, ease }}
+            className="flex-1 min-w-0 px-6 pb-10 pt-4 max-w-[1400px] w-full mx-auto"
+          >
+            {children}
+          </motion.main>
+        </div>
       </div>
-    </div>
+    </MotionConfig>
   );
 }

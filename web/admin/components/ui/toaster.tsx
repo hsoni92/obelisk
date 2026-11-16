@@ -8,7 +8,13 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast";
-import { dismiss, getToasts, remove, subscribe } from "@/lib/toast";
+import {
+  dismiss,
+  getToasts,
+  getToastsServerSnapshot,
+  remove,
+  subscribe,
+} from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { cva, type VariantProps } from "class-variance-authority";
 import { useSyncExternalStore } from "react";
@@ -44,7 +50,11 @@ const titleVariants = cva("text-[13px] font-semibold", {
 });
 
 export function Toaster() {
-  const toasts = useSyncExternalStore(subscribe, getToasts, () => []);
+  const toasts = useSyncExternalStore(
+    subscribe,
+    getToasts,
+    getToastsServerSnapshot,
+  );
 
   return (
     <ToastProvider duration={5000} label="Notifications">

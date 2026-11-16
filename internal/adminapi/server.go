@@ -10,6 +10,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/history"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
 	"github.com/hsoni92/obelisk/internal/restore"
@@ -27,6 +28,8 @@ type Server struct {
 	Blueprint             *blueprint.Runtime
 	Restore               *restore.Orchestrator
 	mu                    sync.Mutex
+	historyOnce           sync.Once
+	historyStore          *history.Store
 }
 
 func (s *Server) reconciler(cfg string) controller.Reconciler {
@@ -42,6 +45,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/status", s.handleStatus)
 	mux.HandleFunc("GET /api/v1/overview", s.handleOverview)
+	mux.HandleFunc("GET /api/v1/activity/history", s.handleActivityHistory)
 	mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	mux.HandleFunc("GET /api/v1/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/v1/config", s.handlePutConfig)
@@ -176,6 +180,7 @@ func (s *Server) handlePutConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
+	s.recordAudit("Config", "updated", "Cluster configuration saved")
 	writeJSON(w, map[string]string{"status": "saved"})
 }
 
@@ -201,6 +206,7 @@ func (s *Server) handleServiceEnable(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
+	s.recordAudit("Service type", "enabled", name)
 	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
 	controller.ReconcileAsync(rec)
 	states := rec.ObserveServiceStates(r.Context(), spec)
@@ -233,6 +239,7 @@ func (s *Server) handleServiceDisable(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 
+	s.recordAudit("Service type", "disabled", name)
 	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
 	controller.ReconcileAsync(rec)
 	states := rec.ObserveServiceStates(r.Context(), spec)

@@ -1,3 +1,6 @@
+"use client";
+
+import { motion } from "framer-motion";
 import { cn } from "@/lib/utils";
 import Image from "next/image";
 
@@ -28,20 +31,32 @@ export function ObeliskWordmark({
   subtitle?: string;
 }) {
   return (
-    <div className={cn("flex items-center gap-2.5", compact && "justify-center")}>
+    <div className="flex items-center overflow-clip">
       <ObeliskMark className="size-8" alt={compact ? "Obelisk" : ""} />
-      {!compact && (
-        <div className="leading-tight">
-          <p className="text-base font-medium tracking-tight text-foreground">
-            Obelisk
+      <motion.div
+        initial={false}
+        animate={{
+          opacity: compact ? 0 : 1,
+          width: compact ? 0 : "auto",
+          marginLeft: compact ? 0 : 10,
+        }}
+        transition={{
+          opacity: { duration: 0.12, delay: compact ? 0 : 0.14 },
+          width: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+          marginLeft: { duration: 0.22, ease: [0.32, 0.72, 0, 1] },
+        }}
+        aria-hidden={compact}
+        className="whitespace-nowrap leading-tight"
+      >
+        <p className="text-base font-medium tracking-tight text-foreground">
+          Obelisk
+        </p>
+        {subtitle && (
+          <p className="text-eyebrow text-[10px] text-muted-foreground">
+            {subtitle}
           </p>
-          {subtitle && (
-            <p className="text-eyebrow text-[10px] text-muted-foreground">
-              {subtitle}
-            </p>
-          )}
-        </div>
-      )}
+        )}
+      </motion.div>
     </div>
   );
 }

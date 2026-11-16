@@ -121,6 +121,7 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
+	s.recordAudit("Instance", "created", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{
 		"instance":       inst,
@@ -217,6 +218,7 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
+	s.recordAudit("Instance", "updated", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
 	interim := "starting"
 	if req.Enabled != nil && !*req.Enabled {
@@ -254,6 +256,7 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
+	s.recordAudit("Instance", "deleted", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{"deleted": id, "accepted": true})
 }

@@ -22,9 +22,11 @@ export type {
 export {
   obeliskApi,
   rtkErrorMessage,
+  activityHistoryPollOptions,
   overviewPollOptions,
   statusPollOptions,
   useCreateInstanceMutation,
+  useGetActivityHistoryQuery,
   useGetOverviewQuery,
   useGetBackupTargetQuery,
   useGetBackupConfigQuery,

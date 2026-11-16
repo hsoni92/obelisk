@@ -275,6 +275,11 @@ export type OverviewHistoryEvent = {
   helm_status?: string;
 };
 
+export type ActivityHistoryResponse = {
+  history: OverviewHistoryEvent[];
+  history_hours: number;
+};
+
 export type OverviewResponse = {
   generated_at: string;
   reconcileMode: string;

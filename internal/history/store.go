@@ -37,6 +37,38 @@ func NewStore(path string) *Store {
 	}
 }
 
+// Hydrate loads the latest state per key from the on-disk log into lastState.
+// Call once after NewStore so Record can dedupe across requests/process restarts.
+func (s *Store) Hydrate() error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if err := s.ensureDir(); err != nil {
+		return err
+	}
+	f, err := os.Open(s.path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	sc.Buffer(make([]byte, 0, 64*1024), 1024*1024)
+	for sc.Scan() {
+		var e Event
+		if err := json.Unmarshal(sc.Bytes(), &e); err != nil {
+			continue
+		}
+		if e.Kind == "audit" {
+			continue
+		}
+		s.lastState[e.Key] = e.State
+	}
+	return sc.Err()
+}
+
 // Record appends an event when state changed from the last recorded value.
 func (s *Store) Record(e Event) error {
 	s.mu.Lock()
@@ -49,6 +81,32 @@ func (s *Store) Record(e Event) error {
 	if e.At.IsZero() {
 		e.At = time.Now().UTC()
 	}
+	if err := s.ensureDir(); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(s.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	if err := enc.Encode(e); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return s.pruneLocked()
+}
+
+// AppendAudit records an operator-initiated action (always logged, no state dedupe).
+func (s *Store) AppendAudit(e Event) error {
+	e.Kind = "audit"
+	if e.At.IsZero() {
+		e.At = time.Now().UTC()
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if err := s.ensureDir(); err != nil {
 		return err
 	}
@@ -94,7 +152,9 @@ func (s *Store) Since(since time.Time) ([]Event, error) {
 		if !e.At.Before(since) {
 			out = append(out, e)
 		}
-		s.lastState[e.Key] = e.State
+		if e.Kind != "audit" {
+			s.lastState[e.Key] = e.State
+		}
 	}
 	return out, sc.Err()
 }

@@ -9,6 +9,7 @@ import type {
   OpenRouterConfigResponse,
   RestoreChainState,
   ServiceInstance,
+  ActivityHistoryResponse,
   OverviewResponse,
   StatusResponse,
 } from "@/lib/types";
@@ -39,6 +40,17 @@ export const obeliskApi = createApi({
         return `/overview?hours=${hours}`;
       },
       providesTags: ["Overview"],
+    }),
+    getActivityHistory: builder.query<
+      ActivityHistoryResponse,
+      { hours?: number } | void
+    >({
+      query: (arg) => {
+        const hours = arg && "hours" in arg && arg.hours ? arg.hours : 6;
+        return `/activity/history?hours=${hours}`;
+      },
+      providesTags: ["Overview"],
+      keepUnusedDataFor: 60,
     }),
     getConnections: builder.query<ConnectionsResponse, void>({
       query: () => "/connections",
@@ -451,6 +463,7 @@ export const obeliskApi = createApi({
 export const {
   useGetStatusQuery,
   useGetOverviewQuery,
+  useGetActivityHistoryQuery,
   useGetConnectionsQuery,
   useGetBackupTargetQuery,
   useGetBackupConfigQuery,
@@ -496,6 +509,9 @@ export const statusPollOptions = { pollingInterval: POLL_MS } as const;
 
 /** Overview polls helm/kubectl; keep slightly slower than /status. */
 export const overviewPollOptions = { pollingInterval: 8000 } as const;
+
+/** Activity history is file-backed only — safe to poll while the drawer is open. */
+export const activityHistoryPollOptions = { pollingInterval: 8000 } as const;
 
 export function rtkErrorMessage(error: unknown): string {
   if (!error || typeof error !== "object") return "request failed";

@@ -166,15 +166,29 @@
     background-attachment: fixed;
   }
   /*
-   * Scrollbars: slim, rounded, theme-aware. The gutter is always reserved so
-   * layout never shifts when a scrollbar appears or disappears (content growth,
-   * dialogs locking body scroll, etc.).
+   * Scrollbars: slim, rounded, theme-aware. Reserve gutter on the document and
+   * on explicit scroll ports (.scroll-stable). Radix modal scroll-lock adds its
+   * own scrollbar compensation — disable that when gutter is already stable.
    */
   html {
+    height: 100%;
     scrollbar-gutter: stable;
   }
-  * {
+  body {
+    min-height: 100%;
     scrollbar-gutter: stable;
+  }
+  body[data-scroll-locked] {
+    margin-right: 0 !important;
+    padding-right: 0 !important;
+    padding-left: 0 !important;
+    padding-top: 0 !important;
+  }
+  body[data-scroll-locked] .right-scroll-bar-position {
+    right: 0 !important;
+  }
+  body[data-scroll-locked] .width-before-scroll-bar {
+    margin-right: 0 !important;
   }
   /* Firefox + any engine without ::-webkit-scrollbar */
   @supports not selector(::-webkit-scrollbar) {
@@ -297,6 +311,9 @@
   }
   .field:focus {
     box-shadow: 0 0 0 2px var(--ring);
+  }
+  .scroll-stable {
+    scrollbar-gutter: stable;
   }
   .scrollbar-none {
     scrollbar-width: none;

@@ -3,6 +3,7 @@
 import { BlueprintGate } from "@/components/blueprint/gate";
 import { SyncBadge } from "@/components/blueprint/sync-badge";
 import { UnlockBanner } from "@/components/blueprint/unlock-banner";
+import { RecentActivityDrawer } from "@/components/activity/recent-activity-drawer";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
 import { statusPollOptions, useGetStatusQuery } from "@/lib/api";
@@ -30,6 +31,7 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
 
   const meta = (
     <>
+      <RecentActivityDrawer />
       <SyncBadge />
       {status?.profile && <Badge variant="info">{status.profile}</Badge>}
       {status?.reconcileMode === "off" && (

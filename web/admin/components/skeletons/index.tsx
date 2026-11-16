@@ -115,19 +115,6 @@ export function OverviewSkeleton() {
         </Card>
       </div>
       <BackupOverviewSkeleton />
-      <Card className="overflow-hidden" aria-hidden>
-        <div className="flex items-center justify-between p-4 pb-3">
-          <CardTitleSkeleton />
-          <Skeleton className="h-9 w-44 rounded-full" />
-        </div>
-        <SkeletonRows rows={5} className="border-t border-border" />
-      </Card>
-      <Card className="overflow-hidden" aria-hidden>
-        <div className="p-4 pb-3">
-          <CardTitleSkeleton />
-        </div>
-        <SkeletonRows rows={4} className="border-t border-border" />
-      </Card>
     </SkeletonRegion>
   );
 }

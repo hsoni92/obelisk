@@ -50,7 +50,23 @@ type overviewResponse struct {
 }
 
 func (s *Server) overviewStore() *history.Store {
-	return history.NewStore(config.HistoryPath(config.EnsureReadablePath(s.ConfigPath)))
+	s.historyOnce.Do(func() {
+		st := history.NewStore(config.HistoryPath(config.EnsureReadablePath(s.ConfigPath)))
+		_ = st.Hydrate()
+		s.historyStore = st
+	})
+	return s.historyStore
+}
+
+func (s *Server) recordAudit(label, state, detail string) {
+	if label == "" {
+		label = "Admin"
+	}
+	_ = s.overviewStore().AppendAudit(history.Event{
+		Key:    label,
+		State:  state,
+		Detail: detail,
+	})
 }
 
 func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
@@ -61,12 +77,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	hours := 6.0
-	if q := r.URL.Query().Get("hours"); q != "" {
-		if v, err := strconv.ParseFloat(q, 64); err == nil && v > 0 && v <= 24 {
-			hours = v
-		}
-	}
+	hours := overviewHistoryHours(r)
 
 	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
@@ -139,6 +150,36 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		HistoryHours:  hours,
 	}
 	writeJSON(w, resp)
+}
+
+type activityHistoryResponse struct {
+	History      []history.Event `json:"history"`
+	HistoryHours float64         `json:"history_hours"`
+}
+
+// handleActivityHistory serves recent state transitions without helm/kubectl observation.
+func (s *Server) handleActivityHistory(w http.ResponseWriter, r *http.Request) {
+	hours := overviewHistoryHours(r)
+	since := time.Now().UTC().Add(-time.Duration(hours * float64(time.Hour)))
+	events, err := s.overviewStore().Since(since)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	writeJSON(w, activityHistoryResponse{
+		History:      events,
+		HistoryHours: hours,
+	})
+}
+
+func overviewHistoryHours(r *http.Request) float64 {
+	hours := 6.0
+	if q := r.URL.Query().Get("hours"); q != "" {
+		if v, err := strconv.ParseFloat(q, 64); err == nil && v > 0 && v <= 24 {
+			hours = v
+		}
+	}
+	return hours
 }
 
 func modeLabel(reconcileOff bool) string {

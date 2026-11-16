@@ -225,14 +225,17 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	out, err := runner.RunNow(r.Context())
 	if err != nil {
 		if out.UploadedDestinations > 0 {
+			msg := err.Error()
+			s.recordAudit("Backup", "degraded", msg)
 			writeJSON(w, map[string]any{
 				"status":     "degraded",
-				"message":    err.Error(),
+				"message":    msg,
 				"uploads":    out.UploadedDestinations,
 				"object_key": out.ObjectKey,
 			})
 			return
 		}
+		s.recordAudit("Backup", "failed", err.Error())
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
@@ -244,6 +247,7 @@ func (s *Server) handleBackupRun(w http.ResponseWriter, r *http.Request) {
 	if len(out.DataSkipped) > 0 {
 		summary += fmt.Sprintf("; %d skipped", len(out.DataSkipped))
 	}
+	s.recordAudit("Backup", "completed", summary)
 	writeJSON(w, map[string]any{
 		"status":       "ok",
 		"message":      summary,
