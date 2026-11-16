@@ -49,7 +49,14 @@ Or write `github-oauth.client.json` (mode 0600) in the credentials directory:
 {"client_id":"...","client_secret":"...","redirect_uri":"http://localhost:3080/login/callback"}
 ```
 
-On a **VPS / k3s** host (recommended):
+On a **VPS / k3s** host (recommended): run the interactive wizard (also offered at the end of a TTY install):
+
+```bash
+sudo obelisk configure github
+# same: sudo obelisk github oauth configure
+```
+
+Non-interactive flags:
 
 ```bash
 sudo obelisk github oauth set \

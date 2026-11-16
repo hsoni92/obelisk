@@ -59,7 +59,14 @@ func (o *Orchestrator) State() State {
 }
 
 // Start runs the chain in the background. A second start while running returns an error state.
+// The caller's cancel and deadline are ignored: the HTTP handler returns 202
+// before pull finishes, and that request context must not abort GitHub or S3.
 func (o *Orchestrator) Start(ctx context.Context, h Hooks) State {
+	if ctx == nil {
+		ctx = context.Background()
+	} else {
+		ctx = context.WithoutCancel(ctx)
+	}
 	o.mu.Lock()
 	if o.running {
 		st := o.state

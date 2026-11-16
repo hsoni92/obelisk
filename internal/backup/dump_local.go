@@ -22,8 +22,7 @@ func dumpInstanceLocal(ctx context.Context, inst obelisk.ServiceInstance) ([]byt
 			return nil, fmt.Errorf("pg_dump not on PATH (port-forward Postgres or use make dev)")
 		}
 		port := envPort("OBELISK_POSTGRES_PORT", 5432)
-		user := strOr(inst.Credentials.Username, "obelisk")
-		db := strOr(inst.Credentials.Database, "obelisk")
+		user, _, db := obelisk.ResolvedDBCreds(inst)
 		cmd := exec.CommandContext(ctx, "pg_dump",
 			"-h", host, "-p", port, "-U", user, "-d", db, "--no-owner", "--no-acl",
 		)
@@ -38,8 +37,7 @@ func dumpInstanceLocal(ctx context.Context, inst obelisk.ServiceInstance) ([]byt
 			return nil, fmt.Errorf("mysqldump not on PATH")
 		}
 		port := envPort("OBELISK_MYSQL_PORT", 3306)
-		user := strOr(inst.Credentials.Username, "obelisk")
-		db := strOr(inst.Credentials.Database, "obelisk")
+		user, _, db := obelisk.ResolvedDBCreds(inst)
 		cmd := exec.CommandContext(ctx, "mysqldump",
 			"-h", host, "-P", port, "-u", user, db,
 		)

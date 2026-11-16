@@ -124,6 +124,42 @@ func ValidateServiceType(typ string) error {
 	}
 }
 
+// ResolvedDBCreds returns username, password, and database for logical backup tooling.
+// Empty username/database are filled with product defaults so backups match Helm after restore.
+func ResolvedDBCreds(inst ServiceInstance) (user, password, database string) {
+	password = inst.Credentials.Password
+	switch inst.Type {
+	case "postgres", "mysql", "mongodb":
+		user = strings.TrimSpace(inst.Credentials.Username)
+		if user == "" {
+			user = "obelisk"
+		}
+		database = strings.TrimSpace(inst.Credentials.Database)
+		if database == "" {
+			database = "obelisk"
+		}
+	default:
+		user = strings.TrimSpace(inst.Credentials.Username)
+		database = strings.TrimSpace(inst.Credentials.Database)
+	}
+	return user, password, database
+}
+
+func normalizeInstanceCredentials(inst *ServiceInstance) {
+	if inst == nil {
+		return
+	}
+	switch inst.Type {
+	case "postgres", "mysql", "mongodb":
+		if strings.TrimSpace(inst.Credentials.Username) == "" {
+			inst.Credentials.Username = "obelisk"
+		}
+		if strings.TrimSpace(inst.Credentials.Database) == "" {
+			inst.Credentials.Database = "obelisk"
+		}
+	}
+}
+
 // NormalizeInstances migrates legacy service flags into instances[] and keeps flags in sync.
 func NormalizeInstances(spec *Spec) {
 	if len(spec.Instances) == 0 {
@@ -148,6 +184,9 @@ func NormalizeInstances(spec *Spec) {
 		if spec.Services.SearXNG.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("searxng", "default", spec))
 		}
+	}
+	for i := range spec.Instances {
+		normalizeInstanceCredentials(&spec.Instances[i])
 	}
 	SyncLegacyServiceFlags(spec)
 }

@@ -26,6 +26,17 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 | `OBELISK_ROOT` | `/opt/obelisk` | Install tree |
 | `OBELISK_ARCHIVE_SHA256` | unset | Optional archive checksum verify |
 | `OBELISK_INSTALL_UPGRADE` | `false` | Replace tree in place when `true` |
+| `OBELISK_SKIP_GITHUB_WIZARD` | `false` | Skip interactive OAuth wizard after first install |
+
+## Upgrade an existing VPS
+
+```bash
+sudo obelisk update
+sudo obelisk update --ref v0.2.0    # pin a tag or branch
+sudo obelisk update --skip-images   # helm/controller rollout only
+```
+
+This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
 
 ## Contributor / fallback (git checkout)
 

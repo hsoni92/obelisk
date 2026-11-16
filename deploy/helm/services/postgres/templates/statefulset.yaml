@@ -36,7 +36,7 @@ spec:
                   key: database
           readinessProbe:
             exec:
-              command: ["pg_isready", "-U", "postgres"]
+              command: ["pg_isready", "-U", {{ .Values.credentials.username | default "obelisk" | quote }}]
             initialDelaySeconds: 5
             periodSeconds: 5
           volumeMounts:

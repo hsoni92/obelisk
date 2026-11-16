@@ -15,16 +15,18 @@ import (
 
 func cmdGitHub(args []string) {
 	if len(args) < 2 || args[0] != "oauth" {
-		fmt.Fprintln(os.Stderr, "usage: obelisk github oauth set|status")
+		fmt.Fprintln(os.Stderr, "usage: obelisk github oauth set|configure|status")
 		os.Exit(1)
 	}
 	switch args[1] {
 	case "set":
 		cmdGitHubOAuthSet(args[2:])
+	case "configure", "wizard":
+		cmdGitHubOAuthConfigure(args[2:])
 	case "status":
 		cmdGitHubOAuthStatus(args[2:])
 	default:
-		fmt.Fprintln(os.Stderr, "usage: obelisk github oauth set|status")
+		fmt.Fprintln(os.Stderr, "usage: obelisk github oauth set|configure|status")
 		os.Exit(1)
 	}
 }
@@ -46,51 +48,21 @@ func cmdGitHubOAuthSet(args []string) {
 		fmt.Fprintln(os.Stderr, "client-id and client-secret are required (--client-id/--client-secret or OBELISK_GITHUB_CLIENT_* env)")
 		os.Exit(1)
 	}
-	redir := *redirectURI
-	if redir == "" {
-		if *publicURL == "" {
-			fmt.Fprintln(os.Stderr, "redirect-uri or public-url is required (or set OBELISK_GITHUB_REDIRECT_URI / OBELISK_PUBLIC_URL)")
-			os.Exit(1)
-		}
-		redir = credentials.LoginCallbackURI(*publicURL)
-	}
-	if *skipFile && *skipCluster {
-		fmt.Fprintln(os.Stderr, "choose at most one of --file-only and --cluster-only")
-		os.Exit(1)
-	}
 
-	o := credentials.GitHubOAuth{
+	err := applyGitHubOAuth(context.Background(), githubOAuthApplyOptions{
+		ConfigPath:   *cfg,
 		ClientID:     *clientID,
 		ClientSecret: *clientSecret,
-		RedirectURI:  redir,
+		RedirectURI:  *redirectURI,
+		PublicURL:    *publicURL,
+		Namespace:    *ns,
+		SkipCluster:  *skipCluster,
+		SkipFile:     *skipFile,
+		NoRestart:    *noRestart,
+	})
+	if err != nil {
+		dieApply(err)
 	}
-	credDir := credentials.CredentialsDirForConfig(*cfg)
-
-	if !*skipFile {
-		path, err := credentials.WriteGitHubOAuthFile(credDir, o)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Println("wrote", path)
-	}
-
-	if !*skipCluster {
-		err := credentials.ApplyClusterGitHubOAuthSecret(context.Background(), o, credentials.ClusterGitHubOAuthOptions{
-			Namespace:     *ns,
-			RestartDeploy: !*noRestart,
-		})
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		fmt.Printf("applied Secret obelisk-github-oauth in namespace %s\n", *ns)
-		if !*noRestart {
-			fmt.Println("restarted deployment/obelisk-controller")
-		}
-	}
-	fmt.Println("GitHub OAuth app must allow browser redirect (exact match):", redir)
-	fmt.Println("Operators opening the UI at another host/IP need that origin/login/callback too, or use device login (Device Flow enabled on the app).")
 }
 
 func cmdGitHubOAuthStatus(args []string) {

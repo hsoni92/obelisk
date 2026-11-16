@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"testing"
+	"time"
 )
 
 func TestChainPhaseOrder(t *testing.T) {
@@ -29,6 +30,30 @@ func TestChainPhaseOrder(t *testing.T) {
 	if st.Phase != PhaseComplete || !st.SettingsRestored || !st.DataRestored || st.DataObjects != 2 {
 		t.Fatalf("state = %+v", st)
 	}
+}
+
+func TestStartSurvivesCallerCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	o := New()
+	o.Start(ctx, Hooks{
+		Pull: func(ctx context.Context) error {
+			return ctx.Err()
+		},
+	})
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		st := o.State()
+		if st.Running {
+			time.Sleep(10 * time.Millisecond)
+			continue
+		}
+		if st.Phase != PhaseComplete || st.Error != "" {
+			t.Fatalf("state = %+v", st)
+		}
+		return
+	}
+	t.Fatalf("state = %+v", o.State())
 }
 
 func TestChainStopsBeforeDataOnMachineChoice(t *testing.T) {

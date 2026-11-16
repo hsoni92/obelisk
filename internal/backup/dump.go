@@ -111,15 +111,18 @@ func dumpInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance) ([]byte,
 	release := inst.ReleaseName()
 	pod := release + "-0"
 	ns := obeliskNamespace()
+	user, pass, db := obelisk.ResolvedDBCreds(inst)
 	switch inst.Type {
 	case "postgres":
-		inner := `export PGPASSWORD="${POSTGRES_PASSWORD}"; pg_dump -U "${POSTGRES_USER}" -d "${POSTGRES_DB}" --no-owner --no-acl`
-		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "postgres", "--", "sh", "-ec", inner)
+		return postgresDumpK8s(ctx, ns, pod, user, pass, db)
 	case "mysql":
-		inner := `mysqldump -u"${MYSQL_USER}" -p"${MYSQL_PASSWORD}" "${MYSQL_DATABASE}"`
+		inner := fmt.Sprintf(`mysqldump -u%q -p%q %q`, user, pass, db)
 		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "mysql", "--", "sh", "-ec", inner)
 	case "mongodb":
-		inner := `mongodump --archive --username="${MONGO_INITDB_ROOT_USERNAME}" --password="${MONGO_INITDB_ROOT_PASSWORD}" --authenticationDatabase=admin`
+		inner := fmt.Sprintf(
+			`mongodump --archive --username=%q --password=%q --authenticationDatabase=admin`,
+			user, pass,
+		)
 		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "mongodb", "--", "sh", "-ec", inner)
 	case "rustfs", "qdrant":
 		return nil, fmt.Errorf("%s data backup worker not implemented yet", inst.Type)
@@ -133,4 +136,19 @@ func strOr(s, def string) string {
 		return s
 	}
 	return def
+}
+
+// postgresDumpK8s uses desired-state credentials, then retries as role postgres when
+// the data volume was initialized before username/database were set on the instance.
+func postgresDumpK8s(ctx context.Context, ns, pod, user, pass, db string) ([]byte, error) {
+	inner := fmt.Sprintf(`PGPASSWORD=%q pg_dump -U %q -d %q --no-owner --no-acl`, pass, user, db)
+	out, err := kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "postgres", "--", "sh", "-ec", inner)
+	if err == nil {
+		return out, nil
+	}
+	if user != "postgres" && strings.Contains(err.Error(), "does not exist") {
+		inner = fmt.Sprintf(`PGPASSWORD=%q pg_dump -U postgres -d %q --no-owner --no-acl`, pass, db)
+		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "postgres", "--", "sh", "-ec", inner)
+	}
+	return nil, err
 }

@@ -54,6 +54,8 @@ sudo -E ./install/bootstrap.sh
 
 **VM test (Multipass):** `make test-vm` — prod-like VM, curl install from public GitHub (see [tests/integration/README.md](tests/integration/README.md)).
 
+After install: `sudo obelisk configure github` (OAuth wizard). Upgrade: `sudo obelisk update [--ref REF]`.
+
 ## Layout
 
 | Path | Purpose |
@@ -65,5 +67,6 @@ sudo -E ./install/bootstrap.sh
 | `schemas/obelisk.yaml.schema.json` | Desired-state schema |
 | `install/install.sh` | VPS curl entry (archive → bootstrap) |
 | `install/bootstrap.sh` | k3s platform installer |
+| `install/update.sh` | In-place VPS upgrade (used by `obelisk update`) |
 
 **Profiles:** VPS does not install Tailscale. Local installs may opt into Tailscale when internet reachability is needed.

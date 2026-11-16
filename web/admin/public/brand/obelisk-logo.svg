@@ -1,60 +1,60 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 270" width="248" height="270">
   <defs>
     <linearGradient id="leftDark" x1="0.3" y1="0" x2="0.7" y2="1">
-      <stop offset="0" stop-color="#308998"/>
-      <stop offset="0.5" stop-color="#175d70"/>
-      <stop offset="1" stop-color="#0a3345"/>
+      <stop offset="0" stop-color="#6f9480"/>
+      <stop offset="0.5" stop-color="#456352"/>
+      <stop offset="1" stop-color="#18261d"/>
     </linearGradient>
     <linearGradient id="leftBevel" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#75bfc5"/>
-      <stop offset="0.55" stop-color="#3c8d9c"/>
-      <stop offset="1" stop-color="#185466"/>
+      <stop offset="0" stop-color="#b4cdbb"/>
+      <stop offset="0.55" stop-color="#7fa08c"/>
+      <stop offset="1" stop-color="#3b5546"/>
     </linearGradient>
     <linearGradient id="centerLeft" x1="0.5" y1="0" x2="0.2" y2="1">
-      <stop offset="0" stop-color="#6eb9c0"/>
-      <stop offset="0.38" stop-color="#287182"/>
-      <stop offset="0.78" stop-color="#134c5f"/>
-      <stop offset="1" stop-color="#0b3648"/>
+      <stop offset="0" stop-color="#8fb09b"/>
+      <stop offset="0.38" stop-color="#4d6b5a"/>
+      <stop offset="0.78" stop-color="#2b4335"/>
+      <stop offset="1" stop-color="#142019"/>
     </linearGradient>
     <linearGradient id="centerRight" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#a8e2e2"/>
-      <stop offset="0.4" stop-color="#56aab4"/>
-      <stop offset="1" stop-color="#1f6f82"/>
+      <stop offset="0" stop-color="#eafa78"/>
+      <stop offset="0.4" stop-color="#d7f249"/>
+      <stop offset="1" stop-color="#9fbf26"/>
     </linearGradient>
     <linearGradient id="centerHighlight" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#ccefee"/>
-      <stop offset="0.6" stop-color="#87cdd1"/>
-      <stop offset="1" stop-color="#58a9b3"/>
+      <stop offset="0" stop-color="#f8fdb0"/>
+      <stop offset="0.6" stop-color="#f0fba8"/>
+      <stop offset="1" stop-color="#dcf55a"/>
     </linearGradient>
     <linearGradient id="centerBand" x1="1" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#7ec7cc"/>
-      <stop offset="1" stop-color="#3a8999"/>
+      <stop offset="0" stop-color="#e6f97a"/>
+      <stop offset="1" stop-color="#b5d530"/>
     </linearGradient>
     <linearGradient id="rightSide" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#2c7584"/>
-      <stop offset="0.55" stop-color="#185567"/>
-      <stop offset="1" stop-color="#0b3446"/>
+      <stop offset="0" stop-color="#5f8370"/>
+      <stop offset="0.55" stop-color="#3a5546"/>
+      <stop offset="1" stop-color="#16231b"/>
     </linearGradient>
     <linearGradient id="barTop" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#82ccd2"/>
-      <stop offset="1" stop-color="#5cb1bc"/>
+      <stop offset="0" stop-color="#f2fc9a"/>
+      <stop offset="1" stop-color="#d7f249"/>
     </linearGradient>
     <linearGradient id="barMid" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#60b1bd"/>
-      <stop offset="1" stop-color="#378898"/>
+      <stop offset="0" stop-color="#c9e748"/>
+      <stop offset="1" stop-color="#8fb92f"/>
     </linearGradient>
     <linearGradient id="barLow" x1="0" y1="0" x2="0.6" y2="1">
-      <stop offset="0" stop-color="#4898a7"/>
-      <stop offset="1" stop-color="#1e6174"/>
+      <stop offset="0" stop-color="#6f9480"/>
+      <stop offset="1" stop-color="#2f4a3a"/>
     </linearGradient>
     <linearGradient id="baseLeft" x1="0.7" y1="0" x2="0.2" y2="1">
-      <stop offset="0" stop-color="#184f63"/>
-      <stop offset="1" stop-color="#092d40"/>
+      <stop offset="0" stop-color="#34503f"/>
+      <stop offset="1" stop-color="#121c15"/>
     </linearGradient>
     <linearGradient id="baseRight" x1="0.2" y1="0" x2="0.8" y2="1">
-      <stop offset="0" stop-color="#75c0c7"/>
-      <stop offset="0.5" stop-color="#378b9c"/>
-      <stop offset="1" stop-color="#17596d"/>
+      <stop offset="0" stop-color="#e9f98a"/>
+      <stop offset="0.5" stop-color="#bfe03a"/>
+      <stop offset="1" stop-color="#6f9a2a"/>
     </linearGradient>
   </defs>
 

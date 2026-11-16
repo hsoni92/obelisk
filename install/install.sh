@@ -148,8 +148,15 @@ print_admin_url() {
   fi
   log "platform-ready — admin UI: ${base}"
   log "verify: curl -fsS ${base%/}/api/v1/health"
-  log "next: obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
+  log "next: obelisk configure github   # interactive OAuth wizard"
+  log "       or: obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
   log "       then sign in with GitHub (see docs/runbooks/github-blueprint.md)"
+  if [[ -t 0 && -t 1 && "${OBELISK_SKIP_GITHUB_WIZARD:-false}" != "true" && "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
+    if command -v obelisk >/dev/null; then
+      log "starting GitHub OAuth wizard (OBELISK_SKIP_GITHUB_WIZARD=true to skip)"
+      obelisk configure github || log "wizard skipped or failed — configure later with: obelisk configure github"
+    fi
+  fi
 }
 
 invoke_bootstrap() {
@@ -167,8 +174,12 @@ invoke_bootstrap() {
   "$OBELISK_ROOT/install/bootstrap.sh"
 }
 
-main() {
-  : >"$INSTALL_LOG" 2>/dev/null || true
+run_install_body() {
+  if [[ "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
+    : >"$INSTALL_LOG" 2>/dev/null || true
+  else
+    log "=== upgrade started $(date -u +%Y-%m-%dT%H:%M:%SZ) ref=${OBELISK_REF} ==="
+  fi
   preflight_os
   fetch_and_extract
   if [[ "${OBELISK_BUILD_IMAGES:-true}" == "true" ]]; then
@@ -179,6 +190,14 @@ main() {
   invoke_bootstrap
   write_install_meta
   print_admin_url
+}
+
+main() {
+  if [[ "${OBELISK_INSTALL_MODE:-}" == "upgrade" ]]; then
+    export OBELISK_INSTALL_UPGRADE=true
+    log "upgrade: rsync source into $OBELISK_ROOT (config and credentials on disk are preserved)"
+  fi
+  run_install_body
 }
 
 main "$@"
