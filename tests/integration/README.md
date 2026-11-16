@@ -1,36 +1,38 @@
-# Integration harness (prod-like VM)
+# Integration harness
 
-Exercises the same path as a fresh VPS: k3s on the host, container images built locally, `install/bootstrap.sh`, and Kong in front of the admin API/UI.
+## Prod-like manual test (Multipass)
 
-## Multipass (local)
-
-Requires [Multipass](https://multipass.run/), Docker inside the VM (cloud-init), and enough RAM for image builds (~8G recommended).
+`make test-vm` launches a **bare Ubuntu 24.04 VPS-shaped VM**: no repo mount, no Docker/Go preinstall. You SSH in and run the **same curl command** as production. The harness **fails** if `https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh` is not HTTP 200 (repo must be **public** with `install/install.sh` on `main`).
 
 ```bash
-# One-shot: launch VM → install → smoke → print URL
-make test-vm
-
-# Or step by step:
-./tests/integration/multipass/harness.sh up
-./tests/integration/multipass/harness.sh install   # 15–25 min first time
-./tests/integration/multipass/harness.sh smoke
-./tests/integration/multipass/harness.sh url       # open in browser on the LAN
-
-# Optional: enable postgres after platform smoke
-OBELISK_SMOKE_LEVEL=full ./tests/integration/multipass/harness.sh smoke
-
-./tests/integration/multipass/harness.sh destroy
+make test-vm          # launch VM + print SSH + install command
+# on VM:
+curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo bash
+# from host after install:
+make vm-smoke
+./tests/integration/multipass/harness.sh url
+make vm-destroy
 ```
 
-Inside the VM, install uses:
+Specs match design floor: 4 CPU, 8G RAM, 40G disk (`OBELISK_VM_CPUS`, `OBELISK_VM_MEM`, `OBELISK_VM_DISK`).
 
-- `OBELISK_PROFILE=vps`
-- `OBELISK_BUILD_IMAGES=true` (controller + admin UI → `k3s ctr images import`)
-- `--set kong.service.type=LoadBalancer` (k3s servicelb exposes HTTP on the VM IP)
+SSH: `ubuntu@<ip>` / password `obelisk-vm` (Multipass manual cloud-init only).
 
-## Bare metal / cloud VM
+## Dev automation (not prod-like)
 
-**Rsync from checkout (default harness):**
+`make vm-test-all` mounts this checkout, preinstalls Docker/Go, and runs `install-in-vm.sh` + smoke — useful for fast iteration, **not** the operator install path.
+
+```bash
+make vm-test-all
+# or:
+OBELISK_VM_MODE=full ./tests/integration/multipass/harness.sh all
+```
+
+Inside that path, install uses `OBELISK_PROFILE=vps`, `OBELISK_BUILD_IMAGES=true`, Kong LoadBalancer for k3s servicelb.
+
+## Scripts on a real host (checkout present)
+
+For machines where you already have the git tree (not the curl prod path):
 
 ```bash
 export OBELISK_VM_SRC=/path/to/checkout
@@ -38,29 +40,15 @@ sudo ./tests/integration/vm/install-in-vm.sh
 sudo ./tests/integration/vm/smoke.sh
 ```
 
-**Archive path (closer to production curl install):**
-
-```bash
-export OBELISK_VM_SRC=/path/to/checkout
-sudo ./tests/integration/vm/curl-install.sh
-sudo ./tests/integration/vm/smoke.sh
-```
-
-`curl-install.sh` packs the checkout into a tarball and runs `install/install.sh` (same entry as `curl | sudo bash` on GitHub).
+`curl-install.sh` builds a local tarball — **dev harness only**, not used by `make test-vm`.
 
 ## Environment
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
 | `OBELISK_VM_NAME` | `obelisk-vm` | Multipass instance name |
-| `OBELISK_BUILD_IMAGES` | (install sets `true`) | Build/import images during bootstrap |
-| `OBELISK_HELM_EXTRA_ARGS` | LoadBalancer for harness | Extra `helm upgrade` flags |
-| `OBELISK_REF` | `main` / `local-test` | Archive ref for `install.sh` |
-| `OBELISK_ARCHIVE_URL` | (curl-install builds `file://` tarball) | Override archive download |
+| `OBELISK_VM_MODE` | `manual` via `test-vm` | `manual` = prod-like; `full` = dev mount |
+| `OBELISK_VM_MOUNT` | `false` in manual | Never enable for prod-like test |
 | `OBELISK_SMOKE_LEVEL` | `basic` | `full` also enables postgres |
-
-Manual image build on any k3s host:
-
-```bash
-sudo OBELISK_BUILD_IMAGES=true ./install/bootstrap.sh
-```
+| `OBELISK_BUILD_IMAGES` | `true` on install | Build/import images during bootstrap |
+| `OBELISK_HELM_EXTRA_ARGS` | LoadBalancer (dev harness) | Extra `helm upgrade` flags |

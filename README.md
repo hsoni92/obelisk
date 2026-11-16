@@ -4,6 +4,8 @@ Single-node middleware appliance: lazy Postgres, Redis, and S3-compatible storag
 
 Design: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 
+Contributing (CI, optional pre-commit hooks): [CONTRIBUTING.md](CONTRIBUTING.md)
+
 ## Development
 
 **Prerequisites:** Go **1.22+** on `PATH`, Node.js/npm for `web/admin`. If `make` says `go: No such file or directory`, install Go first (`make check-go` prints distro hints).
@@ -50,7 +52,7 @@ export OBELISK_BUILD_IMAGES=true  # build/import platform images before helm
 sudo -E ./install/bootstrap.sh
 ```
 
-**Fresh VM test (Multipass):** `make test-vm` — see [tests/integration/README.md](tests/integration/README.md).
+**VM test (Multipass):** `make test-vm` — prod-like VM, curl install from public GitHub (see [tests/integration/README.md](tests/integration/README.md)).
 
 ## Layout
 

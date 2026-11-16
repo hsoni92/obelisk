@@ -1,0 +1,16 @@
+# Repo-wide secret scan (CI + optional pre-commit). Orthogonal to
+# internal/blueprint ScanPublicYAML (appliance blueprint push only).
+title = "obelisk gitleaks"
+
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Illustrative docs, chart placeholders, and test fixtures"
+paths = [
+  '''(?i)^docs/''',
+  '''(?i)^deploy/helm/.*/values\.yaml$''',
+  '''(?i)_test\.go$''',
+  '''(?i)\.env\.example$''',
+  '''(?i)^schemas/''',
+]

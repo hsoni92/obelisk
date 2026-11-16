@@ -9,4 +9,4 @@ RUSTFS_IMAGE=rustfs/rustfs:latest
 QDRANT_IMAGE=qdrant/qdrant:v1.12.5
 SEARXNG_IMAGE=docker.io/searxng/searxng:latest
 RUSTFS_CHART=0.1.0
-NEXTJS=15.x
+NEXTJS=16.x

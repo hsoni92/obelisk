@@ -8,7 +8,10 @@ MOUNT_PATH="${OBELISK_VM_MOUNT:-/mnt/obelisk-src}"
 CPUS="${OBELISK_VM_CPUS:-4}"
 MEM="${OBELISK_VM_MEM:-8G}"
 DISK="${OBELISK_VM_DISK:-40G}"
-CLOUD_INIT="${OBELISK_VM_CLOUD_INIT:-$ROOT/tests/integration/multipass/cloud-init.yaml}"
+CLOUD_INIT_FULL="${ROOT}/tests/integration/multipass/cloud-init.yaml"
+CLOUD_INIT_MANUAL="${ROOT}/tests/integration/multipass/cloud-init-manual.yaml"
+# manual = no repo mount, minimal cloud-init, SSH password for hand testing
+OBELISK_VM_MODE="${OBELISK_VM_MODE:-full}"
 
 log() { printf '[obelisk-harness] %s\n' "$*"; }
 die() { log "ERROR: $*"; exit 1; }
@@ -23,22 +26,35 @@ vm_ip() {
   multipass info "$VM_NAME" 2>/dev/null | awk '/^IPv4:/ { print $2; exit }'
 }
 
+cloud_init_file() {
+  if [[ "$OBELISK_VM_MODE" == "manual" ]]; then
+    echo "$CLOUD_INIT_MANUAL"
+  else
+    echo "${OBELISK_VM_CLOUD_INIT:-$CLOUD_INIT_FULL}"
+  fi
+}
+
 usage() {
   cat <<EOF
 Usage: $0 <command>
 
 Commands:
-  up        Launch VM, mount repo, wait for cloud-init
-  install   Sync repo in VM and run install/bootstrap.sh (VPS profile)
+  up        Launch VM and wait for cloud-init (see OBELISK_VM_MODE)
+  ready     up (manual mode) + print SSH / install hints — used by make test-vm
+  login     Print SSH address and credentials (VM must be running)
+  install   Sync repo in VM and run install/bootstrap.sh (VPS profile; needs mount)
   smoke     Run in-VM smoke (basic or OBELISK_SMOKE_LEVEL=full)
-  all       up + install + smoke
+  all       up (full mode) + install + smoke
   url       Print Kong URL on the VM (after install)
-  shell     Interactive shell on the VM
+  shell     Interactive shell on the VM (Multipass)
   stop      Stop VM
   destroy   Delete VM
 
 Environment:
   OBELISK_VM_NAME, OBELISK_VM_CPUS, OBELISK_VM_MEM, OBELISK_VM_DISK
+  OBELISK_VM_MODE=manual|full   manual: minimal OS, SSH password, no repo mount
+  OBELISK_VM_CLOUD_INIT         Override cloud-init (full mode only)
+  OBELISK_VM_MOUNT=true         Mount repo (full/dev automation only; never default in manual)
   OBELISK_SMOKE_LEVEL=basic|full
   OBELISK_PROFILE=vps|local (install only)
 
@@ -46,29 +62,106 @@ Repo: $ROOT
 EOF
 }
 
+should_mount() {
+  if [[ "$OBELISK_VM_MODE" == "manual" ]]; then
+    [[ "${OBELISK_VM_MOUNT:-false}" == "true" ]]
+  else
+    [[ "${OBELISK_VM_MOUNT:-true}" == "true" ]]
+  fi
+}
+
+prod_install_url() {
+  echo "https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh"
+}
+
+prod_install_reachable() {
+  curl -fsSI "$(prod_install_url)" | head -1 | grep -q ' 200'
+}
+
 cmd_up() {
   need multipass
+  local cloud_init
+  cloud_init="$(cloud_init_file)"
+
   if vm_exists; then
     log "VM $VM_NAME already exists — starting"
     multipass start "$VM_NAME" 2>/dev/null || true
   else
-    log "launching $VM_NAME (${CPUS}cpu ${MEM} ram ${DISK} disk)"
+    log "launching $VM_NAME (${CPUS}cpu ${MEM} ram ${DISK} disk) mode=$OBELISK_VM_MODE"
     # shellcheck disable=SC2086
     multipass launch 24.04 --name "$VM_NAME" --cpus "$CPUS" --memory "$MEM" --disk "$DISK" \
-      --cloud-init "$CLOUD_INIT"
+      --cloud-init "$cloud_init"
   fi
-  log "mounting $ROOT -> ${VM_NAME}:${MOUNT_PATH}"
-  if ! multipass info "$VM_NAME" 2>/dev/null | grep -q "$MOUNT_PATH"; then
-    multipass mount "$ROOT" "${VM_NAME}:${MOUNT_PATH}"
+
+  if should_mount; then
+    log "mounting $ROOT -> ${VM_NAME}:${MOUNT_PATH}"
+    if ! multipass info "$VM_NAME" 2>/dev/null | grep -q "$MOUNT_PATH"; then
+      multipass mount "$ROOT" "${VM_NAME}:${MOUNT_PATH}"
+    fi
+  else
+    log "repo mount skipped (manual test VM)"
   fi
+
   log "waiting for cloud-init"
   multipass exec "$VM_NAME" -- cloud-init status --wait || true
-  multipass exec "$VM_NAME" -- bash -c 'command -v docker && command -v go && sudo docker info >/dev/null'
+
+  if [[ "$OBELISK_VM_MODE" == "full" ]]; then
+    multipass exec "$VM_NAME" -- bash -c 'command -v docker && command -v go && sudo docker info >/dev/null'
+  else
+    multipass exec "$VM_NAME" -- bash -c 'command -v curl && systemctl is-active --quiet ssh || systemctl is-active --quiet sshd'
+  fi
+
   log "VM ready: $(vm_ip)"
+}
+
+cmd_login() {
+  local ip url
+  ip="$(vm_ip)"
+  url="$(prod_install_url)"
+  [[ -n "$ip" ]] || die "could not resolve VM IP (is the VM up?)"
+
+  cat <<EOF
+
+=== Obelisk prod-like test VM ===
+Fresh Ubuntu (curl + SSH only). No repo mount — install exactly as on a real VPS.
+
+Name:     $VM_NAME
+Address:  $ip
+User:     ubuntu
+Password: obelisk-vm   (local Multipass only)
+
+SSH:
+  ssh ubuntu@$ip
+  multipass shell $VM_NAME
+
+On the VM — production install:
+  curl -fsSL $url | sudo bash
+
+After install, smoke from the host:
+  make vm-smoke
+  ./tests/integration/multipass/harness.sh url
+
+On the VM — smoke directly:
+  sudo /opt/obelisk/tests/integration/vm/smoke.sh
+
+Tear down:
+  make vm-destroy
+
+EOF
+}
+
+cmd_ready() {
+  OBELISK_VM_MODE=manual OBELISK_VM_MOUNT=false cmd_up
+  if ! prod_install_reachable; then
+    die "production install URL not reachable (expected HTTP 200): $(prod_install_url)
+Publish hsoni92/obelisk as a public GitHub repo with install/install.sh on main, then retry make test-vm"
+  fi
+  cmd_login
 }
 
 cmd_install() {
   vm_exists || die "VM missing — run: $0 up"
+  should_mount || die "install needs repo mount — run: OBELISK_VM_MODE=full $0 up (or OBELISK_VM_MOUNT=true)"
   multipass exec "$VM_NAME" -- sudo chmod +x "$MOUNT_PATH/tests/integration/vm/install-in-vm.sh"
   multipass exec "$VM_NAME" -- sudo OBELISK_VM_SRC="$MOUNT_PATH" OBELISK_PROFILE="${OBELISK_PROFILE:-vps}" \
     "$MOUNT_PATH/tests/integration/vm/install-in-vm.sh"
@@ -76,9 +169,16 @@ cmd_install() {
 
 cmd_smoke() {
   vm_exists || die "VM missing"
-  multipass exec "$VM_NAME" -- sudo chmod +x "$MOUNT_PATH/tests/integration/vm/smoke.sh"
-  multipass exec "$VM_NAME" -- sudo OBELISK_SMOKE_LEVEL="${OBELISK_SMOKE_LEVEL:-basic}" \
-    "$MOUNT_PATH/tests/integration/vm/smoke.sh"
+  local smoke=""
+  if multipass exec "$VM_NAME" -- test -x /opt/obelisk/tests/integration/vm/smoke.sh 2>/dev/null; then
+    smoke="/opt/obelisk/tests/integration/vm/smoke.sh"
+  elif multipass info "$VM_NAME" 2>/dev/null | grep -q "$MOUNT_PATH"; then
+    smoke="$MOUNT_PATH/tests/integration/vm/smoke.sh"
+    multipass exec "$VM_NAME" -- sudo chmod +x "$smoke"
+  else
+    die "no smoke script — run prod install first (curl install.sh) or use OBELISK_VM_MODE=full with mount"
+  fi
+  multipass exec "$VM_NAME" -- sudo OBELISK_SMOKE_LEVEL="${OBELISK_SMOKE_LEVEL:-basic}" "$smoke"
 }
 
 cmd_url() {
@@ -106,9 +206,11 @@ main() {
   [[ $# -ge 1 ]] || { usage; exit 1; }
   case "$1" in
     up) cmd_up ;;
+    ready) cmd_ready ;;
+    login) cmd_login ;;
     install) cmd_install ;;
     smoke) cmd_smoke ;;
-    all) cmd_up; cmd_install; cmd_smoke; cmd_url ;;
+    all) OBELISK_VM_MODE=full cmd_up; cmd_install; cmd_smoke; cmd_url ;;
     url) cmd_url ;;
     shell) cmd_shell ;;
     stop) cmd_stop ;;

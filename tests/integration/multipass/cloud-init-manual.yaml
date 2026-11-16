@@ -1,0 +1,13 @@
+#cloud-config
+# Bare VPS-shaped VM for manual curl install testing (no Docker/Go preinstall).
+package_update: true
+packages:
+  - curl
+  - ca-certificates
+  - openssh-server
+  - sudo
+ssh_pwauth: true
+chpasswd:
+  list: |
+    ubuntu:obelisk-vm
+  expire: false

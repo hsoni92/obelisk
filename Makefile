@@ -1,4 +1,7 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go test-vm vm-up vm-install vm-smoke vm-destroy
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-destroy ci hooks-install gitleaks
+
+GITLEAKS ?= gitleaks
+PRE_COMMIT ?= pre-commit
 
 GO ?= go
 export PATH := $(shell $(GO) env GOPATH 2>/dev/null)/bin:$(PATH)
@@ -27,6 +30,18 @@ helm-lint:
 	helm lint deploy/helm/services/mongodb
 	helm lint deploy/helm/services/qdrant
 	helm lint deploy/helm/services/searxng
+
+ci: check-go test-go build-cli build-controller helm-lint
+	cd web/admin && npm ci && npm run build
+	@$(MAKE) gitleaks
+
+gitleaks:
+	@command -v $(GITLEAKS) >/dev/null || { echo "$(GITLEAKS) not installed; skip or: https://github.com/gitleaks/gitleaks#installing"; exit 0; }
+	$(GITLEAKS) detect --config .gitleaks.toml
+
+hooks-install:
+	@command -v $(PRE_COMMIT) >/dev/null || { echo "Install pre-commit (pip/pipx), then re-run make hooks-install"; exit 1; }
+	$(PRE_COMMIT) install
 
 dev-ui:
 	cd web/admin && npm run dev
@@ -65,11 +80,15 @@ dev-cluster: check-go
 
 test-vm:
 	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/build-images.sh
-	./tests/integration/multipass/harness.sh all
+	./tests/integration/multipass/harness.sh ready
 
 vm-up:
 	chmod +x tests/integration/multipass/harness.sh
 	./tests/integration/multipass/harness.sh up
+
+vm-test-all:
+	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/build-images.sh
+	OBELISK_VM_MODE=full ./tests/integration/multipass/harness.sh all
 
 vm-install:
 	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh

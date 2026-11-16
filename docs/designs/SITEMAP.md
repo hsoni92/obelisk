@@ -13,3 +13,4 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [github_encrypted_blueprint.md](./github_encrypted_blueprint.md) | Proposed | Encrypted blueprint mirror: auto-push, user key, chained DR rebirth |
 | [curl_vps_installer_concepts_brief.md](./curl_vps_installer_concepts_brief.md) | Ideation | Brainstorm: curl VPS prod install without git clone |
 | [curl_vps_installer.md](./curl_vps_installer.md) | Proposed | Thin `install/install.sh` + GitHub archive → existing `bootstrap.sh` |
+| [precommit_ci_guardrails_concepts_brief.md](./precommit_ci_guardrails_concepts_brief.md) | Ideation | Public-repo CI + optional pre-commit (lint, gitleaks, deps) |

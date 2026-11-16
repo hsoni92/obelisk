@@ -55,7 +55,7 @@ Docker + `./install/k3d-dev.sh` (or `make dev-k3d-up`) creates a **k3d** cluster
 
 Use the **curl one-liner** above when possible. Manual path: `sudo ./install/bootstrap.sh` installs **k3s on the host** (get.k3s.io) from an existing tree at `OBELISK_ROOT`.
 
-**VM smoke test (Multipass):** see [tests/integration/README.md](../../tests/integration/README.md) — `make test-vm` runs a prod-like install on Ubuntu 24.04. Archive path: `sudo OBELISK_VM_SRC=/mnt/obelisk-src ./tests/integration/vm/curl-install.sh`
+**VM smoke test (Multipass):** [tests/integration/README.md](../../tests/integration/README.md) — `make test-vm` (prod-like curl install; public GitHub required).
 
 ### Simulate (fallback)
 
