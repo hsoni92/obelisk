@@ -35,11 +35,22 @@ make helm-lint
 
 ## Bootstrap on a host
 
+**VPS (production):**
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo bash
+```
+
+**From a git checkout** (local or contributor):
+
 ```bash
 export OBELISK_ROOT=/opt/obelisk   # checkout path on the server
 export OBELISK_PROFILE=vps        # or local; Tailscale only for local + opt-in
-sudo ./install/bootstrap.sh
+export OBELISK_BUILD_IMAGES=true  # build/import platform images before helm
+sudo -E ./install/bootstrap.sh
 ```
+
+**Fresh VM test (Multipass):** `make test-vm` — see [tests/integration/README.md](tests/integration/README.md).
 
 ## Layout
 
@@ -50,6 +61,7 @@ sudo ./install/bootstrap.sh
 | `deploy/helm/` | Platform + data service charts |
 | `web/admin` | Next.js admin UI |
 | `schemas/obelisk.yaml.schema.json` | Desired-state schema |
+| `install/install.sh` | VPS curl entry (archive → bootstrap) |
 | `install/bootstrap.sh` | k3s platform installer |
 
 **Profiles:** VPS does not install Tailscale. Local installs may opt into Tailscale when internet reachability is needed.

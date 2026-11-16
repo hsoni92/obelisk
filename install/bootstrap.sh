@@ -38,6 +38,20 @@ install_k3s() {
   log "k3s installed"
 }
 
+build_images() {
+  if [[ "${OBELISK_BUILD_IMAGES:-false}" != "true" ]]; then
+    log "skipping image build (set OBELISK_BUILD_IMAGES=true to build and import)"
+    return
+  fi
+  if ! docker info >/dev/null 2>&1; then
+    die "OBELISK_BUILD_IMAGES=true but Docker is not running; install docker.io or set OBELISK_BUILD_IMAGES=false"
+  fi
+  if [[ ! -x "$OBELISK_ROOT/install/build-images.sh" ]]; then
+    die "OBELISK_BUILD_IMAGES set but $OBELISK_ROOT/install/build-images.sh missing or not executable"
+  fi
+  OBELISK_IMAGE_TAG="${OBELISK_IMAGE_TAG:-0.1.0}" "$OBELISK_ROOT/install/build-images.sh"
+}
+
 maybe_tailscale() {
   if [[ "$PROFILE" != "local" || "$ENABLE_TAILSCALE" != "true" ]]; then
     log "skipping tailscale (profile=$PROFILE)"
@@ -72,9 +86,17 @@ deploy_platform() {
   command -v helm >/dev/null || {
     curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   }
+  local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
+  if [[ "$PROFILE" == "vps" && -z "$helm_extra" ]]; then
+    helm_extra='--set kong.service.type=LoadBalancer'
+    log "VPS default: kong LoadBalancer (k3s servicelb)"
+  fi
+  # shellcheck disable=SC2086
   helm upgrade --install obelisk-platform "$OBELISK_ROOT/deploy/helm/platform" \
     --namespace "$NAMESPACE" --create-namespace --wait --timeout 15m \
-    --set obelisk.configHostPath="$CONFIG_PATH"
+    --set obelisk.configHostPath="$CONFIG_PATH" \
+    --set obelisk.helmRoot="$OBELISK_ROOT" \
+    ${helm_extra}
   log "platform helm release applied"
 }
 
@@ -88,6 +110,7 @@ install_cli() {
 main() {
   preflight
   install_k3s
+  build_images
   maybe_tailscale
   write_config
   deploy_platform

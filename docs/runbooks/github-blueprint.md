@@ -1,5 +1,7 @@
 # GitHub encrypted blueprint
 
+On a **new VPS**, install the platform first with the curl installer in [install.md](./install.md), then use this runbook.
+
 Operators sign in with GitHub. The appliance keeps an encrypted copy of desired state in a private repository and uses S3/R2 only for `data/`.
 
 ## OAuth app

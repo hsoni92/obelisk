@@ -264,10 +264,10 @@ Control-plane desired state is not stored under `config/`. It is pushed to a pri
 
 Controller sets resource requests/limits per `spec.hardware_tier` (`floor` | `comfort`). Floor caps Postgres `shared_buffers`, Redis `maxmemory`, and serializes backup jobs.
 
-### Install entry (G5 — proposed)
+### Install entry (G5)
 
-1. `curl -fsSL https://…/install.sh | bash` for first bootstrap on clean Ubuntu LTS.
-2. Script installs k3s pin, `obelisk` CLI binary, platform Helm release, writes initial `obelisk.yaml`.
+1. **VPS:** `curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo bash` — thin entry downloads a GitHub archive into `/opt/obelisk`, prepares Docker/Go/CLI, then delegates to `install/bootstrap.sh` (see [curl_vps_installer.md](./curl_vps_installer.md)). First boot with on-host image build often exceeds five wall-clock minutes on the reference hardware.
+2. Bootstrap installs k3s, builds/imports platform images when `OBELISK_BUILD_IMAGES=true`, applies platform Helm (VPS defaults Kong LoadBalancer), writes `/etc/obelisk/obelisk.yaml`.
 3. CLI handles day-2: `obelisk status`, `obelisk service enable postgres`, `obelisk backup run` (after DR target configured), `obelisk restore`.
 
 Install state machine stages: `preflight → k3s → [tailscale if local+opt-in] → platform_manifests → health → done`.

@@ -1,10 +1,38 @@
 # Install runbook
 
+## Production VPS (canonical)
+
+On a clean **Ubuntu LTS** VPS with sudo and outbound HTTPS:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo bash
+```
+
+The installer downloads a GitHub source archive (default branch `main`), unpacks to `/opt/obelisk`, installs Docker/Go if needed, builds images on the host, and runs `install/bootstrap.sh` with `OBELISK_PROFILE=vps`. First install often takes **15–25 minutes** on an 8 GB VM because of image builds.
+
+Pin a tag or branch when you cut releases:
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo OBELISK_REF=v0.1.0 bash
+```
+
+Safer than piping straight to shell: download, read, then run `sudo bash install.sh`.
+
+After install, open the printed `http://<vps-ip>/` URL. **Platform install** ends here (Kong + admin UI, no data pods). Next: sign in with GitHub and blueprint onboarding ([github-blueprint.md](./github-blueprint.md)), then enable Postgres / Redis / RustFS / Qdrant / SearXNG from the Services tab when needed.
+
+| Variable | Default | Meaning |
+|----------|---------|---------|
+| `OBELISK_REF` | `main` | GitHub archive ref (branch, tag, or commit) |
+| `OBELISK_ROOT` | `/opt/obelisk` | Install tree |
+| `OBELISK_ARCHIVE_SHA256` | unset | Optional archive checksum verify |
+| `OBELISK_INSTALL_UPGRADE` | `false` | Replace tree in place when `true` |
+
+## Contributor / fallback (git checkout)
+
 1. Clone or copy Obelisk to `/opt/obelisk`.
-2. On **VPS**: `OBELISK_PROFILE=vps OBELISK_ROOT=/opt/obelisk sudo ./install/bootstrap.sh`
+2. On **VPS**: `OBELISK_PROFILE=vps OBELISK_ROOT=/opt/obelisk OBELISK_BUILD_IMAGES=true sudo -E ./install/bootstrap.sh`
 3. On **local** with optional Tailscale: `OBELISK_PROFILE=local OBELISK_TAILSCALE=true sudo ./install/bootstrap.sh`
-4. Open admin UI via Kong on the host HTTP port. Sign in with GitHub and finish blueprint onboarding ([github-blueprint.md](./github-blueprint.md)).
-5. Enable Postgres / Redis / RustFS / Qdrant / SearXNG from the Services tab when needed.
+4. Open admin UI via Kong on the host HTTP port (VPS: Kong uses LoadBalancer / k3s servicelb on port 80).
 
 ## UI dev on a laptop (no `/etc/obelisk`)
 
@@ -23,9 +51,11 @@ Without `make dev-api`, the UI will error because nothing serves `/api/v1` and c
 
 Docker + `./install/k3d-dev.sh` (or `make dev-k3d-up`) creates a **k3d** cluster (real k3s in containers). `make dev-api` uses `dev/kubeconfig` and **cluster** reconcile.
 
-### Production VPS
+### Production VPS (manual bootstrap)
 
-`sudo ./install/bootstrap.sh` installs **k3s on the host** (get.k3s.io). Requires sudo — not run from the agent without your password.
+Use the **curl one-liner** above when possible. Manual path: `sudo ./install/bootstrap.sh` installs **k3s on the host** (get.k3s.io) from an existing tree at `OBELISK_ROOT`.
+
+**VM smoke test (Multipass):** see [tests/integration/README.md](../../tests/integration/README.md) — `make test-vm` runs a prod-like install on Ubuntu 24.04. Archive path: `sudo OBELISK_VM_SRC=/mnt/obelisk-src ./tests/integration/vm/curl-install.sh`
 
 ### Simulate (fallback)
 

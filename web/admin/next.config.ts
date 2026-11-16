@@ -4,6 +4,7 @@ const apiOrigin =
   process.env.OBELISK_API_URL?.replace(/\/$/, "") ?? "http://127.0.0.1:8080";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
   async rewrites() {
     return [
       {

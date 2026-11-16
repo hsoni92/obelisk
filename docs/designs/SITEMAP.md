@@ -11,3 +11,5 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [mail_gateway.md](./mail_gateway.md) | Proposed | HTTP mail gateway (OpenRouter pattern; send v1.0, read v1.1) |
 | [github_encrypted_blueprint_concepts_brief.md](./github_encrypted_blueprint_concepts_brief.md) | Ideation | Goldfish brainstorm: GitHub encrypted control-plane mirror + S3 data |
 | [github_encrypted_blueprint.md](./github_encrypted_blueprint.md) | Proposed | Encrypted blueprint mirror: auto-push, user key, chained DR rebirth |
+| [curl_vps_installer_concepts_brief.md](./curl_vps_installer_concepts_brief.md) | Ideation | Brainstorm: curl VPS prod install without git clone |
+| [curl_vps_installer.md](./curl_vps_installer.md) | Proposed | Thin `install/install.sh` + GitHub archive → existing `bootstrap.sh` |

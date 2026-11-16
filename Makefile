@@ -1,4 +1,4 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go test-vm vm-up vm-install vm-smoke vm-destroy
 
 GO ?= go
 export PATH := $(shell $(GO) env GOPATH 2>/dev/null)/bin:$(PATH)
@@ -62,3 +62,22 @@ dev: check-go
 dev-cluster: check-go
 	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
 	OBELISK_DEV_CLUSTER=1 ./scripts/dev.sh --cluster
+
+test-vm:
+	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/build-images.sh
+	./tests/integration/multipass/harness.sh all
+
+vm-up:
+	chmod +x tests/integration/multipass/harness.sh
+	./tests/integration/multipass/harness.sh up
+
+vm-install:
+	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh
+	./tests/integration/multipass/harness.sh install
+
+vm-smoke:
+	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh
+	./tests/integration/multipass/harness.sh smoke
+
+vm-destroy:
+	./tests/integration/multipass/harness.sh destroy

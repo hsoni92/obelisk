@@ -10,3 +10,6 @@ obelisk:
 kong:
   enabled: true
   image: kong:3.6
+  service:
+    # LoadBalancer works on single-node k3s (servicelb) — use in VM/VPS smoke tests.
+    type: ClusterIP
