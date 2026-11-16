@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log/slog"
 	"os/exec"
+	"sort"
 	"sync"
 
 	"github.com/hsoni92/obelisk/internal/config"
@@ -51,14 +52,21 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		}
 		return report, nil
 	}
-	for _, inst := range spec.Instances {
+	var reconcileErr error
+	for _, inst := range instancesReconcileOrder(spec.Instances) {
 		state, msg, err := r.reconcileInstance(ctx, inst)
 		report.ServiceStates[inst.StateKey()] = state
 		if msg != "" {
 			report.Messages = append(report.Messages, msg)
 		}
 		if err != nil {
-			return report, err
+			if reconcileErr == nil {
+				reconcileErr = err
+			}
+			report.Messages = append(report.Messages,
+				fmt.Sprintf("%s: %v", inst.StateKey(), err))
+			report.ServiceStates[inst.StateKey()] = "degraded"
+			continue
 		}
 	}
 	if spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
@@ -68,8 +76,24 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 	}
 	if err := exposure.ApplyFunnel(spec); err != nil {
 		report.Messages = append(report.Messages, "exposure: "+err.Error())
+		if reconcileErr == nil {
+			reconcileErr = err
+		}
 	}
-	return report, nil
+	return report, reconcileErr
+}
+
+// instancesReconcileOrder applies scale-down (disabled) instances before scale-up so
+// a failing start does not block stopping other workloads — common after blueprint import.
+func instancesReconcileOrder(insts []obelisk.ServiceInstance) []obelisk.ServiceInstance {
+	out := append([]obelisk.ServiceInstance(nil), insts...)
+	sort.SliceStable(out, func(i, j int) bool {
+		if out[i].Enabled == out[j].Enabled {
+			return false
+		}
+		return !out[i].Enabled
+	})
+	return out
 }
 
 func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.ServiceInstance) (state, msg string, err error) {

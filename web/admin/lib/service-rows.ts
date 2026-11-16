@@ -9,6 +9,8 @@ export type ServiceRow = {
   rowKey: string;
   instance: ServiceInstance;
   state: string;
+  /** Helm/pod detail from overview when the row is not running. */
+  statusHint?: string;
   connection?: InstanceConnection;
   /** ISO time of this instance's last successful backup, if any. */
   lastBackupAt?: string;
@@ -120,4 +122,11 @@ export function isTransitionalState(state: string) {
     state === "pending" ||
     state === "loading"
   );
+}
+
+/** Per-row Start/Stop affordance from observed cluster state. */
+export function startStopTarget(state: string): "start" | "stop" | null {
+  if (state === "stopped") return "start";
+  if (state === "running" || state === "degraded") return "stop";
+  return null;
 }

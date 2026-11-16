@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"log/slog"
 	"os/exec"
 	"strings"
 
@@ -65,7 +66,10 @@ func (r *Reconciler) observeDisabled(ctx context.Context, inst obelisk.ServiceIn
 func (r *Reconciler) observeEnabled(ctx context.Context, inst obelisk.ServiceInstance) string {
 	release := inst.ReleaseName()
 	st, err := r.helmReleaseStatus(ctx, release)
-	if err != nil || st == "" {
+	if err != nil {
+		return "degraded"
+	}
+	if st == "" {
 		return "starting"
 	}
 	switch st {
@@ -120,7 +124,10 @@ func (r *Reconciler) helmReleaseStatus(ctx context.Context, release string) (str
 // ReconcileAsync runs reconcile in the background (single global queue).
 func ReconcileAsync(rec Reconciler) {
 	go func() {
-		_, _ = rec.Reconcile(context.Background())
+		report, err := rec.Reconcile(context.Background())
+		if err != nil {
+			slog.Warn("reconcile async", "err", err, "messages", report.Messages)
+		}
 	}()
 }
 

@@ -2,11 +2,14 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
 import { CopyButton } from "@/components/services/copy-button";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { ServiceDetailsDialog } from "@/components/services/service-details-dialog";
+import type { RowPending } from "@/components/services/services-bulk-actions";
 import {
   connectionPreview,
+  startStopTarget,
   stateBadgeVariant,
   type ServiceRow,
 } from "@/lib/service-rows";
@@ -45,9 +48,12 @@ const TYPE_ICONS = {
 } as const;
 
 const GRID =
-  "grid grid-cols-[minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_208px] items-center gap-2";
+  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_208px] items-center gap-2";
 
 const ROW_HEIGHT = 56;
+
+/** Centers row/header checkboxes in the 40px selection column. */
+const SELECT_CELL = "flex items-center justify-center self-stretch";
 
 type ServicesTableProps = {
   /** First load in flight: render skeleton rows instead of the empty state. */
@@ -56,6 +62,10 @@ type ServicesTableProps = {
   totalCount: number;
   busyKey: string | null;
   filtered?: boolean;
+  selected: Set<string>;
+  onSelectedChange: React.Dispatch<React.SetStateAction<Set<string>>>;
+  selectionDisabled?: boolean;
+  bulkPending?: Record<string, RowPending>;
   /** Start (`true`) or stop (`false`) an instance. Resolves false if the request failed. */
   onToggle: (inst: ServiceInstance, enabled: boolean) => Promise<boolean>;
   onConfigure: (inst: ServiceInstance) => void;
@@ -63,6 +73,7 @@ type ServicesTableProps = {
 };
 
 const SKELETON_HEADERS = [
+  "",
   "Service",
   "Type",
   "CPU",
@@ -80,23 +91,34 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
       label="Loading services"
       className="flex min-h-0 flex-col overflow-clip rounded-2xl bg-card shadow-rb-2"
     >
-      <div
-        className={cn(GRID, "border-b border-border bg-muted px-3 py-2.5")}
-        aria-hidden
-      >
+        <div
+          className={cn(GRID, "border-b border-border bg-muted px-3")}
+          style={{ height: ROW_HEIGHT }}
+          aria-hidden
+        >
         {SKELETON_HEADERS.map((h, i) => (
-          <div key={i} className={cn("min-w-0", i === 0 && "pl-[42px]")}>
-            <span className="text-eyebrow text-muted-foreground">{h}</span>
+          <div
+            key={i}
+            className={cn("min-w-0", i === 0 && SELECT_CELL, i === 1 && "pl-[42px]")}
+          >
+            {i === 0 ? (
+              <Skeleton className="size-5 rounded-full" />
+            ) : (
+              <span className="text-eyebrow text-muted-foreground">{h}</span>
+            )}
           </div>
         ))}
       </div>
       {Array.from({ length: rows }, (_, i) => (
         <div
           key={i}
-          className={cn(GRID, "border-b border-border px-3 py-2")}
+          className={cn(GRID, "border-b border-border px-3")}
           style={{ height: ROW_HEIGHT }}
           aria-hidden
         >
+          <div className={SELECT_CELL}>
+            <Skeleton className="size-5 rounded-full" />
+          </div>
           <div className="flex items-center gap-2.5">
             <Skeleton className="size-8 shrink-0 rounded-full" />
             <Skeleton className="h-4 w-24" />
@@ -126,6 +148,10 @@ export function ServicesTable({
   totalCount,
   busyKey,
   filtered = false,
+  selected,
+  onSelectedChange,
+  selectionDisabled = false,
+  bulkPending,
   onToggle,
   onConfigure,
   onClearFilters,
@@ -133,6 +159,14 @@ export function ServicesTable({
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "name", desc: false },
   ]);
+
+  React.useEffect(() => {
+    const visible = new Set(rows.map((r) => r.rowKey));
+    onSelectedChange((prev) => {
+      const next = new Set([...prev].filter((k) => visible.has(k)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows, onSelectedChange]);
 
   // Rows whose start/stop was just clicked. Kept disabled from the click until
   // the service actually leaves the state it was in (or the request fails), so
@@ -171,8 +205,32 @@ export function ServicesTable({
   const [detailsKey, setDetailsKey] = React.useState<string | null>(null);
   const detailsRow = rows.find((r) => r.rowKey === detailsKey) ?? null;
 
+  const selectionLocked = selectionDisabled || busyKey !== null;
+
   const columns = React.useMemo<ColumnDef<ServiceRow>[]>(
     () => [
+      {
+        id: "select",
+        header: () => null,
+        enableSorting: false,
+        cell: ({ row }) => (
+          <Checkbox
+            checked={selected.has(row.original.rowKey)}
+            disabled={selectionLocked}
+            onCheckedChange={(v) => {
+              const key = row.original.rowKey;
+              onSelectedChange((prev) => {
+                const next = new Set(prev);
+                if (v === true) next.add(key);
+                else next.delete(key);
+                return next;
+              });
+            }}
+            aria-label={`Select ${row.original.instance.display_name || row.original.instance.id}`}
+            onClick={(e) => e.stopPropagation()}
+          />
+        ),
+      },
       {
         id: "name",
         accessorFn: (r) =>
@@ -268,6 +326,7 @@ export function ServicesTable({
           <Badge
             variant={stateBadgeVariant(row.original.state)}
             className="-ml-2.5"
+            title={row.original.statusHint}
           >
             {row.original.state}
           </Badge>
@@ -281,9 +340,16 @@ export function ServicesTable({
           const preview = connectionPreview(row.original.connection);
           const running = row.original.state === "running";
           if (!running) {
+            const hint = row.original.statusHint;
             return (
-              <span className="text-metadata text-muted-foreground">
-                Start to expose
+              <span
+                className="line-clamp-2 text-metadata text-muted-foreground"
+                title={hint}
+              >
+                {hint ??
+                  (row.original.state === "stopping"
+                    ? "Draining workload…"
+                    : "Start to expose")}
               </span>
             );
           }
@@ -315,14 +381,10 @@ export function ServicesTable({
           const inst = row.original.instance;
           const state = row.original.state;
           const busy = busyKey === row.original.rowKey;
-          const wait = pending[row.original.rowKey];
+          const wait =
+            pending[row.original.rowKey] ?? bulkPending?.[row.original.rowKey];
           // stopped -> Start; running/degraded -> Stop; anything in flight is disabled.
-          const target: "start" | "stop" | null =
-            state === "stopped"
-              ? "start"
-              : state === "running" || state === "degraded"
-                ? "stop"
-                : null;
+          const target = startStopTarget(state);
           const label = wait
             ? wait.to === "start"
               ? "Starting…"
@@ -358,7 +420,16 @@ export function ServicesTable({
         },
       },
     ],
-    [busyKey, onConfigure, pending, toggle],
+    [
+      bulkPending,
+      busyKey,
+      onConfigure,
+      onSelectedChange,
+      pending,
+      selected,
+      selectionLocked,
+      toggle,
+    ],
   );
 
   const table = useReactTable({
@@ -372,6 +443,11 @@ export function ServicesTable({
   });
 
   const { rows: tableRows } = table.getRowModel();
+  const visibleKeys = tableRows.map((r) => r.id);
+  const allVisibleSelected =
+    visibleKeys.length > 0 && visibleKeys.every((k) => selected.has(k));
+  const someVisibleSelected = visibleKeys.some((k) => selected.has(k));
+
   const parentRef = React.useRef<HTMLDivElement>(null);
 
   const rowVirtualizer = useVirtualizer({
@@ -423,12 +499,39 @@ export function ServicesTable({
         <div
           className={cn(
             GRID,
-            "sticky top-0 z-10 border-b border-border bg-muted px-3 py-2.5",
+            "sticky top-0 z-10 border-b border-border bg-muted px-3",
           )}
+          style={{ height: ROW_HEIGHT }}
           role="row"
         >
+          <div role="columnheader" className={SELECT_CELL}>
+            <Checkbox
+              checked={
+                allVisibleSelected
+                  ? true
+                  : someVisibleSelected
+                    ? "indeterminate"
+                    : false
+              }
+              disabled={selectionLocked || visibleKeys.length === 0}
+              onCheckedChange={(v) => {
+                if (v === true) {
+                  onSelectedChange(new Set(visibleKeys));
+                } else {
+                  onSelectedChange((prev) => {
+                    const next = new Set(prev);
+                    for (const k of visibleKeys) next.delete(k);
+                    return next;
+                  });
+                }
+              }}
+              aria-label="Select all visible services"
+            />
+          </div>
           {table.getHeaderGroups().map((hg) =>
-            hg.headers.map((header) => (
+            hg.headers
+              .filter((header) => header.column.id !== "select")
+              .map((header) => (
               <div
                 key={header.id}
                 role="columnheader"
@@ -483,7 +586,7 @@ export function ServicesTable({
                 ref={rowVirtualizer.measureElement}
                 className={cn(
                   GRID,
-                  "absolute left-0 w-full border-b border-border px-3 py-2 hover:bg-muted/40",
+                  "absolute left-0 w-full border-b border-border px-3 hover:bg-muted/40",
                 )}
                 style={{
                   height: ROW_HEIGHT,
@@ -492,7 +595,14 @@ export function ServicesTable({
                 role="row"
               >
                 {row.getVisibleCells().map((cell) => (
-                  <div key={cell.id} role="cell" className="min-w-0">
+                  <div
+                    key={cell.id}
+                    role="cell"
+                    className={cn(
+                      "min-w-0",
+                      cell.column.id === "select" && SELECT_CELL,
+                    )}
+                  >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}
                   </div>
                 ))}

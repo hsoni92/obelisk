@@ -52,15 +52,15 @@ const RANGE_OPTIONS = [
 ];
 
 const timelineConfig = {
-  healthy: { label: "Running", color: "var(--success)" },
+  healthy: { label: "Running", color: "var(--chart-1)" },
   attention: { label: "Degraded / pending", color: "var(--destructive)" },
 } satisfies ChartConfig;
 
 const stateConfig = {
-  running: { label: "Running", color: "var(--success)" },
-  starting: { label: "Starting", color: "var(--warning)" },
-  stopping: { label: "Stopping", color: "var(--warning)" },
-  pending: { label: "Pending", color: "var(--warning)" },
+  running: { label: "Running", color: "var(--chart-1)" },
+  starting: { label: "Starting", color: "var(--chart-3)" },
+  stopping: { label: "Stopping", color: "var(--chart-3)" },
+  pending: { label: "Pending", color: "var(--chart-3)" },
   degraded: { label: "Degraded", color: "var(--destructive)" },
   stopped: { label: "Stopped", color: "var(--chart-4)" },
 } satisfies ChartConfig;

@@ -25,7 +25,7 @@ import {
 } from "@/lib/filters";
 import { useSurfaceFilters } from "@/lib/store/hooks";
 import { SlidersHorizontal } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 
 type Tri = "all" | "yes" | "no";
 type Draft = {
@@ -47,7 +47,12 @@ const ENDPOINT_OPTIONS = [
   { value: "no", label: "Not exposed" },
 ] as const;
 
-export function ServicesFilters() {
+type ServicesFiltersProps = {
+  /** Toolbar on the right of the Filters button (e.g. bulk Actions menu). */
+  trailing?: ReactNode;
+};
+
+export function ServicesFilters({ trailing }: ServicesFiltersProps = {}) {
   const { filters, activeCount, setSetValues, setTri, reset, setQuery } =
     useSurfaceFilters(SERVICES_SURFACE);
   const [open, setOpen] = useState(false);
@@ -117,7 +122,7 @@ export function ServicesFilters() {
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <Button
           type="button"
           variant="outline"
@@ -132,6 +137,9 @@ export function ServicesFilters() {
             </span>
           )}
         </Button>
+        {trailing ? (
+          <div className="ml-auto flex shrink-0 items-center gap-2">{trailing}</div>
+        ) : null}
       </div>
 
       <FilterActiveSummary

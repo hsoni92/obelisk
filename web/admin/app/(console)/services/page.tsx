@@ -4,6 +4,12 @@ import { PageHeader } from "@/components/layout/page-header";
 import { NewInstanceButton } from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
 import {
+  runServicesBulkAction,
+  ServicesBulkActionsMenu,
+  useBulkActionCounts,
+  type RowPending,
+} from "@/components/services/services-bulk-actions";
+import {
   ServicesTable,
   ServicesTableSkeleton,
 } from "@/components/services/services-table";
@@ -48,6 +54,9 @@ function ServicesPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(() => new Set());
+  const [bulkPending, setBulkPending] = useState<Record<string, RowPending>>({});
   const [configureTarget, setConfigureTarget] =
     useState<ServiceInstance | null>(null);
   const {
@@ -89,6 +98,20 @@ function ServicesPageContent() {
     [overview?.vitals?.rows],
   );
 
+  const statusHints = useMemo(() => {
+    const hints: Record<string, string> = {};
+    for (const c of overview?.components ?? []) {
+      if (c.kind !== "instance" || !c.type || !c.instance_id) continue;
+      const parts = [c.reason, c.helm_status ? `helm: ${c.helm_status}` : ""]
+        .filter(Boolean)
+        .join(" · ");
+      if (parts) {
+        hints[`${c.type}-${c.instance_id}`] = parts;
+      }
+    }
+    return hints;
+  }, [overview?.components]);
+
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
 
@@ -113,10 +136,47 @@ function ServicesPageContent() {
     [status, connections, statusLoading, backupConfig, vitalsByKey],
   );
 
-  const tableRows = useMemo(
-    () => applyFilters(allTableRows, serviceFilters, servicesFilterConfig),
-    [allTableRows, serviceFilters],
-  );
+  const tableRows = useMemo(() => {
+    const withHints = allTableRows.map((row) => ({
+      ...row,
+      statusHint: statusHints[row.rowKey],
+    }));
+    return applyFilters(withHints, serviceFilters, servicesFilterConfig);
+  }, [allTableRows, serviceFilters, statusHints]);
+
+  const bulkCounts = useBulkActionCounts(tableRows, selected);
+
+  useEffect(() => {
+    setBulkPending((prev) => {
+      let changed = false;
+      const next: Record<string, RowPending> = {};
+      for (const [key, wait] of Object.entries(prev)) {
+        const row = tableRows.find((r) => r.rowKey === key);
+        if (row && row.state === wait.from) {
+          next[key] = wait;
+        } else {
+          changed = true;
+        }
+      }
+      return changed ? next : prev;
+    });
+  }, [tableRows]);
+
+  async function runBulk(action: "start" | "stop") {
+    setBulkBusy(true);
+    try {
+      await runServicesBulkAction(
+        tableRows,
+        selected,
+        action,
+        setEnabled,
+        (key, pending) => setBulkPending((p) => ({ ...p, [key]: pending })),
+        () => setSelected(new Set()),
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }
 
   async function addInstance(type: (typeof TYPES)[number], name: string) {
     const res = await createInstance({
@@ -180,13 +240,30 @@ function ServicesPageContent() {
       />
 
       <div className="space-y-4">
-        <ServicesFilters />
+        <ServicesFilters
+          trailing={
+            <ServicesBulkActionsMenu
+              selectedCount={selected.size}
+              startCount={bulkCounts.start}
+              stopCount={bulkCounts.stop}
+              busy={bulkBusy}
+              disabled={busy !== null}
+              onStart={() => void runBulk("start")}
+              onStop={() => void runBulk("stop")}
+              onClear={() => setSelected(new Set())}
+            />
+          }
+        />
         <ServicesTable
           loading={statusLoading}
           rows={tableRows}
           totalCount={allTableRows.length}
           filtered={serviceFilterCount > 0}
           busyKey={busy}
+          selected={selected}
+          onSelectedChange={setSelected}
+          selectionDisabled={bulkBusy}
+          bulkPending={bulkPending}
           onClearFilters={() => {
             resetServiceFilters();
             router.replace("/services", { scroll: false });

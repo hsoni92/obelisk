@@ -16,3 +16,5 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [obelisk_uninstaller_concepts_brief.md](./obelisk_uninstaller_concepts_brief.md) | Ideation | VPS uninstall: full local wipe, optional k3s, dry-run |
 | [obelisk_uninstaller.md](./obelisk_uninstaller.md) | Proposed | `obelisk uninstall` + `install/uninstall.sh` teardown |
 | [precommit_ci_guardrails_concepts_brief.md](./precommit_ci_guardrails_concepts_brief.md) | Ideation | Public-repo CI + optional pre-commit (lint, gitleaks, deps) |
+| [backup_lineage_concepts_brief.md](./backup_lineage_concepts_brief.md) | Ideation | First-class backups: per-service lineage, orphans, deploy-from-backup |
+| [backup_lineage.md](./backup_lineage.md) | RFC | Backup lineage brainstorm published for team feedback |
