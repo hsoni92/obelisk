@@ -34,8 +34,8 @@ func (r *Reconciler) namespace() string {
 }
 
 func (r *Reconciler) HelmReleaseDetail(ctx context.Context, release string) HelmReleaseDetail {
-	if r.simulateMode() {
-		return HelmReleaseDetail{Status: "deployed", Revision: 1, Notes: "simulate mode"}
+	if r.reconcileDisabled() {
+		return HelmReleaseDetail{Status: "", Notes: "reconcile disabled or cluster tools unavailable"}
 	}
 	ns := r.namespace()
 	cmd := exec.CommandContext(ctx, "helm", "status", release, "-n", ns, "-o", "json")
@@ -64,8 +64,8 @@ func (r *Reconciler) HelmReleaseDetail(ctx context.Context, release string) Helm
 }
 
 func (r *Reconciler) PodsForRelease(ctx context.Context, release string) PodSummary {
-	if r.simulateMode() {
-		return PodSummary{Ready: 1, Total: 1}
+	if r.reconcileDisabled() {
+		return PodSummary{}
 	}
 	ns := r.namespace()
 	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods",

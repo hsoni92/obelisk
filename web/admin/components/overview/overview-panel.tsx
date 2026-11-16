@@ -10,6 +10,8 @@ import {
   ChartTooltipContent,
 } from "@/components/ui/chart";
 import { SelectField } from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
+import { OverviewSkeleton } from "@/components/skeletons";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   overviewPollOptions,
@@ -57,6 +59,8 @@ const timelineConfig = {
 
 const stateConfig = {
   running: { label: "Running", color: "#22c55e" },
+  starting: { label: "Starting", color: "#eab308" },
+  stopping: { label: "Stopping", color: "#eab308" },
   pending: { label: "Pending", color: "#eab308" },
   degraded: { label: "Degraded", color: "#ef4444" },
   stopped: { label: "Stopped", color: "var(--chart-4)" },
@@ -93,7 +97,7 @@ export function OverviewPanel({
 
   const donut = useMemo(() => {
     const n = (s: string) => components.filter((c) => c.state === s).length;
-    const known = ["running", "pending", "degraded"] as const;
+    const known = ["running", "starting", "stopping", "pending", "degraded"] as const;
     const rows = [
       ...known.map((s) => ({ state: s, count: n(s) })),
       {
@@ -132,23 +136,25 @@ export function OverviewPanel({
   );
   const shownEvents = showAllEvents ? events : events.slice(0, 8);
 
+  if (isLoading) return <OverviewSkeleton />;
+
   if (error) {
     return (
-      <p className="inline-block rounded-full bg-broadcast-tint px-3 py-1 text-xs font-medium text-broadcast">
+      <p className="inline-block rounded-full bg-broadcast-tint px-3 py-1 text-xs font-medium text-foreground">
         {rtkErrorMessage(error)}
       </p>
     );
   }
 
   const pct = (n = 0) => (total ? `${Math.round((n / total) * 100)}%` : "—");
-  const val = (n?: number) => n ?? (isLoading ? "—" : 0);
+  const val = (n?: number) => n ?? 0;
 
   return (
     <div className="space-y-4">
       {/* Toolbar */}
       <div className="flex flex-wrap items-center gap-2">
-        {data?.reconcileMode === "simulate" && (
-          <Badge variant="warning">simulate</Badge>
+        {data?.reconcileMode === "off" && (
+          <Badge variant="warning">reconcile off</Badge>
         )}
         {data?.profile && <Badge variant="info">{data.profile}</Badge>}
         {data?.tailscale && <Badge variant="info">tailscale</Badge>}
@@ -180,7 +186,7 @@ export function OverviewPanel({
 
       {/* Verdict banner */}
       <Verdict
-        loading={isLoading}
+        loading={false}
         degraded={summary?.degraded ?? 0}
         pending={summary?.pending ?? 0}
         running={summary?.running ?? 0}
@@ -224,10 +230,11 @@ export function OverviewPanel({
           tone={backup?.tone ?? "default"}
           label="Backup status"
           value={backup?.label ?? "—"}
+          loading={!backup}
           pill={
             backup
               ? `${backup.healthy}/${backup.enabled.length} dest`
-              : "…"
+              : ""
           }
           pillTone={backup?.tone ?? "default"}
           hint={
@@ -241,8 +248,9 @@ export function OverviewPanel({
           tone="info"
           label="Backup size"
           value={backup ? (backup.totalBytes ? formatBytes(backup.totalBytes) : "0 B") : "—"}
+          loading={!backup}
           pill={
-            backup ? `${backup.totalObjects.toLocaleString()} obj` : "…"
+            backup ? `${backup.totalObjects.toLocaleString()} obj` : ""
           }
           pillTone="default"
           hint="across enabled destinations"
@@ -639,7 +647,7 @@ function ChartLegend({
 const TONE_ICON: Record<string, string> = {
   success: "bg-success-tint text-success",
   warning: "bg-warning-tint text-warning",
-  live: "bg-broadcast-tint text-broadcast",
+  live: "bg-broadcast-tint text-foreground",
   info: "bg-link-tint text-link",
   default: "bg-muted text-muted-foreground",
 };
@@ -652,6 +660,7 @@ function Kpi({
   pill,
   pillTone,
   hint,
+  loading = false,
 }: {
   icon: LucideIcon;
   tone: keyof typeof TONE_ICON;
@@ -660,9 +669,11 @@ function Kpi({
   pill: string;
   pillTone: "success" | "warning" | "live" | "default";
   hint?: string;
+  /** Value still being fetched: show placeholder blocks in place of value/pill/hint. */
+  loading?: boolean;
 }) {
   return (
-    <Card className="p-4">
+    <Card className="p-4" aria-busy={loading || undefined}>
       <div className="flex items-start justify-between">
         <span
           className={cn(
@@ -672,11 +683,21 @@ function Kpi({
         >
           <Icon className="size-4" aria-hidden />
         </span>
-        <Badge variant={pillTone}>{pill}</Badge>
+        {loading ? (
+          <Skeleton className="h-5 w-14 rounded-full" />
+        ) : (
+          <Badge variant={pillTone}>{pill}</Badge>
+        )}
       </div>
       <p className="mt-3 text-eyebrow text-muted-foreground">{label}</p>
-      <p className="text-stat tabular-nums">{value}</p>
-      {hint && (
+      {loading ? (
+        <Skeleton className="mt-1 h-9 w-24 rounded-xl" />
+      ) : (
+        <p className="text-stat tabular-nums">{value}</p>
+      )}
+      {loading ? (
+        <Skeleton className="mt-2 h-3 w-32" />
+      ) : hint && (
         <p className="mt-0.5 truncate text-metadata text-muted-foreground">
           {hint}
         </p>
@@ -722,7 +743,7 @@ function Verdict({
       className={cn(
         "flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3",
         ok && "border-success/30 bg-success-tint text-success",
-        !ok && bad && "border-broadcast/30 bg-broadcast-tint text-broadcast",
+        !ok && bad && "border-destructive/30 bg-destructive-tint text-destructive",
         !ok && !bad && "border-warning/30 bg-warning-tint text-warning",
       )}
     >

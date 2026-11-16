@@ -9,6 +9,7 @@ type githubLoginKey struct{}
 
 func (s *Server) requireGitHub(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		r = withNormalizedPath(r)
 		if s.Blueprint == nil || isPublic(r) {
 			next.ServeHTTP(w, r)
 			return

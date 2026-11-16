@@ -13,8 +13,8 @@ const Checkbox = React.forwardRef<
   <CheckboxPrimitive.Root
     ref={ref}
     className={cn(
-      "peer size-4 shrink-0 rounded-sm border border-border bg-card shadow-rb-1",
-      "data-[state=checked]:border-broadcast data-[state=checked]:bg-broadcast data-[state=checked]:text-white",
+      "peer size-5 shrink-0 rounded-full border border-border bg-card",
+      "data-[state=checked]:border-ink data-[state=checked]:bg-ink data-[state=checked]:text-ink-foreground",
       "disabled:cursor-not-allowed disabled:opacity-50",
       focusRingClass,
       className,

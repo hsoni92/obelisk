@@ -98,16 +98,37 @@ export default function LoginPage() {
       subtitle="The admin console stays locked until this appliance is linked to the GitHub account that holds its encrypted blueprint."
     >
       {status && !status.client_configured && (
-        <p className="mb-4 text-xs text-broadcast" role="alert">
+        <p className="mb-4 text-xs text-destructive" role="alert">
           Set <code className="font-mono">OBELISK_GITHUB_CLIENT_ID</code> (and
           secret) on the controller, or create Secret{" "}
           <code className="font-mono">obelisk-github-oauth</code>. The app needs
           the <code className="font-mono">repo</code> scope.
         </p>
       )}
+      {typeof window !== "undefined" && status?.client_configured && (
+        <p className="mb-4 rounded-lg border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
+          GitHub OAuth allows only exact redirect URLs (no wildcards). For
+          browser sign-in, add this URI in GitHub → OAuth app →{" "}
+          <span className="font-medium text-foreground">Authorization callback URL</span>
+          :
+          <code className="mt-2 block break-all font-mono text-foreground">
+            {`${window.location.origin}/login/callback`}
+          </code>
+          If the VM IP changes or you use another hostname, add each variant (up
+          to 10) or use{" "}
+          <span className="font-medium text-foreground">Use a device code</span>{" "}
+          below — it does not depend on redirect URLs.
+        </p>
+      )}
       {error && (
-        <p className="mb-4 text-xs text-broadcast" role="alert">
+        <p className="mb-4 text-xs text-destructive" role="alert">
           {error}
+          {typeof window !== "undefined" &&
+            error.toLowerCase().includes("redirect") && (
+              <code className="mt-2 block break-all font-mono">
+                {`${window.location.origin}/login/callback`}
+              </code>
+            )}
         </p>
       )}
       <Button type="button" onClick={() => void browserLogin()} disabled={isLoading}>
@@ -115,7 +136,8 @@ export default function LoginPage() {
       </Button>
       <div className="mt-6 border-t border-border pt-4">
         <p className="text-metadata text-muted-foreground">
-          Headless VPS: approve a device code from a phone or laptop.
+          Recommended on a VPS or when the admin URL is an IP: approve a device
+          code from any browser (enable Device Flow on the GitHub OAuth app).
         </p>
         <Button
           type="button"

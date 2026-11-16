@@ -3,8 +3,9 @@ package backup
 import (
 	"encoding/json"
 	"os"
-	"path/filepath"
 	"time"
+
+	"github.com/hsoni92/obelisk/internal/config"
 )
 
 // DestinationRuntimeStatus is volatile per-destination health (backup-status.json).
@@ -22,11 +23,13 @@ type DestinationRuntimeStatus struct {
 // StatusFile tracks DR runtime state beside obelisk.yaml.
 type StatusFile struct {
 	LastRunAt    string                              `json:"last_run_at,omitempty"`
+	// Instances maps "<type>/<id>" to the RFC3339 time its data was last uploaded.
+	Instances    map[string]string                   `json:"instances,omitempty"`
 	Destinations map[string]DestinationRuntimeStatus `json:"destinations,omitempty"`
 }
 
 func statusPath(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "backup-status.json")
+	return config.CredentialsDir(configPath) + "/backup-status.json"
 }
 
 func LoadStatus(configPath string) (StatusFile, error) {
@@ -52,8 +55,8 @@ func SaveStatus(configPath string, s StatusFile) error {
 	if s.Destinations == nil {
 		s.Destinations = map[string]DestinationRuntimeStatus{}
 	}
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := config.CredentialsDir(configPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(s)
@@ -117,5 +120,24 @@ func UpdateDestinationInventory(configPath, id string, bytes int64, objects int)
 	st.Bytes = bytes
 	st.Objects = objects
 	s.Destinations[id] = st
+	return SaveStatus(configPath, s)
+}
+
+// UpdateInstanceBackups records a successful data upload for each "<type>/<id>" key.
+func UpdateInstanceBackups(configPath string, keys []string) error {
+	if len(keys) == 0 {
+		return nil
+	}
+	s, err := LoadStatus(configPath)
+	if err != nil {
+		return err
+	}
+	if s.Instances == nil {
+		s.Instances = map[string]string{}
+	}
+	now := time.Now().UTC().Format(time.RFC3339)
+	for _, k := range keys {
+		s.Instances[k] = now
+	}
 	return SaveStatus(configPath, s)
 }

@@ -53,7 +53,7 @@ export function UnlockBanner() {
         {data.import_required ? " Import is required before the next push." : ""}
       </p>
       {error && (
-        <p className="mt-2 text-xs text-broadcast" role="alert">
+        <p className="mt-2 text-xs text-destructive" role="alert">
           {error}
         </p>
       )}

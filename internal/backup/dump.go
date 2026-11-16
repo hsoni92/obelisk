@@ -52,7 +52,7 @@ func CollectDataDumps(ctx context.Context, spec obelisk.Spec, states map[string]
 			out = append(out, DataDump{
 				InstanceID: inst.ID, ServiceType: inst.Type, ObjectKey: key,
 				Skipped:    true,
-				SkipReason: "no cluster (run make dev-cluster or OBELISK_RECONCILE=cluster) and no local pg_dump/mysqldump/mongodump",
+				SkipReason: "no cluster (run make dev or OBELISK_RECONCILE=cluster) and no local pg_dump/mysqldump/mongodump",
 			})
 			continue
 		}

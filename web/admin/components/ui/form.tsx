@@ -21,7 +21,7 @@ const FormMessage = ({
   ...props
 }: React.ComponentProps<typeof FormPrimitive.Message>) => (
   <FormPrimitive.Message
-    className={cn("text-xs font-medium text-broadcast", className)}
+    className={cn("text-xs font-medium text-destructive", className)}
     {...props}
   />
 );

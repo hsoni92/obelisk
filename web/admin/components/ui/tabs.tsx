@@ -11,7 +11,7 @@ const TabsList = ({
 }: React.ComponentProps<typeof TabsPrimitive.List>) => (
   <TabsPrimitive.List
     className={cn(
-      "flex gap-2 overflow-x-auto bg-surface/50 py-2 px-1 scrollbar-none",
+      "inline-flex max-w-full gap-1 overflow-x-auto rounded-full bg-card p-1.5 shadow-rb-2 scrollbar-none",
       className,
     )}
     {...props}
@@ -24,9 +24,9 @@ const TabsTrigger = ({
 }: React.ComponentProps<typeof TabsPrimitive.Trigger>) => (
   <TabsPrimitive.Trigger
     className={cn(
-      "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-      "text-foreground bg-card hover:bg-surface",
-      "data-[state=active]:bg-foreground data-[state=active]:text-background",
+      "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-normal transition-colors",
+      "text-muted-foreground bg-transparent hover:text-foreground",
+      "data-[state=active]:bg-ink data-[state=active]:text-ink-foreground",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       className,
     )}

@@ -1,5 +1,6 @@
 "use client";
 
+import { GatewayCardSkeleton } from "@/components/skeletons";
 import {
   GatewayCard,
   type GatewayAccount,
@@ -23,7 +24,7 @@ export function MailPanel({
   onBusy: (key: string | null) => void;
   onError: (message: string | null) => void;
 }) {
-  const { data: config, refetch } = useGetMailConfigQuery();
+  const { data: config, refetch, isLoading } = useGetMailConfigQuery();
   const [patchConfig] = usePatchMailConfigMutation();
   const [postAccount] = usePostMailAccountMutation();
   const [patchAccount] = usePatchMailAccountMutation();
@@ -59,6 +60,8 @@ export function MailPanel({
     enabled: a.enabled,
     warning: a.has_secret ? undefined : "no secret",
   }));
+
+  if (isLoading) return <GatewayCardSkeleton />;
 
   return (
     <GatewayCard

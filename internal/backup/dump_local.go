@@ -19,7 +19,7 @@ func dumpInstanceLocal(ctx context.Context, inst obelisk.ServiceInstance) ([]byt
 	switch inst.Type {
 	case "postgres":
 		if _, err := exec.LookPath("pg_dump"); err != nil {
-			return nil, fmt.Errorf("pg_dump not on PATH (port-forward Postgres or use make dev-cluster)")
+			return nil, fmt.Errorf("pg_dump not on PATH (port-forward Postgres or use make dev)")
 		}
 		port := envPort("OBELISK_POSTGRES_PORT", 5432)
 		user := strOr(inst.Credentials.Username, "obelisk")
@@ -51,7 +51,7 @@ func dumpInstanceLocal(ctx context.Context, inst obelisk.ServiceInstance) ([]byt
 		return out, nil
 	case "mongodb":
 		if _, err := exec.LookPath("mongodump"); err != nil {
-			return nil, fmt.Errorf("mongodump not on PATH (port-forward MongoDB or use make dev-cluster)")
+			return nil, fmt.Errorf("mongodump not on PATH (port-forward MongoDB or use make dev)")
 		}
 		port := envPort("OBELISK_MONGODB_PORT", 27017)
 		user := strOr(inst.Credentials.Username, "obelisk")

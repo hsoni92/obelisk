@@ -2,7 +2,7 @@
 
 ## Layers
 
-1. **Tokens** — `app/globals.css` (Kinetic / broadcast palette, typography utilities, `.field`, shadows)
+1. **Tokens** — `app/globals.css` (Pulse palette, typography utilities, `.field`, shadows)
 2. **Primitives** — [Radix UI](https://www.radix-ui.com/primitives/docs/overview/introduction) via the [`radix-ui`](https://www.npmjs.com/package/radix-ui) package (tree-shakeable; subpaths like `radix-ui/dialog`)
 3. **Components** — `components/ui/*` (styled wrappers; export via `components/ui/index.ts`)
 
@@ -58,6 +58,15 @@ Shared menu/popover classes: `components/ui/radix-styles.ts`.
 2. Create or extend `components/ui/<name>.tsx` — compose primitive parts + `cn()` + token classes only (no one-off hex).
 3. Export from `components/ui/index.ts`.
 4. Use in `app/` and `components/layout/`.
+
+## Visual language (Pulse)
+
+- **Canvas:** cool grey `--background` (#ebebed) with fixed ambient gradients on `body` (mint top-right, peach bottom-right, lime bottom-left). Don't paint `bg-background` on page wrappers — it hides the gradients.
+- **Surfaces:** white `Card` (`rounded-2xl` = 28px, `shadow-rb-2`), inset `StatTile` (`bg-muted`, `rounded-xl`), and the forest-green `FeatureCard` (`bg-feature`, white text, `bg-white/10` rows) for the one hero control card per page.
+- **Accent:** lime `bg-broadcast` is a *fill only* — text on it is `text-broadcast-foreground`; never use lime as text on light surfaces. Pale lime `bg-broadcast-tint` marks the active row/highlight. Errors use `text-destructive` / `bg-destructive-tint`.
+- **Active state:** solid black pill (`bg-ink text-ink-foreground`) for nav and tabs; lime chip for toggle-group/toggle "on"; black-thumb switch on lime track.
+- **Shape:** everything interactive is a pill (`rounded-full`, 40px tall); popovers/dialogs 28px/20px.
+- **Type:** Outfit; display/stat numbers are weight 300 with tight tracking; body 400. Hero headings are two-tone (ink, then `text-muted-foreground`).
 
 ## Typography & color
 

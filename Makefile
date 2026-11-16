@@ -1,4 +1,4 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-destroy ci hooks-install gitleaks
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-observe dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-destroy ci hooks-install gitleaks
 
 GITLEAKS ?= gitleaks
 PRE_COMMIT ?= pre-commit
@@ -74,9 +74,11 @@ dev: check-go
 	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
 	./scripts/dev.sh
 
-dev-cluster: check-go
-	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
-	OBELISK_DEV_CLUSTER=1 ./scripts/dev.sh --cluster
+dev-observe: check-go
+	chmod +x scripts/dev.sh
+	./scripts/dev.sh --observe-only
+
+dev-cluster: dev
 
 test-vm:
 	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/build-images.sh

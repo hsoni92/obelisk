@@ -17,6 +17,8 @@ spec:
       app: obelisk-kong
   template:
     metadata:
+      annotations:
+        checksum/kong-config: {{ sha256sum (.Files.Get "files/kong-dbless.yaml") }}
       labels:
         app: obelisk-kong
     spec:

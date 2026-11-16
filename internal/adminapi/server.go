@@ -3,6 +3,8 @@ package adminapi
 import (
 	"encoding/json"
 	"net/http"
+	"os"
+	"strings"
 	"sync"
 
 	"github.com/hsoni92/obelisk/internal/blueprint"
@@ -25,6 +27,14 @@ type Server struct {
 	Blueprint             *blueprint.Runtime
 	Restore               *restore.Orchestrator
 	mu                    sync.Mutex
+}
+
+func (s *Server) reconciler(cfg string) controller.Reconciler {
+	ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE"))
+	if ns == "" {
+		ns = "obelisk"
+	}
+	return controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot, Namespace: ns}
 }
 
 func (s *Server) Handler() http.Handler {
@@ -93,12 +103,12 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
 
 	reconcileMode := "cluster"
 	if rec.SimulateMode() {
-		reconcileMode = "simulate"
+		reconcileMode = "off"
 	}
 
 	var instances []instanceView

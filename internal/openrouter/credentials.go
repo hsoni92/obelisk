@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/hsoni92/obelisk/internal/config"
 )
 
 // CredentialsFile stores gateway token and upstream API keys beside obelisk.yaml (mode 0600).
@@ -14,7 +15,7 @@ type CredentialsFile struct {
 }
 
 func credentialsPath(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "openrouter.credentials.json")
+	return config.CredentialsDir(configPath) + "/openrouter.credentials.json"
 }
 
 func LoadCredentials(configPath string) (CredentialsFile, bool, error) {
@@ -41,8 +42,8 @@ func SaveCredentials(configPath string, c CredentialsFile) error {
 	if c.Accounts == nil {
 		c.Accounts = map[string]string{}
 	}
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := config.CredentialsDir(configPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(c)

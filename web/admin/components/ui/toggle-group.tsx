@@ -11,9 +11,9 @@ const ToggleGroupItem = ({
 }: React.ComponentProps<typeof ToggleGroupPrimitive.Item>) => (
   <ToggleGroupPrimitive.Item
     className={cn(
-      "shrink-0 rounded-full px-3 py-1 text-xs font-medium transition-colors",
-      "text-foreground bg-card hover:bg-surface",
-      "data-[state=on]:bg-foreground data-[state=on]:text-background",
+      "shrink-0 rounded-full px-4 py-1.5 text-[13px] font-normal transition-colors",
+      "text-foreground bg-muted hover:bg-surface",
+      "data-[state=on]:bg-broadcast data-[state=on]:text-broadcast-foreground",
       "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       className,
     )}

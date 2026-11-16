@@ -5,6 +5,7 @@ import (
 	"path/filepath"
 
 	"github.com/hsoni92/obelisk/internal/backup"
+	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -12,7 +13,7 @@ import (
 // A missing credential or empty prefix is not an error; the count is how many
 // objects were written. config/ is never fetched.
 func RestoreDataFiles(ctx context.Context, configPath string, spec obelisk.Spec) (int, error) {
-	destDir := filepath.Join(filepath.Dir(configPath), "restore-data", spec.BackupBucketName())
+	destDir := filepath.Join(config.CredentialsDir(configPath), "restore-data", spec.BackupBucketName())
 	total := 0
 	for _, d := range obelisk.EnabledBackupDestinations(spec) {
 		creds, ok, err := backup.LoadDestinationCredentials(configPath, d.ID)

@@ -1,5 +1,6 @@
 "use client";
 
+import { BackupOverviewSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,6 +33,8 @@ export function BackupOverview({
   summary: BackupSummary | null;
   onOpenDR: () => void;
 }) {
+  if (!config) return <BackupOverviewSkeleton />;
+
   const dests = config?.destinations ?? [];
   const p = config?.policy;
 
@@ -45,9 +48,7 @@ export function BackupOverview({
           <div>
             <h2 className="text-section-title">Backups</h2>
             <p className="text-metadata text-muted-foreground">
-              {summary
-                ? summary.detail
-                : "Loading backup status…"}
+              {summary?.detail}
             </p>
           </div>
         </div>
@@ -142,7 +143,7 @@ export function BackupOverview({
                     : ""}
                 </p>
                 {(d.last_error || (d.last_test_ok === false && d.last_test_message)) && (
-                  <p className="mt-1 flex items-start gap-1.5 text-metadata text-broadcast">
+                  <p className="mt-1 flex items-start gap-1.5 text-metadata text-destructive">
                     <AlertCircle className="mt-px size-3.5 shrink-0" aria-hidden />
                     <span className="break-words">
                       {d.last_error || d.last_test_message}

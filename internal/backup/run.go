@@ -44,6 +44,7 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 	// Settings durability is the GitHub blueprint. S3 receives data/ only (no config/ tarball).
 	type artifact struct {
 		key  string
+		inst string // "<type>/<id>"
 		body []byte
 	}
 	var artifacts []artifact
@@ -57,7 +58,7 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 		}
 		if len(d.Body) > 0 {
 			out.DataObjects = append(out.DataObjects, d.ObjectKey)
-			artifacts = append(artifacts, artifact{key: d.ObjectKey, body: d.Body})
+			artifacts = append(artifacts, artifact{key: d.ObjectKey, inst: d.ServiceType + "/" + d.InstanceID, body: d.Body})
 		}
 	}
 
@@ -80,6 +81,7 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Minute)
 	defer cancel()
 
+	backedUp := map[string]bool{}
 	for _, d := range obelisk.EnabledBackupDestinations(spec) {
 		creds, ok, err := LoadDestinationCredentials(cfg, d.ID)
 		if err != nil {
@@ -104,6 +106,7 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 				destErr = err
 				break
 			}
+			backedUp[a.inst] = true
 		}
 		if destErr != nil {
 			out.Errors = append(out.Errors, fmt.Sprintf("%s: %v", d.Label, destErr))
@@ -116,6 +119,11 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 		}
 	}
 
+	keys := make([]string, 0, len(backedUp))
+	for k := range backedUp {
+		keys = append(keys, k)
+	}
+	_ = UpdateInstanceBackups(cfg, keys)
 	_ = UpdateLastRun(cfg)
 
 	if out.UploadedDestinations < rf {

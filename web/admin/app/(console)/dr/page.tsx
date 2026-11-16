@@ -63,7 +63,7 @@ export default function DRPage() {
 
       {error && (
         <p
-          className="text-xs font-medium text-broadcast bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
+          className="text-xs font-medium text-foreground bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
           role="alert"
         >
           {error}
@@ -93,10 +93,10 @@ export default function DRPage() {
               Use Test on a destination row (or Test all) before backup.
             </span>
           )}
-          {status?.reconcileMode === "simulate" && (
+          {status?.reconcileMode === "off" && (
             <span className="text-metadata text-muted-foreground">
-              Simulate mode: DB dumps need{" "}
-              <code className="font-mono text-[11px]">make dev-cluster</code> or
+              Reconcile off: DB dumps need{" "}
+              <code className="font-mono text-[11px]">make dev</code> (k3d) or
               local pg_dump with port-forward.
             </span>
           )}

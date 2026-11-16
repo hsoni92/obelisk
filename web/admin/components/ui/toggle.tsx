@@ -12,9 +12,9 @@ const Toggle = React.forwardRef<
   <TogglePrimitive.Root
     ref={ref}
     className={cn(
-      "inline-flex items-center justify-center rounded-full px-3 py-1 text-xs font-medium transition-colors",
-      "bg-card text-foreground hover:bg-surface",
-      "data-[state=on]:bg-foreground data-[state=on]:text-background",
+      "inline-flex items-center justify-center rounded-full px-4 py-1.5 text-[13px] font-normal transition-colors",
+      "bg-muted text-foreground hover:bg-surface",
+      "data-[state=on]:bg-broadcast data-[state=on]:text-broadcast-foreground",
       focusRingClass,
       className,
     )}

@@ -4,19 +4,27 @@ import (
 	"testing"
 )
 
-func TestSimulateMode_ForcedCluster(t *testing.T) {
+func TestReconcileDisabled_ForcedCluster(t *testing.T) {
 	t.Setenv("OBELISK_RECONCILE", "cluster")
 	r := Reconciler{}
-	if r.simulateMode() {
-		t.Fatal("expected cluster mode")
+	if r.reconcileDisabled() {
+		t.Fatal("expected cluster reconcile")
 	}
 }
 
-func TestSimulateMode_ForcedSimulate(t *testing.T) {
-	t.Setenv("OBELISK_RECONCILE", "simulate")
+func TestReconcileDisabled_Off(t *testing.T) {
+	t.Setenv("OBELISK_RECONCILE", "off")
 	t.Setenv("OBELISK_DEV", "")
 	r := Reconciler{}
-	if !r.simulateMode() {
-		t.Fatal("expected simulate mode")
+	if !r.reconcileDisabled() {
+		t.Fatal("expected reconcile off")
+	}
+}
+
+func TestReconcileDisabled_LegacySimulate(t *testing.T) {
+	t.Setenv("OBELISK_RECONCILE", "simulate")
+	r := Reconciler{}
+	if !r.reconcileDisabled() {
+		t.Fatal("expected simulate env to disable reconcile")
 	}
 }

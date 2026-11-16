@@ -159,3 +159,4 @@ export {
 } from "./toolbar";
 export { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "./tooltip";
 export { VisuallyHidden } from "./visually-hidden";
+export { Skeleton, SkeletonRegion } from "./skeleton";

@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/hsoni92/obelisk/internal/config"
 )
 
 // DestinationsCredentialsFile stores per-destination API keys beside obelisk.yaml.
@@ -13,7 +14,7 @@ type DestinationsCredentialsFile struct {
 }
 
 func destinationsCredentialsPath(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "backup-destinations.credentials.json")
+	return config.CredentialsDir(configPath) + "/backup-destinations.credentials.json"
 }
 
 func LoadDestinationsCredentials(configPath string) (DestinationsCredentialsFile, error) {
@@ -39,8 +40,8 @@ func SaveDestinationsCredentials(configPath string, c DestinationsCredentialsFil
 	if c.Destinations == nil {
 		c.Destinations = map[string]RemoteCredentials{}
 	}
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := config.CredentialsDir(configPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(c)

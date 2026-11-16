@@ -14,8 +14,23 @@ Register an OAuth App at GitHub → **Settings → Developer settings → OAuth 
 | Homepage URL | Admin UI base URL, e.g. `https://<admin-host>` or `http://localhost:3080` for dev |
 | Application description | Optional (shown on consent) |
 | **Redirect URI** | `https://<admin-host>/login/callback` — add `http://localhost:3080/login/callback` for local dev (up to 10 URIs) |
-| Allow wildcard matching | **Off** |
+| Allow wildcard matching | **Off** (GitHub does **not** allow `http://*` or IP wildcards) |
 | Enable Device Flow | **On** (headless VPS / “Use a device code”) |
+
+**Browser sign-in** sends whatever origin you used to open the admin UI (for example `http://10.97.0.237` vs `http://127.0.0.1`). That exact URL, with `/login/callback`, must appear in the OAuth app’s callback list. The `redirect_uri` in `obelisk github oauth set` does not override the browser; it is only a fallback for the controller.
+
+### Stable admin URL (production)
+
+GitHub cannot use a “generic” callback. Pick one stable name and always open the UI with it:
+
+| Approach | Callback you register | Notes |
+|----------|----------------------|--------|
+| **Public DNS** | `https://obelisk.example.com/login/callback` | Normal VPS install |
+| **Tailscale** | `https://<machine>.<tailnet>.ts.net/login/callback` | Optional local profile |
+| **Lab / DHCP IP** | Each IP you use, or prefer **device code** | Multipass IPs may change after recreate |
+| **Fixed lab hostname** | `http://obelisk.lab/login/callback` | Same name in `/etc/hosts` on your laptop pointing at the VM IP; re-point hosts when IP changes |
+
+For Multipass or other DHCP VMs, either pin a static IP in the VM netplan, register every IP you might use (max 10), or skip browser OAuth and use **Use a device code** on the login page (no redirect URI for that flow).
 | Expire user access tokens | **On** (Obelisk stores refresh tokens and renews access in the background) |
 
 Authorization requests scope **`repo`** (hard-coded in the controller) for private blueprint create/read/write.
@@ -34,7 +49,20 @@ Or write `github-oauth.client.json` (mode 0600) in the credentials directory:
 {"client_id":"...","client_secret":"...","redirect_uri":"http://localhost:3080/login/callback"}
 ```
 
-In cluster, create Secret `obelisk-github-oauth` with keys `client_id`, `client_secret`, and optional `redirect_uri`. The controller stores tokens in Secret `obelisk-blueprint-github` and in a mode-0600 file under the credentials directory. Tokens are never written to `obelisk.yaml`.
+On a **VPS / k3s** host (recommended):
+
+```bash
+sudo obelisk github oauth set \
+  --client-id "$OBELISK_GITHUB_CLIENT_ID" \
+  --client-secret "$OBELISK_GITHUB_CLIENT_SECRET" \
+  --public-url "http://<admin-host>"   # e.g. http://10.97.0.237
+```
+
+This writes `github-oauth.client.json` under `/var/lib/obelisk/credentials`, creates or updates Secret `obelisk-github-oauth`, and restarts `obelisk-controller`. Use the **same origin** as the admin UI in GitHub’s redirect URI list (`http://<admin-host>/login/callback`, not `localhost`, unless you also use local dev).
+
+Alternatively, create Secret `obelisk-github-oauth` manually with keys `client_id`, `client_secret`, and `redirect_uri`, then restart the controller. The controller stores tokens in Secret `obelisk-blueprint-github` and in a mode-0600 file under the credentials directory. Tokens are never written to `obelisk.yaml`.
+
+Check configuration: `obelisk github oauth status`.
 
 ## Fresh appliance
 

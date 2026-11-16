@@ -58,6 +58,8 @@ type backupConfigResponse struct {
 	EnabledDestinationCount int                    `json:"enabled_destination_count"`
 	ImplementationStatus   string                  `json:"implementation_status"`
 	LastRunAt              string                  `json:"last_run_at,omitempty"`
+	// LastBackupByInstance maps "<type>/<id>" to the RFC3339 time of its last data upload.
+	LastBackupByInstance   map[string]string       `json:"last_backup_by_instance,omitempty"`
 	CredentialsSecret      string                  `json:"credentials_secret"`
 }
 
@@ -181,6 +183,7 @@ func (s *Server) buildBackupConfig(cfg string, spec obelisk.Spec) backupConfigRe
 		EnabledDestinationCount: enabledCount,
 		ImplementationStatus:    "stub",
 		LastRunAt:               status.LastRunAt,
+		LastBackupByInstance:    status.Instances,
 		CredentialsSecret:       secret,
 	}
 }

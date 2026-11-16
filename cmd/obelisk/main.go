@@ -35,6 +35,8 @@ func main() {
 		cmdBlueprint(os.Args[2:])
 	case "restore":
 		cmdRestore(os.Args[2:])
+	case "github":
+		cmdGitHub(os.Args[2:])
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -55,6 +57,8 @@ Commands:
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
   restore --chain [--api URL] [--config path] [--passphrase secret] [--adopt-machine-id | --keep-machine-id]
+  github oauth set [--client-id ID] [--client-secret SECRET] [--redirect-uri URL | --public-url URL] [--config path]
+  github oauth status [--config path]
 `)
 }
 

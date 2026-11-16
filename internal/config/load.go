@@ -32,6 +32,7 @@ func load(path string, opt Options) (obelisk.Spec, error) {
 	if path == "" {
 		path = ResolvePath()
 	}
+	path = ActiveConfigPath(path)
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) && autoInitAllowed(path) {
@@ -87,6 +88,7 @@ func write(path string, spec obelisk.Spec, notify bool) error {
 	if path == "" {
 		path = ResolvePath()
 	}
+	path = WriteConfigPath(path)
 	if err := Validate(&spec); err != nil {
 		return err
 	}
@@ -96,7 +98,11 @@ func write(path string, spec obelisk.Spec, notify bool) error {
 		return err
 	}
 	dir := filepath.Dir(path)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	perm := os.FileMode(0o755)
+	if dir == filepath.Dir(WritableApplianceConfigPath) {
+		perm = 0o700
+	}
+	if err := os.MkdirAll(dir, perm); err != nil {
 		return err
 	}
 	tmp := path + ".tmp"

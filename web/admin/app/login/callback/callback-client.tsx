@@ -1,5 +1,6 @@
 "use client";
 
+import { AuthSkeleton } from "@/components/skeletons";
 import { rtkErrorMessage, useCompleteGitHubCallbackMutation } from "@/lib/api";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
@@ -54,10 +55,11 @@ export function CallbackClient() {
     };
   }, [params, complete, router]);
 
+  if (!error) return <AuthSkeleton caption="Finishing GitHub sign-in" />;
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <p className="text-body text-muted-foreground" role={error ? "alert" : undefined}>
-        {error ?? "Finishing GitHub sign-in…"}
+    <div className="min-h-screen flex items-center justify-center px-4">
+      <p className="text-body text-destructive" role="alert">
+        {error}
       </p>
     </div>
   );

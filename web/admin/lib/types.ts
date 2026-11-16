@@ -46,7 +46,7 @@ export type ServiceInstance = {
 export type StatusResponse = {
   profile?: string;
   tailscale?: boolean;
-  reconcileMode?: "simulate" | "cluster";
+  reconcileMode?: "off" | "cluster";
   serviceStates?: Record<string, string>;
   instances?: ServiceInstance[];
   messages?: string[];
@@ -104,6 +104,8 @@ export type BackupConfigResponse = {
   enabled_destination_count: number;
   implementation_status: string;
   last_run_at?: string;
+  /** "<type>/<id>" → ISO time of that instance's last data upload. */
+  last_backup_by_instance?: Record<string, string>;
   credentials_secret: string;
 };
 

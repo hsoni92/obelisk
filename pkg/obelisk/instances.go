@@ -224,6 +224,18 @@ func FindInstance(spec *Spec, id string) (ServiceInstance, int, bool) {
 	return ServiceInstance{}, -1, false
 }
 
+// FindInstanceByTypeAndID locates an instance when ids are not globally unique (e.g. default postgres + default redis).
+func FindInstanceByTypeAndID(spec *Spec, typ, id string) (ServiceInstance, int, bool) {
+	typ = strings.TrimSpace(typ)
+	id = strings.TrimSpace(id)
+	for i, inst := range spec.Instances {
+		if inst.Type == typ && inst.ID == id {
+			return inst, i, true
+		}
+	}
+	return ServiceInstance{}, -1, false
+}
+
 func UniqueInstanceID(spec *Spec, base string) string {
 	if _, _, ok := FindInstance(spec, base); !ok {
 		return base

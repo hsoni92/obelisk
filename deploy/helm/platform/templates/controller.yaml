@@ -26,6 +26,10 @@ spec:
             - -gateway-listen=:8081
             - -mail-gateway-listen=:8082
           env:
+            - name: OBELISK_RECONCILE
+              value: cluster
+            - name: OBELISK_NAMESPACE
+              value: {{ .Release.Namespace }}
             - name: OBELISK_CREDENTIALS_DIR
               value: /var/lib/obelisk/credentials
             - name: OBELISK_GITHUB_CLIENT_ID
@@ -57,17 +61,24 @@ spec:
             - name: obelisk-config
               mountPath: /etc/obelisk
               readOnly: true
-            - name: obelisk-credentials
-              mountPath: /var/lib/obelisk/credentials
+            - name: obelisk-lib
+              mountPath: /var/lib/obelisk
+            - name: obelisk-helm-root
+              mountPath: /opt/obelisk
+              readOnly: true
       volumes:
         - name: obelisk-config
           hostPath:
             path: /etc/obelisk
             type: DirectoryOrCreate
-        - name: obelisk-credentials
+        - name: obelisk-lib
           hostPath:
-            path: /var/lib/obelisk/credentials
+            path: /var/lib/obelisk
             type: DirectoryOrCreate
+        - name: obelisk-helm-root
+          hostPath:
+            path: {{ .Values.obelisk.helmRootHostPath | default "/opt/obelisk" }}
+            type: Directory
 ---
 apiVersion: v1
 kind: Service
@@ -98,11 +109,17 @@ metadata:
   name: obelisk-controller
 rules:
   - apiGroups: ["apps"]
-    resources: ["statefulsets", "deployments"]
-    verbs: ["get", "list", "watch", "update", "patch"]
+    resources: ["statefulsets", "deployments", "replicasets"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
   - apiGroups: [""]
-    resources: ["pods", "services", "configmaps", "secrets"]
-    verbs: ["get", "list", "watch", "create", "update", "patch"]
+    resources: ["pods", "services", "configmaps", "secrets", "persistentvolumeclaims", "events", "serviceaccounts"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["batch"]
+    resources: ["jobs", "cronjobs"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
+  - apiGroups: ["networking.k8s.io"]
+    resources: ["networkpolicies", "ingresses"]
+    verbs: ["get", "list", "watch", "create", "update", "patch", "delete"]
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding

@@ -68,9 +68,9 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
-	simulate := rec.SimulateMode()
+	reconcileOff := rec.SimulateMode()
 
 	components := []OverviewComponent{}
 	sum := overviewSummary{}
@@ -83,7 +83,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		Desired: true,
 		State:   "running",
 		Release: controller.PlatformRelease,
-	}, simulate)
+	}, reconcileOff)
 	components = append(components, platform)
 	bumpSummary(&sum, platform.State)
 
@@ -102,12 +102,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			State:      st,
 			Release:    inst.ReleaseName(),
 		}
-		if inst.Enabled {
-			comp = s.observeRelease(r, rec, comp, simulate)
-		} else {
-			comp.State = "stopped"
-			comp.Reason = "disabled in desired state"
-		}
+		comp = s.observeRelease(r, rec, comp, reconcileOff)
 		components = append(components, comp)
 		bumpSummary(&sum, comp.State)
 	}
@@ -133,7 +128,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	bt := s.buildBackupTarget(cfg, spec)
 	resp := overviewResponse{
 		GeneratedAt:   time.Now().UTC(),
-		ReconcileMode: modeLabel(simulate),
+		ReconcileMode: modeLabel(reconcileOff),
 		Profile:       spec.Deployment.Profile,
 		Tailscale:     spec.Deployment.Tailscale.Enabled,
 		MachineID:     spec.BackupBucketName(),
@@ -146,30 +141,26 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, resp)
 }
 
-func modeLabel(simulate bool) string {
-	if simulate {
-		return "simulate"
+func modeLabel(reconcileOff bool) string {
+	if reconcileOff {
+		return "off"
 	}
 	return "cluster"
 }
 
-func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp OverviewComponent, simulate bool) OverviewComponent {
-	if simulate {
-		if comp.Desired {
-			comp.State = "running"
+func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp OverviewComponent, reconcileOff bool) OverviewComponent {
+	if reconcileOff {
+		if comp.Desired && (comp.State == "" || comp.State == "pending") {
+			comp.State = "starting"
 		}
-		comp.HelmStatus = "deployed"
-		comp.Revision = 1
-		comp.PodsReady = 1
-		comp.PodsTotal = 1
-		return comp
-	}
-	if !comp.Desired {
-		comp.State = "stopped"
+		comp.Reason = "reconcile off or helm/kubectl unavailable"
 		return comp
 	}
 	helm := rec.HelmReleaseDetail(r.Context(), comp.Release)
 	if helm.Err != nil {
+		if comp.State == "stopped" || comp.State == "stopping" {
+			return comp
+		}
 		comp.State = "degraded"
 		comp.Reason = helm.Err.Error()
 		return comp
@@ -181,14 +172,18 @@ func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp
 	}
 	switch helm.Status {
 	case "deployed":
-		// keep ObserveServiceStates mapping
+		// comp.State comes from ObserveServiceStates (helm + pod readiness)
 	case "failed", "uninstalling":
 		comp.State = "degraded"
 		if comp.Reason == "" {
 			comp.Reason = "helm status: " + helm.Status
 		}
 	case "pending-install", "pending-upgrade", "pending-rollback":
-		comp.State = "pending"
+		if comp.Desired {
+			comp.State = "starting"
+		} else {
+			comp.State = "stopping"
+		}
 	default:
 		if comp.State == "" {
 			comp.State = helm.Status
@@ -198,11 +193,22 @@ func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp
 	if pods.Err == nil {
 		comp.PodsReady = pods.Ready
 		comp.PodsTotal = pods.Total
-		if comp.Desired && comp.State == "running" && pods.Total > 0 && pods.Ready < pods.Total {
-			comp.State = "degraded"
+		if !comp.Desired && pods.Total > 0 {
+			comp.State = "stopping"
+			if comp.Reason == "" {
+				comp.Reason = "workload still draining"
+			}
+		}
+		if comp.Desired && pods.Total > 0 && pods.Ready < pods.Total {
+			if comp.State == "running" {
+				comp.State = "starting"
+			}
 			if comp.Reason == "" {
 				comp.Reason = "pods not ready"
 			}
+		}
+		if comp.Desired && pods.Total == 0 && comp.State == "running" {
+			comp.State = "starting"
 		}
 	}
 	return comp
@@ -214,7 +220,7 @@ func bumpSummary(s *overviewSummary, state string) {
 		s.Running++
 	case "stopped":
 		s.Stopped++
-	case "pending":
+	case "pending", "starting", "stopping":
 		s.Pending++
 	case "degraded":
 		s.Degraded++

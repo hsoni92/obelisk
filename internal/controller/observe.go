@@ -10,38 +10,89 @@ import (
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
+// Instance states (UI + API):
+//   - stopped:  desired off and no workload pods (quiescent)
+//   - stopping: desired off but pods still terminating or helm still scaling down
+//   - starting: desired on but not yet ready (helm pending or pods coming up)
+//   - running:  desired on, helm deployed, pods ready
+//   - degraded: helm failed or observation error with likely misalignment
+
 // ObserveServiceStates reports cluster state without running helm upgrade.
 func (r *Reconciler) ObserveServiceStates(ctx context.Context, spec obelisk.Spec) map[string]string {
 	out := map[string]string{}
 	for _, inst := range spec.Instances {
-		key := inst.StateKey()
-		if !inst.Enabled {
-			out[key] = "stopped"
-			continue
-		}
-		out[key] = "pending"
-		if r.simulateMode() {
-			out[key] = "running"
-			continue
-		}
-		st, err := r.helmReleaseStatus(ctx, inst.ReleaseName())
-		if err != nil {
-			continue
-		}
-		switch st {
-		case "deployed":
-			out[key] = "running"
-		case "pending-install", "pending-upgrade", "pending-rollback":
-			out[key] = "pending"
-		case "failed", "uninstalling":
-			out[key] = "degraded"
-		default:
-			if st != "" {
-				out[key] = st
-			}
-		}
+		out[inst.StateKey()] = r.observeInstanceState(ctx, inst)
 	}
 	return out
+}
+
+func (r *Reconciler) observeInstanceState(ctx context.Context, inst obelisk.ServiceInstance) string {
+	if r.reconcileDisabled() {
+		if inst.Enabled {
+			return "starting"
+		}
+		return "stopped"
+	}
+	if !inst.Enabled {
+		return r.observeDisabled(ctx, inst)
+	}
+	return r.observeEnabled(ctx, inst)
+}
+
+func (r *Reconciler) observeDisabled(ctx context.Context, inst obelisk.ServiceInstance) string {
+	release := inst.ReleaseName()
+	pods := r.PodsForRelease(ctx, release)
+	if pods.Err != nil {
+		return "degraded"
+	}
+	if pods.Total > 0 {
+		return "stopping"
+	}
+	st, err := r.helmReleaseStatus(ctx, release)
+	if err != nil || st == "" {
+		return "stopped"
+	}
+	switch st {
+	case "pending-install", "pending-upgrade", "pending-rollback", "uninstalling":
+		return "stopping"
+	case "failed":
+		return "degraded"
+	default:
+		return "stopped"
+	}
+}
+
+func (r *Reconciler) observeEnabled(ctx context.Context, inst obelisk.ServiceInstance) string {
+	release := inst.ReleaseName()
+	st, err := r.helmReleaseStatus(ctx, release)
+	if err != nil || st == "" {
+		return "starting"
+	}
+	switch st {
+	case "failed", "uninstalling":
+		return "degraded"
+	case "pending-install", "pending-upgrade", "pending-rollback":
+		return "starting"
+	case "deployed":
+		return r.stateWhenHelmDeployed(ctx, release)
+	default:
+		return "starting"
+	}
+}
+
+// stateWhenHelmDeployed requires workload pods to exist and be ready (Helm deployed ≠ running).
+func (r *Reconciler) stateWhenHelmDeployed(ctx context.Context, release string) string {
+	pods := r.PodsForRelease(ctx, release)
+	if pods.Err != nil {
+		return "degraded"
+	}
+	if pods.Total == 0 {
+		return "starting"
+	}
+	if pods.Ready < pods.Total {
+		return "starting"
+	}
+	return "running"
 }
 
 func (r *Reconciler) helmReleaseStatus(ctx context.Context, release string) (string, error) {

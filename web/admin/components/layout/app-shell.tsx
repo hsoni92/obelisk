@@ -1,5 +1,6 @@
 "use client";
 
+import { ObeliskWordmark } from "@/components/brand/obelisk-logo";
 import { NAV_ROUTES, type NavId } from "@/lib/nav";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +11,6 @@ import {
   Search,
   Settings,
   Share2,
-  Zap,
   type LucideIcon,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,30 +45,18 @@ export function AppShell({
   const [rail, setRail] = React.useState(false);
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex">
+    <div className="min-h-screen text-foreground flex">
       <aside
         className={cn(
-          "sticky top-0 h-screen shrink-0 bg-sidebar py-5 transition-[width] flex flex-col",
-          rail ? "w-14" : "w-52",
+          "sticky top-0 h-screen shrink-0 py-5 pl-5 transition-[width] flex flex-col",
+          rail ? "w-[76px]" : "w-60",
         )}
       >
-        <div className={cn("flex items-center gap-2.5 px-4", rail && "justify-center px-0")}>
-          <div className="size-8 shrink-0 rounded-full bg-broadcast text-white flex items-center justify-center">
-            <Zap className="size-4 fill-current" />
-          </div>
-          {!rail && (
-            <div className="leading-tight">
-              <p className="text-[15px] font-bold tracking-tight text-broadcast">
-                Obelisk
-              </p>
-              <p className="text-eyebrow text-[9px] text-muted-foreground">
-                Admin console
-              </p>
-            </div>
-          )}
+        <div className={cn("px-1", rail && "px-0")}>
+          <ObeliskWordmark compact={rail} />
         </div>
 
-        <nav className="mt-6 flex flex-col gap-0.5 pr-3">
+        <nav className="mt-6 flex flex-col gap-1 rounded-[28px] bg-card p-2 shadow-rb-2">
           {NAV.map((item) => {
             const selected = active === item.id;
             const Icon = item.icon;
@@ -78,11 +66,11 @@ export function AppShell({
                 href={NAV_ROUTES[item.id]}
                 title={item.label}
                 className={cn(
-                  "flex items-center gap-2.5 border-l-2 py-2 pl-4 pr-3 text-left text-[13px] transition-colors",
+                  "flex items-center gap-2.5 rounded-full py-2.5 pl-4 pr-4 text-left text-sm transition-colors",
                   selected
-                    ? "border-broadcast bg-card font-semibold text-broadcast"
-                    : "border-transparent font-medium text-foreground hover:bg-card/60",
-                  rail && "justify-center pl-2 pr-0",
+                    ? "bg-ink font-medium text-ink-foreground"
+                    : "font-normal text-muted-foreground hover:bg-muted hover:text-foreground",
+                  rail && "justify-center px-0",
                 )}
               >
                 <Icon className="size-4 shrink-0" />
@@ -93,9 +81,9 @@ export function AppShell({
         </nav>
 
         {!rail && (
-          <div className="mt-auto mx-3 rounded-lg bg-broadcast-tint p-3">
-            <p className="text-xs font-semibold text-broadcast">Middleware appliance</p>
-            <p className="mt-0.5 text-[11px] leading-4 text-muted-foreground">
+          <div className="mt-auto rounded-[28px] bg-feature p-4 text-feature-foreground shadow-rb-2">
+            <p className="text-sm font-medium">Middleware appliance</p>
+            <p className="mt-1 text-xs leading-4 text-white/70">
               Platform first, data services on demand.
             </p>
           </div>
@@ -103,7 +91,7 @@ export function AppShell({
       </aside>
 
       <div className="flex-1 min-w-0 flex flex-col">
-        <header className="sticky top-0 z-30 flex h-12 items-center gap-3 border-b border-border bg-background/90 px-5 backdrop-blur">
+        <header className="sticky top-0 z-30 flex h-16 items-center gap-3 px-6 backdrop-blur-sm">
           <Button
             type="button"
             variant="icon"
@@ -117,7 +105,7 @@ export function AppShell({
             <label className="sr-only" htmlFor="admin-search">
               Search
             </label>
-            <div className="flex h-8 items-center gap-2 rounded-full bg-muted px-3 text-muted-foreground focus-within:ring-2 focus-within:ring-ring/40">
+            <div className="flex h-10 items-center gap-2 rounded-full bg-card px-4 text-muted-foreground shadow-rb-1 focus-within:ring-2 focus-within:ring-ring/60">
               <Search className="size-3.5 shrink-0" />
               <input
                 id="admin-search"
@@ -128,14 +116,14 @@ export function AppShell({
                 }
                 value={searchQuery}
                 onChange={(e) => onSearchChange?.(e.target.value)}
-                className="flex-1 bg-transparent text-[13px] text-foreground placeholder:text-muted-foreground outline-none"
+                className="flex-1 bg-transparent text-sm text-foreground placeholder:text-muted-foreground outline-none"
               />
             </div>
           </div>
           <div className="ml-auto flex items-center gap-2">{meta}</div>
         </header>
 
-        <main className="flex-1 min-w-0 px-5 py-6 max-w-[1400px] w-full mx-auto">
+        <main className="flex-1 min-w-0 px-6 pb-10 pt-4 max-w-[1400px] w-full mx-auto">
           {children}
         </main>
       </div>

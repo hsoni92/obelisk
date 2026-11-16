@@ -4,26 +4,27 @@ import { cva, type VariantProps } from "class-variance-authority";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
+  "inline-flex items-center justify-center gap-2 whitespace-nowrap font-normal transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 [&_svg]:size-4",
   {
     variants: {
       variant: {
         default:
-          "bg-broadcast text-white shadow-rb-3 hover:bg-broadcast-hover rounded-full h-8 px-3.5 text-[13px] font-medium",
+          "bg-broadcast text-broadcast-foreground hover:bg-broadcast-hover rounded-full h-10 px-5 text-sm font-medium",
         subscribed:
-          "bg-surface text-foreground hover:bg-surface/80 rounded-full h-8 px-3.5 text-[13px]",
+          "bg-muted text-foreground hover:bg-surface rounded-full h-10 px-5 text-sm",
+        ink: "bg-ink text-ink-foreground hover:bg-ink/85 rounded-full h-10 px-5 text-sm font-medium",
         outline:
-          "bg-card text-foreground ring-1 ring-border hover:bg-muted rounded-full h-8 px-3.5 text-[13px] font-medium",
-        icon: "size-8 rounded-full text-muted-foreground hover:bg-surface bg-transparent",
+          "bg-card text-foreground ring-1 ring-border hover:bg-muted rounded-full h-10 px-5 text-sm",
+        icon: "size-10 rounded-full text-foreground bg-card shadow-rb-1 hover:bg-muted",
         broadcast:
-          "bg-broadcast text-white shadow-rb-3 hover:bg-broadcast-hover rounded-full h-8 px-3.5 text-[13px] font-medium",
+          "bg-broadcast text-broadcast-foreground shadow-rb-3 hover:bg-broadcast-hover rounded-full h-10 px-5 text-sm font-medium",
         link: "text-link font-medium underline-offset-4 hover:underline p-0 h-auto",
       },
       size: {
-        default: "h-8 px-3.5",
-        sm: "h-7 px-3 text-xs",
-        lg: "h-9 px-4 text-sm",
-        icon: "size-8",
+        default: "h-10 px-5",
+        sm: "h-8 px-4 text-[13px]",
+        lg: "h-12 px-6 text-[15px]",
+        icon: "size-10",
       },
     },
     defaultVariants: {

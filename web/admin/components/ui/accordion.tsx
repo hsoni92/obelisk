@@ -28,7 +28,7 @@ const AccordionTrigger = React.forwardRef<
     <AccordionPrimitive.Trigger
       ref={ref}
       className={cn(
-        "group flex flex-1 items-center justify-between py-3 text-left text-[13px] font-medium transition-colors hover:text-broadcast",
+        "group flex flex-1 items-center justify-between py-3 text-left text-[13px] font-medium transition-colors hover:text-foreground",
         focusRingClass,
         className,
       )}

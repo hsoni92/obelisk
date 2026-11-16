@@ -4,6 +4,14 @@ COPY go.mod ./
 COPY . .
 RUN go mod tidy && CGO_ENABLED=0 go build -o /out/obelisk-controller ./cmd/obelisk-controller
 
-FROM gcr.io/distroless/static-debian12
-COPY --from=build /out/obelisk-controller /obelisk-controller
-ENTRYPOINT ["/obelisk-controller"]
+FROM debian:bookworm-slim
+RUN apt-get update \
+	&& apt-get install -y --no-install-recommends ca-certificates curl \
+	&& curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
+	&& curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.30.7/bin/linux/amd64/kubectl" \
+	&& chmod +x /usr/local/bin/kubectl \
+	&& apt-get purge -y curl \
+	&& apt-get autoremove -y \
+	&& rm -rf /var/lib/apt/lists/*
+COPY --from=build /out/obelisk-controller /usr/local/bin/obelisk-controller
+ENTRYPOINT ["/usr/local/bin/obelisk-controller"]

@@ -1,24 +1,19 @@
 package backup
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
 	"time"
+
+	"github.com/hsoni92/obelisk/internal/controller"
 )
 
 // K8sDataBackupEnabled is true when kubectl can exec into data service pods.
 func K8sDataBackupEnabled() bool {
-	switch strings.ToLower(strings.TrimSpace(os.Getenv("OBELISK_RECONCILE"))) {
-	case "simulate", "sim", "off", "dry-run":
-		return false
-	case "cluster":
-		return kubectlAvailable()
-	}
-	if strings.TrimSpace(os.Getenv("OBELISK_DEV")) == "1" {
+	if controller.ReconcileDisabled() {
 		return false
 	}
 	return kubectlAvailable()
@@ -40,11 +35,25 @@ func kubectlOutput(ctx context.Context, args ...string) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Minute)
 	defer cancel()
 	cmd := exec.CommandContext(ctx, "kubectl", args...)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	out, err := cmd.Output()
+	cmd.Env = kubeconfigEnv()
+	out, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, fmt.Errorf("kubectl %s: %w: %s", strings.Join(args, " "), err, stderr.String())
+		return nil, fmt.Errorf("kubectl %s: %w (%s)", strings.Join(args, " "), err, strings.TrimSpace(string(out)))
 	}
 	return out, nil
+}
+
+func kubeconfigEnv() []string {
+	// Reuse controller kubeconfig resolution via small duplicate to avoid export cycle.
+	env := os.Environ()
+	if strings.TrimSpace(os.Getenv("KUBECONFIG")) != "" {
+		return env
+	}
+	if strings.TrimSpace(os.Getenv("KUBERNETES_SERVICE_HOST")) != "" {
+		return env
+	}
+	if _, err := os.Stat("/etc/rancher/k3s/k3s.yaml"); err == nil {
+		return append(env, "KUBECONFIG=/etc/rancher/k3s/k3s.yaml")
+	}
+	return env
 }

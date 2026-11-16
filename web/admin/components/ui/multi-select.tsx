@@ -127,7 +127,7 @@ export function MultiSelect({
                     )}
                   >
                     <CheckboxPrimitive.Indicator>
-                      <Check className="size-3 text-white" />
+                      <Check className="size-3 text-broadcast-foreground" />
                     </CheckboxPrimitive.Indicator>
                   </CheckboxPrimitive.Root>
                   <span className="truncate capitalize">{o.label}</span>

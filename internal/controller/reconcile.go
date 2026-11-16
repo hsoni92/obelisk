@@ -35,9 +35,21 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		return Report{}, err
 	}
 	report := Report{ServiceStates: map[string]string{}}
-	if r.simulateMode() {
+	if r.reconcileDisabled() {
 		report.Messages = append(report.Messages,
-			"reconciler simulate mode (no helm/kubectl): desired state only; use a host with k3s for real workloads")
+			"reconcile off (OBELISK_RECONCILE=off or helm/kubectl missing): desired state only")
+		for _, inst := range spec.Instances {
+			key := inst.StateKey()
+			if !inst.Enabled {
+				report.ServiceStates[key] = "stopped"
+				continue
+			}
+			report.ServiceStates[key] = "pending"
+		}
+		if err := exposure.ApplyFunnel(spec); err != nil {
+			report.Messages = append(report.Messages, "exposure: "+err.Error())
+		}
+		return report, nil
 	}
 	for _, inst := range spec.Instances {
 		state, msg, err := r.reconcileInstance(ctx, inst)
@@ -49,7 +61,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			return report, err
 		}
 	}
-	if !r.simulateMode() && spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
+	if spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
 		if err := r.ensureTailscale(ctx); err != nil {
 			report.Messages = append(report.Messages, "tailscale: "+err.Error())
 		}
@@ -61,19 +73,29 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 }
 
 func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.ServiceInstance) (state, msg string, err error) {
-	if r.simulateMode() {
-		if !inst.Enabled {
-			return "stopped", "", nil
-		}
-		return "running", fmt.Sprintf("%s enabled (simulate)", inst.StateKey()), nil
-	}
 	if !inst.Enabled {
-		return "stopped", fmt.Sprintf("%s scaled to 0", inst.StateKey()), r.helmScaleRelease(ctx, inst.ReleaseName(), 0)
+		chart := fmt.Sprintf("%s/deploy/helm/services/%s", r.HelmRoot, inst.Type)
+		release := inst.ReleaseName()
+		ns := r.Namespace
+		if ns == "" {
+			ns = "obelisk"
+		}
+		valuesPath, cleanup, err := writeInstanceValues(inst)
+		if err != nil {
+			return "degraded", "", err
+		}
+		defer cleanup()
+		if err := r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath); err != nil {
+			return "degraded", "", err
+		}
+		st := r.observeInstanceState(ctx, inst)
+		return st, fmt.Sprintf("%s scaled to 0 via helm", inst.StateKey()), nil
 	}
 	if err := r.helmUpgradeInstance(ctx, inst); err != nil {
 		return "degraded", "", err
 	}
-	return "running", fmt.Sprintf("%s release applied", inst.StateKey()), nil
+	st := r.observeInstanceState(ctx, inst)
+	return st, fmt.Sprintf("%s release applied", inst.StateKey()), nil
 }
 
 func (r *Reconciler) helmUpgradeInstance(ctx context.Context, inst obelisk.ServiceInstance) error {
@@ -114,7 +136,8 @@ func (r *Reconciler) helmScaleRelease(ctx context.Context, release string, repli
 	cmd.Env = kubeconfigEnv()
 	out, err := cmd.CombinedOutput()
 	if err != nil {
-		slog.Debug("scale", "release", release, "out", string(out))
+		slog.Warn("scale statefulset failed", "release", release, "out", string(out), "err", err)
+		return fmt.Errorf("scale %s: %w: %s", release, err, string(out))
 	}
 	return nil
 }

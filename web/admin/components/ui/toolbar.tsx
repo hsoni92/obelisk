@@ -56,7 +56,7 @@ const ToolbarToggleItem = ({
   <ToolbarPrimitive.ToggleItem
     className={cn(
       "inline-flex h-8 min-w-8 items-center justify-center rounded-lg px-2 text-[13px] font-medium",
-      "text-foreground hover:bg-card data-[state=on]:bg-card data-[state=on]:text-broadcast",
+      "text-foreground hover:bg-card data-[state=on]:bg-card data-[state=on]:text-foreground",
       focusRingClass,
       className,
     )}

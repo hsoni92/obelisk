@@ -1,5 +1,6 @@
 "use client";
 
+import { ConsoleShellSkeleton } from "@/components/skeletons";
 import { rtkErrorMessage, useGetBlueprintStatusQuery } from "@/lib/api";
 import { useRouter } from "next/navigation";
 import { useEffect } from "react";
@@ -25,7 +26,7 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     const detail = rtkErrorMessage(error);
     return (
       <div className="min-h-screen flex flex-col items-center justify-center gap-3 px-6 text-center">
-        <p className="text-sm text-broadcast" role="alert">
+        <p className="text-sm text-destructive" role="alert">
           Admin API is unreachable through Kong.
         </p>
         <p className="text-body text-muted-foreground max-w-md">
@@ -38,11 +39,7 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
   }
 
   if (isLoading || !data?.authenticated || !data.repository) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-body text-muted-foreground">Checking GitHub session…</p>
-      </div>
-    );
+    return <ConsoleShellSkeleton />;
   }
 
   return children;

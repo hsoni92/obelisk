@@ -45,7 +45,14 @@ export function buildTimeline(
         }
       }
       if (state === "running") p.healthy++;
-      else if (state === "degraded" || state === "pending") p.attention++;
+      else if (
+        state === "degraded" ||
+        state === "pending" ||
+        state === "starting" ||
+        state === "stopping"
+      ) {
+        p.attention++;
+      }
       else p.stopped++;
     }
     out.push(p);

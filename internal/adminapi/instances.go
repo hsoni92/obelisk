@@ -35,6 +35,7 @@ type patchInstanceBackupRequest struct {
 }
 
 type patchInstanceRequest struct {
+	Type        *string                      `json:"type,omitempty"`
 	DisplayName *string                      `json:"display_name,omitempty"`
 	Enabled     *bool                        `json:"enabled,omitempty"`
 	Backup      *patchInstanceBackupRequest  `json:"backup,omitempty"`
@@ -78,7 +79,7 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
 	var list []instanceView
 	for _, inst := range spec.Instances {
@@ -120,8 +121,7 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
-	controller.ReconcileAsync(rec)
+	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{
 		"instance":       inst,
 		"credentials":    inst.Credentials,
@@ -144,7 +144,14 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	inst, idx, ok := obelisk.FindInstance(&spec, id)
+	var inst obelisk.ServiceInstance
+	var idx int
+	var ok bool
+	if req.Type != nil && strings.TrimSpace(*req.Type) != "" {
+		inst, idx, ok = obelisk.FindInstanceByTypeAndID(&spec, *req.Type, id)
+	} else {
+		inst, idx, ok = obelisk.FindInstance(&spec, id)
+	}
 	if !ok {
 		s.mu.Unlock()
 		http.Error(w, "instance not found", http.StatusNotFound)
@@ -210,10 +217,13 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
-	controller.ReconcileAsync(rec)
+	controller.ReconcileAsync(s.reconciler(cfg))
+	interim := "starting"
+	if req.Enabled != nil && !*req.Enabled {
+		interim = "stopping"
+	}
 	writeJSON(w, map[string]any{
-		"instance": enrichInstanceView(inst, "pending", spec),
+		"instance": enrichInstanceView(inst, interim, spec),
 		"accepted": true,
 	})
 }
@@ -244,7 +254,6 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
-	controller.ReconcileAsync(rec)
+	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{"deleted": id, "accepted": true})
 }

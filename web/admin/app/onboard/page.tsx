@@ -99,7 +99,7 @@ export default function OnboardPage() {
     >
       <form onSubmit={(e) => void submit(e)} className="space-y-4">
         {error && (
-          <p className="text-xs text-broadcast" role="alert">
+          <p className="text-xs text-destructive" role="alert">
             {error}
           </p>
         )}

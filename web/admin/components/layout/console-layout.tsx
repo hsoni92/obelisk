@@ -32,8 +32,8 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
     <>
       <SyncBadge />
       {status?.profile && <Badge variant="info">{status.profile}</Badge>}
-      {status?.reconcileMode === "simulate" && (
-        <Badge variant="warning">simulate</Badge>
+      {status?.reconcileMode === "off" && (
+        <Badge variant="warning">reconcile off</Badge>
       )}
     </>
   );

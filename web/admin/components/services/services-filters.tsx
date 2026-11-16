@@ -132,7 +132,7 @@ export function ServicesFilters() {
           <SlidersHorizontal className="size-3.5" aria-hidden />
           Filters
           {activeCount > 0 && (
-            <span className="ml-1 rounded-full bg-broadcast-tint px-1.5 text-[10px] font-semibold text-broadcast">
+            <span className="ml-1 rounded-full bg-broadcast-tint px-1.5 text-[10px] font-semibold text-foreground">
               {activeCount}
             </span>
           )}

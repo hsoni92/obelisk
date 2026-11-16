@@ -3,7 +3,7 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { NewInstanceButton } from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
-import { ServicesTable } from "@/components/services/services-table";
+import { ServicesTable, ServicesTableSkeleton } from "@/components/services/services-table";
 import {
   ConfigureInstanceDialog,
   type ConfigureInstanceSave,
@@ -12,6 +12,7 @@ import {
   rtkErrorMessage,
   statusPollOptions,
   useCreateInstanceMutation,
+  useGetBackupConfigQuery,
   useGetConnectionsQuery,
   useGetStatusQuery,
   usePatchInstanceMutation,
@@ -68,6 +69,10 @@ function ServicesPageContent() {
     statusPollOptions,
   );
 
+  const { data: backupConfig } = useGetBackupConfigQuery(undefined, {
+    pollingInterval: 30_000,
+  });
+
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
 
@@ -82,8 +87,9 @@ function ServicesPageContent() {
         status?.serviceStates,
         connections ?? null,
         !statusLoading && status !== undefined,
+        backupConfig?.last_backup_by_instance,
       ),
-    [status, connections, statusLoading],
+    [status, connections, statusLoading, backupConfig],
   );
 
   const tableRows = useMemo(
@@ -100,17 +106,23 @@ function ServicesPageContent() {
     return res;
   }
 
-  async function setEnabled(inst: ServiceInstance, enabled: boolean) {
+  /** Resolves true when the change was accepted, false if the request failed. */
+  async function setEnabled(
+    inst: ServiceInstance,
+    enabled: boolean,
+  ): Promise<boolean> {
     const key = serviceRowKey(inst);
     setBusy(key);
     setActionError(null);
     try {
       await patchInstance({
         id: inst.id,
-        body: { enabled },
+        body: { enabled, type: inst.type },
       }).unwrap();
+      return true;
     } catch (e) {
       setActionError(rtkErrorMessage(e));
+      return false;
     } finally {
       setBusy(null);
     }
@@ -121,7 +133,10 @@ function ServicesPageContent() {
     setBusy(inst ? serviceRowKey(inst) : id);
     setActionError(null);
     try {
-      await patchInstance({ id, body: patch }).unwrap();
+      await patchInstance({
+        id,
+        body: { ...patch, type: inst?.type },
+      }).unwrap();
     } catch (e) {
       setActionError(rtkErrorMessage(e));
     } finally {
@@ -147,7 +162,7 @@ function ServicesPageContent() {
 
       {error && (
         <p
-          className="text-xs font-medium text-broadcast bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
+          className="text-xs font-medium text-foreground bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
           role="alert"
         >
           {error}
@@ -157,17 +172,16 @@ function ServicesPageContent() {
       <div className="space-y-4">
         <ServicesFilters />
         <ServicesTable
+          loading={statusLoading}
           rows={tableRows}
           totalCount={allTableRows.length}
           filtered={serviceFilterCount > 0}
           busyKey={busy}
-          connectionNotes={connections?.notes}
           onClearFilters={() => {
             resetServiceFilters();
             router.replace("/services", { scroll: false });
           }}
-          onStart={(inst) => void setEnabled(inst, true)}
-          onStop={(inst) => void setEnabled(inst, false)}
+          onToggle={setEnabled}
           onConfigure={setConfigureTarget}
         />
       </div>
@@ -177,7 +191,14 @@ function ServicesPageContent() {
 
 export default function ServicesPage() {
   return (
-    <Suspense fallback={<PageHeader section="services" />}>
+    <Suspense
+      fallback={
+        <>
+          <PageHeader section="services" />
+          <ServicesTableSkeleton />
+        </>
+      }
+    >
       <ServicesPageContent />
     </Suspense>
   );

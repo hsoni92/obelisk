@@ -1,0 +1,88 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 248 270" width="248" height="270">
+  <defs>
+    <linearGradient id="leftDark" x1="0.3" y1="0" x2="0.7" y2="1">
+      <stop offset="0" stop-color="#308998"/>
+      <stop offset="0.5" stop-color="#175d70"/>
+      <stop offset="1" stop-color="#0a3345"/>
+    </linearGradient>
+    <linearGradient id="leftBevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#75bfc5"/>
+      <stop offset="0.55" stop-color="#3c8d9c"/>
+      <stop offset="1" stop-color="#185466"/>
+    </linearGradient>
+    <linearGradient id="centerLeft" x1="0.5" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#6eb9c0"/>
+      <stop offset="0.38" stop-color="#287182"/>
+      <stop offset="0.78" stop-color="#134c5f"/>
+      <stop offset="1" stop-color="#0b3648"/>
+    </linearGradient>
+    <linearGradient id="centerRight" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#a8e2e2"/>
+      <stop offset="0.4" stop-color="#56aab4"/>
+      <stop offset="1" stop-color="#1f6f82"/>
+    </linearGradient>
+    <linearGradient id="centerHighlight" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#ccefee"/>
+      <stop offset="0.6" stop-color="#87cdd1"/>
+      <stop offset="1" stop-color="#58a9b3"/>
+    </linearGradient>
+    <linearGradient id="centerBand" x1="1" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#7ec7cc"/>
+      <stop offset="1" stop-color="#3a8999"/>
+    </linearGradient>
+    <linearGradient id="rightSide" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#2c7584"/>
+      <stop offset="0.55" stop-color="#185567"/>
+      <stop offset="1" stop-color="#0b3446"/>
+    </linearGradient>
+    <linearGradient id="barTop" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#82ccd2"/>
+      <stop offset="1" stop-color="#5cb1bc"/>
+    </linearGradient>
+    <linearGradient id="barMid" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#60b1bd"/>
+      <stop offset="1" stop-color="#378898"/>
+    </linearGradient>
+    <linearGradient id="barLow" x1="0" y1="0" x2="0.6" y2="1">
+      <stop offset="0" stop-color="#4898a7"/>
+      <stop offset="1" stop-color="#1e6174"/>
+    </linearGradient>
+    <linearGradient id="baseLeft" x1="0.7" y1="0" x2="0.2" y2="1">
+      <stop offset="0" stop-color="#184f63"/>
+      <stop offset="1" stop-color="#092d40"/>
+    </linearGradient>
+    <linearGradient id="baseRight" x1="0.2" y1="0" x2="0.8" y2="1">
+      <stop offset="0" stop-color="#75c0c7"/>
+      <stop offset="0.5" stop-color="#378b9c"/>
+      <stop offset="1" stop-color="#17596d"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Left tower -->
+  <path d="M31 128 L67 106 L67 227 L31 207 Z" fill="url(#leftDark)"/>
+  <path d="M67 106 L78 113 L68 227 L67 227 Z" fill="url(#leftBevel)"/>
+
+  <!-- Central obelisk -->
+  <path d="M124.5 11.5 L93 48 L81 184 L125 158 Z" fill="url(#centerLeft)"/>
+  <path d="M124.5 11.5 L156.5 48 L168 184 L125 158 Z" fill="url(#centerRight)"/>
+  <!-- Wrap-around L/chevron highlight on central obelisk -->
+  <path d="M124.5 11.5 L156.5 48 L158.5 74 L137 54 L137 127 L125 135 L125 11.5 Z" fill="url(#centerHighlight)"/>
+  <path d="M125 120 L125 135 L84.5 159.5 L86 144 Z" fill="url(#centerBand)"/>
+
+  <!-- Right tower: top block -->
+  <path d="M169.5 89 L182 81 L182 108 L171.5 112.5 Z" fill="url(#rightSide)"/>
+  <path d="M182 81 L218 103 L218 128 L182 108 Z" fill="url(#barTop)"/>
+
+  <!-- Right tower: middle block -->
+  <path d="M172.5 121 L182 116 L182 140 L174 143 Z" fill="url(#rightSide)"/>
+  <path d="M182 116 L218 136 L218 160.5 L182 140 Z" fill="url(#barMid)"/>
+
+  <!-- Right tower: lower block with transparent cutout notch -->
+  <path d="M175 152 L182 148 L218 169 L218 207 L182 226.5 L177 174 L182 171 L200 179 L200 173 L182 163 L175.5 164 Z" fill="url(#barLow)"/>
+  <path d="M175 152 L182 148 L182 163 L175.5 164 Z" fill="url(#rightSide)"/>
+  <path d="M177 174 L182 171 L182 226.5 Z" fill="url(#rightSide)"/>
+
+  <!-- Front base -->
+  <path d="M125 169 L80 195.5 L77 231 L125 257 Z" fill="url(#baseLeft)"/>
+  <path d="M125 169 L170 195.5 L173 231 L125 257 Z" fill="url(#baseRight)"/>
+</svg>

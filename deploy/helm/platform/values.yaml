@@ -4,6 +4,7 @@ obelisk:
   imageAdminUI: obelisk-admin-ui:0.1.0
   configHostPath: /etc/obelisk/obelisk.yaml
   helmRoot: /opt/obelisk
+  helmRootHostPath: /opt/obelisk
   # GitHub OAuth app for blueprint login. Create Secret obelisk-github-oauth
   # with client_id, client_secret, and optional redirect_uri. The controller
   # writes OAuth tokens to Secret obelisk-blueprint-github at runtime.

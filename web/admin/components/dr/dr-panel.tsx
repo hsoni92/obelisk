@@ -1,5 +1,6 @@
 "use client";
 
+import { DRSkeleton } from "@/components/skeletons";
 import { BackupPolicyCard } from "@/components/dr/backup-policy-card";
 import { DestinationsTable } from "@/components/dr/destinations-table";
 import { Badge } from "@/components/ui/badge";
@@ -40,7 +41,7 @@ export function DRPanel({
   onBusy: (key: string | null) => void;
   onError: (message: string | null) => void;
 }) {
-  const { data: config } = useGetBackupConfigQuery(undefined, {
+  const { data: config, isLoading } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 8000,
   });
   const [patchPolicy] = usePatchBackupPolicyMutation();
@@ -89,7 +90,13 @@ export function DRPanel({
   }, [config]);
 
   if (!config) {
-    return <p className="text-sm text-muted-foreground">Loading backup config…</p>;
+    return isLoading ? (
+      <DRSkeleton />
+    ) : (
+      <p className="text-sm text-muted-foreground">
+        Backup configuration is unavailable.
+      </p>
+    );
   }
 
   return (

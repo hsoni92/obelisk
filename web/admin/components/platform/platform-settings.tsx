@@ -44,7 +44,7 @@ export function PlatformSettings() {
         <button
           type="button"
           aria-current="page"
-          className="flex w-full items-center gap-2 rounded-lg border-l-2 border-broadcast bg-card px-3 py-2 text-left text-[13px] font-semibold text-broadcast"
+          className="flex w-full items-center gap-2 rounded-lg bg-ink px-4 py-2 text-left text-sm font-medium text-ink-foreground"
         >
           <Palette className="size-4 shrink-0" />
           Appearance
@@ -119,9 +119,9 @@ export function PlatformSettings() {
 function ThemePreview({ mode }: { mode: ThemeMode }) {
   if (mode === "system") {
     return (
-      <span className="flex h-14 overflow-hidden rounded-lg border border-black/10">
-        <span className="flex-1 bg-[#faf8f8]" />
-        <span className="flex-1 bg-[#141010]" />
+      <span className="flex h-14 overflow-hidden rounded-xl border border-black/10">
+        <span className="flex-1 bg-[#ebebed]" />
+        <span className="flex-1 bg-[#101412]" />
       </span>
     );
   }
@@ -129,16 +129,16 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
   return (
     <span
       className={cn(
-        "flex h-14 flex-col justify-center gap-1.5 rounded-lg border px-2.5",
+        "flex h-14 flex-col justify-center gap-1.5 rounded-xl border px-2.5",
         dark
-          ? "border-white/10 bg-[#141010]"
-          : "border-[#eee9e9] bg-[#faf8f8]",
+          ? "border-white/10 bg-[#101412]"
+          : "border-[#e9e9ed] bg-[#ebebed]",
       )}
     >
       <span
         className={cn(
           "h-1.5 w-8 rounded-full",
-          dark ? "bg-[#f4eeee]" : "bg-[#161212]",
+          dark ? "bg-[#f1f3ee]" : "bg-[#0e0f0c]",
         )}
       />
       <span
@@ -147,7 +147,7 @@ function ThemePreview({ mode }: { mode: ThemeMode }) {
           dark ? "bg-white/25" : "bg-black/15",
         )}
       />
-      <span className="h-1.5 w-5 rounded-full bg-[#bb0000]" />
+      <span className="h-1.5 w-5 rounded-full bg-[#d7f249]" />
     </span>
   );
 }

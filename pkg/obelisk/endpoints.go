@@ -40,18 +40,6 @@ func PublicHost() string {
 func BuildConnections(spec Spec, states map[string]string) Connections {
 	host := PublicHost()
 	out := Connections{}
-	var notes []string
-
-	switch spec.Deployment.Profile {
-	case "local":
-		if spec.Deployment.Tailscale.Enabled {
-			notes = append(notes, "Tailscale enabled: set OBELISK_PUBLIC_HOST to your tailnet machine name for remote clients.")
-		} else {
-			notes = append(notes, "Local profile: use port-forward or OBELISK_PUBLIC_HOST. Postgres/Redis are not via Kong.")
-		}
-	default:
-		notes = append(notes, "VPS profile: open firewall for Postgres/Redis if clients are off-box.")
-	}
 
 	for _, inst := range spec.Instances {
 		if !inst.Enabled || states[inst.StateKey()] != "running" {
@@ -76,17 +64,13 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			if pass == "" {
 				pass = "SECRET"
 			}
-			svc := inst.ReleaseName()
 			switch inst.Type {
 			case "postgres":
 				ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
-				notes = append(notes, fmt.Sprintf("Postgres %q service: %s (port-forward 5432 if local)", inst.ID, svc))
 			case "mysql":
 				ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
-				notes = append(notes, fmt.Sprintf("MySQL %q service: %s (port-forward 3306 if local)", inst.ID, svc))
 			case "mongodb":
 				ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
-				notes = append(notes, fmt.Sprintf("MongoDB %q service: %s (port-forward 27017 if local)", inst.ID, svc))
 			}
 		case "redis":
 			if inst.Credentials.Password != "" {
@@ -103,30 +87,10 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 		case "qdrant":
 			ic.QdrantHTTP = fmt.Sprintf("http://%s:6333", host)
 			ic.QdrantGRPC = fmt.Sprintf("%s:6334", host)
-			svc := inst.ReleaseName()
-			notes = append(notes, fmt.Sprintf("Qdrant %q: REST %s, gRPC %s (port-forward 6333/6334 if local); send api-key header when auth is enabled", inst.ID, svc, svc))
 		case "searxng":
 			ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
-			svc := inst.ReleaseName()
-			notes = append(notes, fmt.Sprintf("SearXNG %q service: %s (port-forward 8080 if local)", inst.ID, svc))
 		}
 		out.Instances = append(out.Instances, ic)
-	}
-	if len(notes) > 0 {
-		out.Notes = strings.Join(uniqueStrings(notes), " ")
-	}
-	return out
-}
-
-func uniqueStrings(in []string) []string {
-	seen := map[string]bool{}
-	var out []string
-	for _, s := range in {
-		if seen[s] {
-			continue
-		}
-		seen[s] = true
-		out = append(out, s)
 	}
 	return out
 }

@@ -20,6 +20,8 @@ export const SERVICE_TYPES = [
 export const SERVICE_STATES = [
   "running",
   "stopped",
+  "starting",
+  "stopping",
   "pending",
   "loading",
   "degraded",

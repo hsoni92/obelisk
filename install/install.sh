@@ -148,7 +148,8 @@ print_admin_url() {
   fi
   log "platform-ready — admin UI: ${base}"
   log "verify: curl -fsS ${base%/}/api/v1/health"
-  log "next: sign in with GitHub and finish blueprint onboarding (see docs/runbooks/github-blueprint.md)"
+  log "next: obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
+  log "       then sign in with GitHub (see docs/runbooks/github-blueprint.md)"
 }
 
 invoke_bootstrap() {

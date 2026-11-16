@@ -1,5 +1,6 @@
 "use client";
 
+import { BlueprintSkeleton } from "@/components/skeletons";
 import { Button } from "@/components/ui/button";
 import {
   rtkErrorMessage,
@@ -14,7 +15,9 @@ import { useState } from "react";
 
 export function BlueprintPanel() {
   const router = useRouter();
-  const { data } = useGetBlueprintStatusQuery(undefined, { pollingInterval: 5000 });
+  const { data, isLoading } = useGetBlueprintStatusQuery(undefined, {
+    pollingInterval: 5000,
+  });
   const [push, { isLoading: pushing }] = usePushBlueprintMutation();
   const [lock] = useLockBlueprintMutation();
   const [logout] = useLogoutGitHubMutation();
@@ -48,6 +51,7 @@ export function BlueprintPanel() {
     router.replace("/login");
   }
 
+  if (isLoading) return <BlueprintSkeleton />;
   if (!data) return null;
 
   return (
@@ -78,10 +82,10 @@ export function BlueprintPanel() {
           </div>
         </dl>
         {data.last_push_error && (
-          <p className="mt-3 text-xs text-broadcast">{data.last_push_error}</p>
+          <p className="mt-3 text-xs text-destructive">{data.last_push_error}</p>
         )}
         {error && (
-          <p className="mt-3 text-xs text-broadcast" role="alert">
+          <p className="mt-3 text-xs text-destructive" role="alert">
             {error}
           </p>
         )}

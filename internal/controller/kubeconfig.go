@@ -1,11 +1,21 @@
 package controller
 
-import "os"
+import (
+	"os"
+	"strings"
+)
 
 func kubeconfigEnv() []string {
-	kc := os.Getenv("KUBECONFIG")
-	if kc == "" {
-		kc = "/etc/rancher/k3s/k3s.yaml"
+	env := os.Environ()
+	if strings.TrimSpace(os.Getenv("KUBECONFIG")) != "" {
+		return env
 	}
-	return append(os.Environ(), "KUBECONFIG="+kc)
+	// In-cluster: use mounted service-account credentials (no KUBECONFIG file).
+	if strings.TrimSpace(os.Getenv("KUBERNETES_SERVICE_HOST")) != "" {
+		return env
+	}
+	if _, err := os.Stat("/etc/rancher/k3s/k3s.yaml"); err == nil {
+		return append(env, "KUBECONFIG=/etc/rancher/k3s/k3s.yaml")
+	}
+	return env
 }

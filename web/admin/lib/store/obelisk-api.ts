@@ -144,6 +144,7 @@ export const obeliskApi = createApi({
       {
         id: string;
         body: {
+          type?: string;
           display_name?: string;
           enabled?: boolean;
           backup?: {

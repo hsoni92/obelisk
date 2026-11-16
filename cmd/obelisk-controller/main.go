@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/adminapi"
@@ -68,7 +69,11 @@ func main() {
 	go func() {
 		t := time.NewTicker(*reconcileEvery)
 		defer t.Stop()
-		rec := controller.Reconciler{ConfigPath: cfgFile, HelmRoot: *helmRoot}
+		rec := controller.Reconciler{
+			ConfigPath: cfgFile,
+			HelmRoot:   *helmRoot,
+			Namespace:  strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE")),
+		}
 		for {
 			select {
 			case <-ctx.Done():

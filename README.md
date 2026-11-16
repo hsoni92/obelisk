@@ -15,12 +15,12 @@ The admin UI talks to `obelisk-controller` on port **8080**. Without `/etc/obeli
 ```bash
 go version       # must be 1.22+
 
-# One command: API (:8080, Go hot-reload) + UI (:3080, Next.js)
+# One command: k3d + real Helm reconcile + API (:8080) + UI (:3080)
 make install-air
 make dev
 
-# Real Helm reconcile against local k3d (Docker)
-make dev-cluster
+# UI/API only without Helm (instances show pending)
+make dev-observe
 ```
 
 Split terminals (no hot-reload on the API): `make dev-api` and `make dev-ui`. Cluster-only bootstrap: `make dev-k3d-up`.

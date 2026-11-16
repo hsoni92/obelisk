@@ -119,7 +119,7 @@ export function GatewayCard(p: GatewayCardProps) {
             "flex size-9 shrink-0 items-center justify-center rounded-full",
             ready
               ? "bg-success-tint text-success"
-              : "bg-broadcast-tint text-broadcast",
+              : "bg-warning-tint text-warning",
           )}
         >
           <p.icon className="size-4" aria-hidden />
@@ -168,7 +168,7 @@ export function GatewayCard(p: GatewayCardProps) {
                     s.done
                       ? "bg-success text-white"
                       : s.id === nextStep
-                        ? "bg-broadcast text-white"
+                        ? "bg-broadcast text-broadcast-foreground"
                         : "bg-border text-muted-foreground",
                   )}
                 >
@@ -237,17 +237,17 @@ export function GatewayCard(p: GatewayCardProps) {
           {p.tokenReveal && (
             <div
               role="status"
-              className="mt-3 rounded-lg bg-broadcast-tint p-3 ring-1 ring-broadcast/20"
+              className="mt-3 rounded-lg bg-broadcast-tint p-3 ring-1 ring-broadcast/40"
             >
               <div className="mb-1 flex items-center justify-between">
-                <p className="text-xs font-semibold text-broadcast">
+                <p className="text-xs font-semibold text-foreground">
                   Copy it now — it won’t be shown again
                 </p>
                 <button
                   type="button"
                   aria-label="Dismiss"
                   onClick={p.onDismissToken}
-                  className="rounded-full p-0.5 text-broadcast hover:bg-broadcast/10"
+                  className="rounded-full p-0.5 text-foreground hover:bg-broadcast/30"
                 >
                   <X className="size-3.5" />
                 </button>
@@ -321,7 +321,7 @@ export function GatewayCard(p: GatewayCardProps) {
                       aria-label={`Remove ${a.label}`}
                       title="Remove"
                       onClick={() => setRemoveTarget(a)}
-                      className="rounded-full p-1 text-muted-foreground hover:bg-broadcast-tint hover:text-broadcast"
+                      className="rounded-full p-1 text-muted-foreground hover:bg-broadcast-tint hover:text-foreground"
                     >
                       <Trash2 className="size-3.5" />
                     </button>
@@ -544,7 +544,7 @@ function AddAccountForm({
       {error && (
         <p
           role="alert"
-          className="rounded-md bg-broadcast-tint px-3 py-2 text-xs font-medium text-broadcast"
+          className="rounded-md bg-destructive-tint px-3 py-2 text-xs font-medium text-destructive"
         >
           {error}
         </p>

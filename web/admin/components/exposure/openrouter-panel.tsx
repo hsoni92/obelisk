@@ -1,5 +1,6 @@
 "use client";
 
+import { GatewayCardSkeleton } from "@/components/skeletons";
 import {
   GatewayCard,
   type GatewayAccount,
@@ -23,7 +24,7 @@ export function OpenRouterPanel({
   onBusy: (key: string | null) => void;
   onError: (message: string | null) => void;
 }) {
-  const { data: config, refetch } = useGetOpenRouterConfigQuery();
+  const { data: config, refetch, isLoading } = useGetOpenRouterConfigQuery();
   const [patchConfig] = usePatchOpenRouterConfigMutation();
   const [postAccount] = usePostOpenRouterAccountMutation();
   const [patchAccount] = usePatchOpenRouterAccountMutation();
@@ -64,6 +65,8 @@ export function OpenRouterPanel({
     enabled: a.enabled,
     warning: a.has_api_key ? undefined : "no key",
   }));
+
+  if (isLoading) return <GatewayCardSkeleton />;
 
   return (
     <GatewayCard

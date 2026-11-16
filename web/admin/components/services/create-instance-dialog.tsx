@@ -221,7 +221,7 @@ function CreateInstanceBody({
           {error && (
             <p
               role="alert"
-              className="rounded-md bg-broadcast-tint px-3 py-2 text-xs font-medium text-broadcast"
+              className="rounded-md bg-destructive-tint px-3 py-2 text-xs font-medium text-destructive"
             >
               {error}
             </p>

@@ -17,22 +17,26 @@ func clusterToolsAvailable() bool {
 	return true
 }
 
-// simulateMode skips Helm/kubectl when local dev has no cluster, unless forced to cluster mode.
-// OBELISK_RECONCILE=cluster forces real reconcile; simulate or OBELISK_DEV=1 forces skip.
-// SimulateMode reports whether Helm/kubectl are skipped for this reconcile.
-func (r *Reconciler) SimulateMode() bool {
-	return r.simulateMode()
-}
-
-func (r *Reconciler) simulateMode() bool {
+func reconcileDisabledFromEnv() bool {
 	switch strings.ToLower(strings.TrimSpace(os.Getenv("OBELISK_RECONCILE"))) {
+	case "off", "dry-run", "observe", "observe-only", "simulate", "sim":
+		return true
 	case "cluster":
 		return false
-	case "simulate", "sim", "off", "dry-run":
-		return true
-	}
-	if strings.TrimSpace(os.Getenv("OBELISK_DEV")) == "1" {
-		return true
 	}
 	return !clusterToolsAvailable()
+}
+
+// ReconcileDisabled is true when the controller must not run Helm/kubectl (observe-only).
+func ReconcileDisabled() bool {
+	return reconcileDisabledFromEnv()
+}
+
+func (r *Reconciler) reconcileDisabled() bool {
+	return reconcileDisabledFromEnv()
+}
+
+// SimulateMode reports whether Helm/kubectl are skipped (legacy name; prefer ReconcileDisabled).
+func (r *Reconciler) SimulateMode() bool {
+	return r.reconcileDisabled()
 }

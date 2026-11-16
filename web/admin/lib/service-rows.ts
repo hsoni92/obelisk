@@ -8,6 +8,8 @@ export type ServiceRow = {
   instance: ServiceInstance;
   state: string;
   connection?: InstanceConnection;
+  /** ISO time of this instance's last successful backup, if any. */
+  lastBackupAt?: string;
 };
 
 export function serviceRowKey(inst: { type: string; id: string }) {
@@ -19,6 +21,7 @@ export function buildServiceRows(
   serviceStates: Record<string, string> | undefined,
   connections: ConnectionsResponse | null,
   statusLoaded: boolean,
+  lastBackups?: Record<string, string>,
 ): ServiceRow[] {
   const connMap = new Map<string, InstanceConnection>();
   for (const c of connections?.instances ?? []) {
@@ -36,6 +39,7 @@ export function buildServiceRows(
       instance: inst,
       state,
       connection: connMap.get(key),
+      lastBackupAt: lastBackups?.[`${inst.type}/${inst.id}`],
     };
   });
 }
@@ -65,7 +69,19 @@ export function connectionPreview(conn?: InstanceConnection): string | null {
 
 export function stateBadgeVariant(state: string) {
   if (state === "running") return "success" as const;
-  if (state === "pending") return "warning" as const;
+  if (state === "starting" || state === "stopping" || state === "pending") {
+    return "warning" as const;
+  }
   if (state === "degraded") return "live" as const;
   return "default" as const;
+}
+
+/** True while desired state and cluster state may still be converging. */
+export function isTransitionalState(state: string) {
+  return (
+    state === "starting" ||
+    state === "stopping" ||
+    state === "pending" ||
+    state === "loading"
+  );
 }

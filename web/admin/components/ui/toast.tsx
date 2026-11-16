@@ -83,7 +83,7 @@ function ToastSurface({
   return (
     <Toast
       className={cn(
-        "group relative flex w-full items-center gap-3 overflow-hidden rounded-xl border border-border bg-card p-4 pr-8 shadow-rb-2",
+        "group relative flex w-full items-center gap-3 overflow-hidden rounded-2xl bg-card p-4 pr-8 shadow-rb-2",
         className,
       )}
       {...props}

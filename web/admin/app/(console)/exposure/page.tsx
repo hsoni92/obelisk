@@ -15,7 +15,7 @@ export default function ExposurePage() {
 
       {actionError && (
         <p
-          className="text-xs font-medium text-broadcast bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
+          className="text-xs font-medium text-foreground bg-broadcast-tint rounded-full px-3 py-1 mb-3 inline-block"
           role="alert"
         >
           {actionError}

@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
+
+	"github.com/hsoni92/obelisk/internal/config"
 )
 
 // RemoteCredentials are never written to obelisk.yaml (host-restricted file or K8s Secret in cluster).
@@ -14,7 +15,7 @@ type RemoteCredentials struct {
 }
 
 func credentialsPath(configPath string) string {
-	return filepath.Join(filepath.Dir(configPath), "backup-remote.credentials.json")
+	return config.CredentialsDir(configPath) + "/backup-remote.credentials.json"
 }
 
 // LoadCredentials reads backup remote API keys from disk beside obelisk.yaml.
@@ -42,8 +43,8 @@ func SaveCredentials(configPath string, c RemoteCredentials) error {
 	if c.AccessKeyID == "" || c.SecretAccessKey == "" {
 		return fmt.Errorf("access_key_id and secret_access_key are required")
 	}
-	dir := filepath.Dir(configPath)
-	if err := os.MkdirAll(dir, 0o755); err != nil {
+	dir := config.CredentialsDir(configPath)
+	if err := os.MkdirAll(dir, 0o700); err != nil {
 		return err
 	}
 	data, err := json.Marshal(c)

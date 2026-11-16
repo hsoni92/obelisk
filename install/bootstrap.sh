@@ -64,7 +64,13 @@ maybe_tailscale() {
   fi
 }
 
+ensure_lib_paths() {
+  mkdir -p /var/lib/obelisk/credentials
+  chmod 700 /var/lib/obelisk /var/lib/obelisk/credentials 2>/dev/null || true
+}
+
 write_config() {
+  ensure_lib_paths
   mkdir -p "$(dirname "$CONFIG_PATH")"
   if [[ -f "$CONFIG_PATH" ]]; then
     log "config exists: $CONFIG_PATH"

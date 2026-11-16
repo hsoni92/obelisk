@@ -37,8 +37,8 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 ## UI dev on a laptop (no `/etc/obelisk`)
 
 ```bash
-make dev              # simulate reconcile, Air + Next.js (one terminal)
-make dev-cluster      # k3d + cluster reconcile + hot reload
+make dev              # k3d + cluster Helm reconcile, Air + Next.js (one terminal)
+make dev-observe      # API + UI only (OBELISK_RECONCILE=off)
 
 # Or separate processes without API hot-reload:
 make dev-api          # OBELISK_CONFIG=./dev/obelisk.yaml, API :8080
@@ -57,6 +57,6 @@ Use the **curl one-liner** above when possible. Manual path: `sudo ./install/boo
 
 **VM smoke test (Multipass):** [tests/integration/README.md](../../tests/integration/README.md) — `make test-vm` (prod-like curl install; public GitHub required).
 
-### Simulate (fallback)
+### Reconcile off
 
-If helm/kubectl are missing and no `KUBECONFIG`, the reconciler simulates desired state only.
+Set `OBELISK_RECONCILE=off` (or `make dev-observe`) to run the API/UI without Helm. Enabled instances stay **pending** in the UI until you use cluster mode with helm, kubectl, and a kubeconfig.

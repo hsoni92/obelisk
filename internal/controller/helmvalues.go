@@ -24,7 +24,14 @@ func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup fun
 	case "searxng":
 		creds["secretKey"] = inst.Credentials.SecretKey
 	}
-	vals := map[string]any{"credentials": creds}
+	replicas := 1
+	if !inst.Enabled {
+		replicas = 0
+	}
+	vals := map[string]any{
+		"credentials": creds,
+		"replicas":    replicas,
+	}
 	data, err := yaml.Marshal(vals)
 	if err != nil {
 		return "", func() {}, err
