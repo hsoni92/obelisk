@@ -48,6 +48,8 @@ func main() {
 		cmdRestart(os.Args[2:])
 	case "uninstall":
 		cmdUninstall(os.Args[2:])
+	case "version":
+		cmdVersion()
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -72,6 +74,7 @@ Commands:
   configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
+  version            show install ref from /opt/obelisk/.install-meta.json
   update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
   start|stop|restart [--root /opt/obelisk] [--namespace NAME]   VPS: k3s platform lifecycle
   cleanup [--dry-run] [--deep]

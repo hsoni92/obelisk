@@ -102,6 +102,16 @@ build_cli() {
   [[ -d "$OBELISK_ROOT/cmd/obelisk" ]] || die "missing $OBELISK_ROOT/cmd/obelisk after extract"
   log "building obelisk CLI"
   (cd "$OBELISK_ROOT" && go build -o obelisk ./cmd/obelisk)
+  verify_cli_capabilities
+}
+
+verify_cli_capabilities() {
+  local help
+  help="$("$OBELISK_ROOT/obelisk" 2>&1 || true)"
+  if [[ "$help" != *"configure deployment"* ]]; then
+    log "warning: CLI built from ref=$OBELISK_REF lacks 'configure deployment'"
+    log "         run: sudo obelisk update"
+  fi
 }
 
 fetch_and_extract() {
@@ -156,7 +166,10 @@ print_admin_url() {
   fi
   log "platform-ready — admin UI: ${base}"
   log "verify: curl -fsS ${base%/}/api/v1/health"
-  log "next: sudo obelisk configure github   # interactive OAuth wizard"
+  local pub=""
+  pub="$(echo "${base%/}" | sed -n 's#.*://\([^/:]*\).*#\1#p')"
+  log "next: sudo obelisk configure deployment --profile vps${pub:+ --public-host $pub}"
+  log "       sudo obelisk configure github   # interactive OAuth wizard"
   log "       or: sudo obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
   log "       then sign in with GitHub (see docs/runbooks/github-blueprint.md)"
   if [[ -t 0 && -t 1 && "${OBELISK_SKIP_GITHUB_WIZARD:-false}" != "true" && "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
