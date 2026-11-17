@@ -18,7 +18,6 @@ obelisk_extract_archive() {
   local dest="$2"
   local tmp
   tmp="$(mktemp -d)"
-  trap 'rm -rf "$tmp"' RETURN
 
   tar -xzf "$archive" -C "$tmp"
   local top
@@ -40,4 +39,5 @@ obelisk_extract_archive() {
       --exclude node_modules --exclude .next --exclude bin --exclude dev \
       "$top/" "$dest/"
   fi
+  rm -rf "$tmp"
 }
