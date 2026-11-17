@@ -31,3 +31,4 @@ services:
           - name: request-size-limiting
             config:
               allowed_payload_size: 1
+  # HTTP data-service routes (e.g. route-rustfs-<id>) are managed by the controller.

@@ -42,6 +42,7 @@ services:
       - name: rustfs-s3
         paths:
           - /s3
+        strip_path: true
     plugins:
       - name: rate-limiting
         config:

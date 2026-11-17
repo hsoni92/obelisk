@@ -102,17 +102,13 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	inst, err := obelisk.NewServiceInstance(req.Type, req.DisplayName)
+	id := obelisk.AllocateInstanceID(&spec)
+	inst, err := obelisk.NewServiceInstance(req.Type, id, req.DisplayName)
 	if err != nil {
 		s.mu.Unlock()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	base := obelisk.SlugID(req.DisplayName)
-	if base == "" {
-		base = req.Type
-	}
-	inst.ID = obelisk.UniqueInstanceID(&spec, base)
 	spec.Instances = append(spec.Instances, inst)
 	obelisk.SyncLegacyServiceFlags(&spec)
 	if err := config.Save(cfg, spec); err != nil {

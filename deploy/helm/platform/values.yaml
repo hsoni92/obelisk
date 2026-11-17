@@ -5,6 +5,8 @@ obelisk:
   configHostPath: /etc/obelisk/obelisk.yaml
   helmRoot: /opt/obelisk
   helmRootHostPath: /opt/obelisk
+  # VPS: set to public IP or DNS (bootstrap auto-detects when empty on profile=vps).
+  publicHost: ""
   # GitHub OAuth app for blueprint login. Create Secret obelisk-github-oauth
   # with client_id, client_secret, and optional redirect_uri. The controller
   # writes OAuth tokens to Secret obelisk-blueprint-github at runtime.

@@ -30,6 +30,10 @@ spec:
               value: cluster
             - name: OBELISK_NAMESPACE
               value: {{ .Release.Namespace }}
+            {{- if .Values.obelisk.publicHost }}
+            - name: OBELISK_PUBLIC_HOST
+              value: {{ .Values.obelisk.publicHost | quote }}
+            {{- end }}
             - name: OBELISK_CREDENTIALS_DIR
               value: /var/lib/obelisk/credentials
             - name: OBELISK_GITHUB_CLIENT_ID

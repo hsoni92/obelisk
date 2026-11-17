@@ -47,7 +47,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			}
 			report.ServiceStates[key] = "pending"
 		}
-		if err := exposure.ApplyFunnel(spec); err != nil {
+		if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace); err != nil {
 			report.Messages = append(report.Messages, "exposure: "+err.Error())
 		}
 		return report, nil
@@ -74,7 +74,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			report.Messages = append(report.Messages, "tailscale: "+err.Error())
 		}
 	}
-	if err := exposure.ApplyFunnel(spec); err != nil {
+	if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace); err != nil {
 		report.Messages = append(report.Messages, "exposure: "+err.Error())
 		if reconcileErr == nil {
 			reconcileErr = err
@@ -192,7 +192,7 @@ func SetServiceEnabled(spec *obelisk.Spec, name string, enabled bool) error {
 		}
 	}
 	if !found && enabled {
-		inst, err := obelisk.NewServiceInstance(name, "default")
+		inst, err := obelisk.NewServiceInstance(name, obelisk.LegacyDefaultInstanceID, "default")
 		if err != nil {
 			return err
 		}

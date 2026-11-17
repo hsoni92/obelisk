@@ -75,24 +75,28 @@ func randomDevSecret(n int) string {
 	return hex.EncodeToString(b)[:n]
 }
 
-// NewServiceInstance creates an instance with defaults.
-func NewServiceInstance(typ, displayName string) (ServiceInstance, error) {
+// NewServiceInstance creates an instance with defaults and a caller-supplied id.
+func NewServiceInstance(typ, id, displayName string) (ServiceInstance, error) {
 	if err := ValidateServiceType(typ); err != nil {
 		return ServiceInstance{}, err
 	}
-	id := SlugID(displayName)
-	if id == "" {
-		id = typ + "-" + randomDevSecret(6)
+	id = strings.TrimSpace(id)
+	if id == "" || !instanceIDValid(id) {
+		return ServiceInstance{}, fmt.Errorf("invalid instance id")
 	}
-	// ensure unique id among instances handled by caller
-	return ServiceInstance{
+	inst := ServiceInstance{
 		ID:          id,
 		Type:        typ,
 		DisplayName: displayNameOr(id, displayName),
 		Enabled:     true,
 		Backup:      DefaultInstanceBackupSettings(typ),
 		Credentials: DefaultCredentialsForType(typ),
-	}, nil
+	}
+	switch typ {
+	case "postgres", "mysql", "mongodb":
+		inst.Credentials.Database = id
+	}
+	return inst, nil
 }
 
 func displayNameOr(id, name string) string {
@@ -188,7 +192,26 @@ func NormalizeInstances(spec *Spec) {
 	for i := range spec.Instances {
 		normalizeInstanceCredentials(&spec.Instances[i])
 	}
+	repairDuplicateInstanceIDs(spec)
 	SyncLegacyServiceFlags(spec)
+}
+
+// repairDuplicateInstanceIDs reassigns ids when configs reused the same id globally.
+func repairDuplicateInstanceIDs(spec *Spec) {
+	seen := map[string]struct{}{}
+	for i := range spec.Instances {
+		id := spec.Instances[i].ID
+		if _, ok := seen[id]; !ok {
+			seen[id] = struct{}{}
+			continue
+		}
+		prev := id
+		spec.Instances[i].ID = AllocateInstanceID(spec)
+		seen[spec.Instances[i].ID] = struct{}{}
+		if spec.Instances[i].DisplayName == prev || spec.Instances[i].DisplayName == LegacyDefaultInstanceID {
+			spec.Instances[i].DisplayName = displayNameOr(spec.Instances[i].ID, spec.Instances[i].DisplayName)
+		}
+	}
 }
 
 func legacyInstance(typ, id string, spec *Spec) ServiceInstance {

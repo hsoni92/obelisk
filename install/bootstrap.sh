@@ -102,11 +102,25 @@ deploy_platform() {
     helm_extra='--set kong.service.type=LoadBalancer'
     log "VPS default: kong LoadBalancer (k3s servicelb)"
   fi
+  local public_host="${OBELISK_PUBLIC_HOST:-}"
+  if [[ -z "$public_host" && "$PROFILE" == "vps" && -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
+    # shellcheck source=install/resolve-admin-url.sh
+    source "$SCRIPT_DIR/resolve-admin-url.sh"
+    local kong_base
+    kong_base="$(obelisk_resolve_kong_base)"
+    public_host="${kong_base#*://}"
+    public_host="${public_host%%/*}"
+    public_host="${public_host%%:*}"
+    if [[ -n "$public_host" ]]; then
+      log "VPS public host for connection hints: $public_host"
+    fi
+  fi
   # shellcheck disable=SC2086
   helm upgrade --install obelisk-platform "$OBELISK_ROOT/deploy/helm/platform" \
     --namespace "$NAMESPACE" --create-namespace --wait --timeout 15m \
     --set obelisk.configHostPath="$CONFIG_PATH" \
     --set obelisk.helmRoot="$OBELISK_ROOT" \
+    $([[ -n "$public_host" ]] && echo --set "obelisk.publicHost=$public_host") \
     ${helm_extra}
   log "platform helm release applied"
 }

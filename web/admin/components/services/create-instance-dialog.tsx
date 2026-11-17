@@ -168,6 +168,15 @@ function CreateInstanceBody({
           </DialogHeader>
           <DialogBody>
             <dl className="space-y-1.5 rounded-lg bg-muted p-3">
+              <div className="flex items-center gap-2">
+                <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
+                  Route key
+                </dt>
+                <dd className="min-w-0 flex-1 truncate font-mono text-xs">
+                  {result.instance.id}
+                </dd>
+                <CopyButton value={result.instance.id} />
+              </div>
               {creds.map(([k, v]) => (
                 <div key={k} className="flex items-center gap-2">
                   <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
@@ -190,8 +199,8 @@ function CreateInstanceBody({
           <DialogHeader>
             <DialogTitle>New instance</DialogTitle>
             <DialogDescription>
-              Pick a service and give it a name. We generate secure credentials
-              for you.
+              Pick a service and give it a display name. Obelisk assigns a
+              unique route key and credentials automatically.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>

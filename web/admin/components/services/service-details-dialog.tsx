@@ -103,11 +103,19 @@ export function ServiceDetailsDialog({
               <Section title="Identity">
                 <dl>
                   <Field
-                    label="Instance ID"
+                    label="Route key"
                     value={inst.id}
                     mono
                     copy={inst.id}
                   />
+                  {row.connection?.public_path ? (
+                    <Field
+                      label="Public HTTP path"
+                      value={row.connection.public_path}
+                      mono
+                      copy={row.connection.public_path}
+                    />
+                  ) : null}
                   <Field
                     label="Type"
                     value={<span className="capitalize">{inst.type}</span>}
@@ -115,11 +123,6 @@ export function ServiceDetailsDialog({
                   <Field
                     label="Helm release"
                     value={inst.deployment?.release}
-                    mono
-                  />
-                  <Field
-                    label="Namespace"
-                    value={inst.deployment?.namespace}
                     mono
                   />
                   <Field

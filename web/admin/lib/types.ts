@@ -135,6 +135,8 @@ export type ConnectionsResponse = {
     id: string;
     type: string;
     display_name?: string;
+    route_id?: string;
+    public_path?: string;
     postgres?: string;
     mysql?: string;
     mongodb?: string;
