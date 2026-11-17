@@ -78,10 +78,7 @@ export function ServiceDetailsDialog({
 }: Props) {
   const inst = row?.instance;
   const backup = inst?.deployment?.backup;
-  const connectionBlob = connectionDetailsBlob(
-    row?.connection,
-    inst?.credentials,
-  );
+  const connectionBlob = connectionDetailsBlob(row?.connection);
 
   return (
     <Dialog open={!!row} onOpenChange={onOpenChange}>
@@ -188,23 +185,30 @@ export function ServiceDetailsDialog({
 
               <Section title="Connection">
                 {connectionBlob ? (
-                  <div className="flex items-start gap-2 py-2">
-                    <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs text-foreground">
-                      {connectionBlob}
-                    </pre>
-                    <CopyButton
-                      value={connectionBlob}
-                      label="Copy connection details"
-                    />
+                  <div className="space-y-2 py-2">
+                    <p className="text-metadata text-muted-foreground">
+                      Copy this block into your app or{" "}
+                      <code className="text-xs">.env</code> — it includes
+                      everything needed to call the service API.
+                    </p>
+                    <div className="flex items-start gap-2">
+                      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs text-foreground">
+                        {connectionBlob}
+                      </pre>
+                      <CopyButton
+                        value={connectionBlob}
+                        label="Copy credentials"
+                      />
+                    </div>
                   </div>
                 ) : (
                   <dl>
                     <Field
-                      label="Endpoint"
+                      label="Credentials"
                       value={
-                        row.state === "running"
-                          ? "Pending connection…"
-                          : "Start to expose"
+                        inst.enabled
+                          ? "Waiting for connection details…"
+                          : "Enable this instance to generate credentials"
                       }
                     />
                   </dl>

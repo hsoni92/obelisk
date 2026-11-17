@@ -13,11 +13,13 @@ type Connections struct {
 	Notes     string               `json:"notes,omitempty"`
 }
 
-// InstanceConnection is one instance endpoint block.
+// InstanceConnection is one instance endpoint block for the admin console.
+// Use is the single copy-paste credential clients need (GitHub session required via GET /connections).
 type InstanceConnection struct {
 	ID          string `json:"id"`
 	Type        string `json:"type"`
 	DisplayName string `json:"display_name,omitempty"`
+	Use         string `json:"use,omitempty"`
 	Postgres    string `json:"postgres,omitempty"`
 	MySQL       string `json:"mysql,omitempty"`
 	MongoDB     string `json:"mongodb,omitempty"`
@@ -45,13 +47,15 @@ func PublicHost() string {
 	return "localhost"
 }
 
-// BuildConnections produces connection strings for enabled running instances.
+// BuildConnections produces shareable credentials for enabled instances.
+// states is reserved for future reachability hints; URLs are built from desired state.
 func BuildConnections(spec Spec, states map[string]string) Connections {
+	_ = states
 	host := PublicHost()
 	out := Connections{}
 
 	for _, inst := range spec.Instances {
-		if !inst.Enabled || states[inst.StateKey()] != "running" {
+		if !inst.Enabled {
 			continue
 		}
 		ic := InstanceConnection{
@@ -104,7 +108,55 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 		case "searxng":
 			ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
 		}
+		ic.Use = instanceUse(inst, ic)
 		out.Instances = append(out.Instances, ic)
 	}
 	return out
+}
+
+// instanceUse returns one admin-shareable credential block per service type.
+func instanceUse(inst ServiceInstance, ic InstanceConnection) string {
+	switch inst.Type {
+	case "postgres":
+		return ic.Postgres
+	case "mysql":
+		return ic.MySQL
+	case "mongodb":
+		return ic.MongoDB
+	case "redis":
+		return ic.Redis
+	case "rustfs":
+		if ic.S3HTTP == "" {
+			return ""
+		}
+		ak := strings.TrimSpace(inst.Credentials.AccessKey)
+		sk := strings.TrimSpace(inst.Credentials.SecretKey)
+		if ak == "" || sk == "" {
+			return ic.S3HTTP
+		}
+		return fmt.Sprintf(
+			"S3_ENDPOINT=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s",
+			ic.S3HTTP, ak, sk,
+		)
+	case "qdrant":
+		key := strings.TrimSpace(inst.Credentials.AccessKey)
+		if ic.QdrantHTTP == "" {
+			return ""
+		}
+		if key == "" {
+			return ic.QdrantHTTP
+		}
+		return fmt.Sprintf("%s\napi-key: %s", ic.QdrantHTTP, key)
+	case "searxng":
+		sk := strings.TrimSpace(inst.Credentials.SecretKey)
+		if ic.SearXNGHTTP == "" {
+			return ""
+		}
+		if sk == "" {
+			return ic.SearXNGHTTP
+		}
+		return fmt.Sprintf("%s\nsecret-key: %s", ic.SearXNGHTTP, sk)
+	default:
+		return ""
+	}
 }

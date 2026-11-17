@@ -73,36 +73,27 @@ export function connectionEntries(
   return out;
 }
 
+/** Short label for tables; full credential is `connectionUse`. */
 export function connectionPreview(conn?: InstanceConnection): string | null {
+  const use = connectionUse(conn);
+  if (!use) return null;
+  const first = use.split("\n")[0] ?? use;
+  if (use.includes("\n")) {
+    return `${first} …`;
+  }
+  return first;
+}
+
+/** Admin-shareable credential block (one per service). */
+export function connectionUse(conn?: InstanceConnection): string | null {
+  if (conn?.use?.trim()) return conn.use.trim();
   const entries = connectionEntries(conn);
   return entries[0]?.value ?? null;
 }
 
-const CREDENTIAL_LABELS: Record<string, string> = {
-  username: "Username",
-  password: "Password",
-  database: "Database",
-  access_key: "Access key",
-  secret_key: "Secret key",
-};
-
-/** Copy-ready block: connection URLs plus any credential fields returned by the API. */
-export function connectionDetailsBlob(
-  conn?: InstanceConnection,
-  credentials?: ServiceInstance["credentials"],
-): string | null {
-  const lines: string[] = [];
-  for (const { label, value } of connectionEntries(conn)) {
-    lines.push(`${label}: ${value}`);
-  }
-  if (credentials) {
-    for (const [key, value] of Object.entries(credentials)) {
-      if (value) {
-        lines.push(`${CREDENTIAL_LABELS[key] ?? key}: ${value}`);
-      }
-    }
-  }
-  return lines.length > 0 ? lines.join("\n") : null;
+/** Copy-ready block for details / share dialogs. */
+export function connectionDetailsBlob(conn?: InstanceConnection): string | null {
+  return connectionUse(conn);
 }
 
 export function stateBadgeVariant(state: string) {

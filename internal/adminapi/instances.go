@@ -66,9 +66,7 @@ func maskInstance(inst obelisk.ServiceInstance) obelisk.ServiceInstance {
 	out := inst
 	out.Credentials.Password = ""
 	out.Credentials.SecretKey = ""
-	if inst.Type == "qdrant" {
-		out.Credentials.AccessKey = ""
-	}
+	out.Credentials.AccessKey = ""
 	return out
 }
 
@@ -119,10 +117,18 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	s.recordAudit("Instance", "created", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
+	use := ""
+	for _, c := range obelisk.BuildConnections(spec, nil).Instances {
+		if c.ID == inst.ID && c.Type == inst.Type {
+			use = c.Use
+			break
+		}
+	}
 	writeJSON(w, map[string]any{
-		"instance":       inst,
-		"credentials":    inst.Credentials,
-		"accepted":       true,
+		"instance":    inst,
+		"credentials": inst.Credentials,
+		"use":         use,
+		"accepted":    true,
 	})
 }
 

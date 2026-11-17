@@ -9,6 +9,7 @@ import { ServiceDetailsDialog } from "@/components/services/service-details-dial
 import type { RowPending } from "@/components/services/services-bulk-actions";
 import {
   connectionPreview,
+  connectionUse,
   startStopTarget,
   stateBadgeVariant,
   type ServiceRow,
@@ -337,9 +338,9 @@ export function ServicesTable({
         header: "Endpoint",
         enableSorting: false,
         cell: ({ row }) => {
+          const creds = connectionUse(row.original.connection);
           const preview = connectionPreview(row.original.connection);
-          const running = row.original.state === "running";
-          if (!running) {
+          if (!creds || !preview) {
             const hint = row.original.statusHint;
             return (
               <span
@@ -347,16 +348,9 @@ export function ServicesTable({
                 title={hint}
               >
                 {hint ??
-                  (row.original.state === "stopping"
-                    ? "Draining workload…"
-                    : "Start to expose")}
-              </span>
-            );
-          }
-          if (!preview) {
-            return (
-              <span className="text-metadata text-muted-foreground">
-                Pending connection…
+                  (row.original.instance.enabled
+                    ? "Credentials loading…"
+                    : "Enable to expose")}
               </span>
             );
           }
@@ -364,11 +358,11 @@ export function ServicesTable({
             <div className="flex min-w-0 items-center gap-1.5">
               <code
                 className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground"
-                title={preview}
+                title={creds}
               >
                 {preview}
               </code>
-              <CopyButton value={preview} />
+              <CopyButton value={creds} label="Copy credentials" />
             </div>
           );
         },

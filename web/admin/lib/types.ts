@@ -137,6 +137,8 @@ export type ConnectionsResponse = {
     display_name?: string;
     route_id?: string;
     public_path?: string;
+    /** Single copy-paste credential block for this service (includes secrets). */
+    use?: string;
     postgres?: string;
     mysql?: string;
     mongodb?: string;
@@ -152,6 +154,7 @@ export type ConnectionsResponse = {
 export type CreateInstanceResponse = {
   instance: ServiceInstance;
   credentials: ServiceInstance["credentials"];
+  use?: string;
 };
 
 export type OpenRouterAccountView = {

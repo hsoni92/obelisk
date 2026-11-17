@@ -211,7 +211,7 @@ export function ConfigureInstanceDialog({
                   <Field
                     label="Access key"
                     name="access_key"
-                    defaultValue={instance.credentials.access_key}
+                    placeholder="Leave blank to keep current (copy from connection)"
                   />
                   <Field
                     label="Secret key"

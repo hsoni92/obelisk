@@ -80,18 +80,10 @@ const TYPES: {
   },
 ];
 
-const CRED_LABELS: Record<string, string> = {
-  username: "Username",
-  password: "Password",
-  database: "Database",
-  access_key: "Access key",
-  secret_key: "Secret key",
-  api_key: "API key",
-};
-
 export type CreateResult = {
   instance: ServiceInstance;
   credentials: ServiceInstance["credentials"];
+  use?: string;
 };
 
 export function CreateInstanceDialog({
@@ -142,12 +134,7 @@ function CreateInstanceBody({
     }
   }
 
-  const creds = result
-    ? Object.entries({
-        ...result.instance.credentials,
-        ...result.credentials,
-      }).filter(([, v]) => !!v)
-    : [];
+  const useBlock = result?.use?.trim();
 
   return (
     <>
@@ -162,33 +149,28 @@ function CreateInstanceBody({
               <span className="font-medium text-foreground">
                 {result.instance.display_name || result.instance.id}
               </span>{" "}
-              is ready to start. Copy these credentials now — secrets are masked
-              after you close this window (you can rotate them later).
+              is ready to start. You can copy the unified connection block here or
+              anytime from the service row or details view.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
-            <dl className="space-y-1.5 rounded-lg bg-muted p-3">
-              <div className="flex items-center gap-2">
-                <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
-                  Route key
-                </dt>
-                <dd className="min-w-0 flex-1 truncate font-mono text-xs">
+            <div className="space-y-3 rounded-lg bg-muted p-3">
+              <div className="flex items-center gap-2 text-sm">
+                <span className="text-muted-foreground">Route key</span>
+                <span className="min-w-0 flex-1 truncate font-mono text-xs">
                   {result.instance.id}
-                </dd>
+                </span>
                 <CopyButton value={result.instance.id} />
               </div>
-              {creds.map(([k, v]) => (
-                <div key={k} className="flex items-center gap-2">
-                  <dt className="w-24 shrink-0 text-eyebrow text-muted-foreground">
-                    {CRED_LABELS[k] ?? k}
-                  </dt>
-                  <dd className="min-w-0 flex-1 truncate font-mono text-xs">
-                    {v}
-                  </dd>
-                  <CopyButton value={String(v)} />
+              {useBlock ? (
+                <div className="flex items-start gap-2 border-t border-border pt-3">
+                  <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs">
+                    {useBlock}
+                  </pre>
+                  <CopyButton value={useBlock} label="Copy credentials" />
                 </div>
-              ))}
-            </dl>
+              ) : null}
+            </div>
           </DialogBody>
           <DialogFooter>
             <Button onClick={onClose}>Done</Button>
