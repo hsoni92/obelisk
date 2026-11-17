@@ -6,11 +6,42 @@ import (
 	"testing"
 )
 
+func TestResolvePath_PrefersApplianceLiveCopy(t *testing.T) {
+	dir := t.TempDir()
+	live := filepath.Join(dir, "obelisk.yaml")
+	if err := os.WriteFile(live, []byte("deployment:\n  profile: vps\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OBELISK_CONFIG", "")
+	t.Setenv("OBELISK_CONFIG_WRITABLE", live)
+	got := ResolvePath()
+	if got != live {
+		t.Fatalf("got %q want %q", got, live)
+	}
+}
+
 func TestResolvePath_PrefersEnv(t *testing.T) {
 	t.Setenv("OBELISK_CONFIG", "/tmp/custom/obelisk.yaml")
 	got := ResolvePath()
 	if got != "/tmp/custom/obelisk.yaml" {
 		t.Fatalf("got %q", got)
+	}
+}
+
+func TestEnsureReadablePath_ApplianceLiveWithoutEtcSeed(t *testing.T) {
+	dir := t.TempDir()
+	live := filepath.Join(dir, "var", "lib", "obelisk", "obelisk.yaml")
+	if err := os.MkdirAll(filepath.Dir(live), 0o700); err != nil {
+		t.Fatal(err)
+	}
+	const body = "deployment:\n  profile: vps\nmachine:\n  id: obelisk-aaaaaaa1\n"
+	if err := os.WriteFile(live, []byte(body), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("OBELISK_CONFIG_WRITABLE", live)
+	got := EnsureReadablePath(DefaultPath)
+	if got != live {
+		t.Fatalf("got %q want live copy %q", got, live)
 	}
 }
 

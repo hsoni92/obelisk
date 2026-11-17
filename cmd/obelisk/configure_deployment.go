@@ -32,7 +32,12 @@ func cmdConfigureDeployment(args []string) {
 	}
 
 	if *show {
+		read := config.ActiveConfigPath(config.ResolvePath())
+		if *cfg != "" {
+			read = config.ActiveConfigPath(*cfg)
+		}
 		fmt.Printf("profile=%s tailscale=%v\n", spec.Deployment.Profile, spec.Deployment.Tailscale.Enabled)
+		fmt.Printf("config=%s\n", read)
 		return
 	}
 

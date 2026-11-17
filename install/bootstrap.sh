@@ -175,6 +175,15 @@ install_cli() {
     install -m 0755 "$OBELISK_ROOT/obelisk" /usr/local/bin/obelisk
     log "installed /usr/local/bin/obelisk"
   fi
+  local envdrop="/etc/profile.d/obelisk.sh"
+  if [[ -w "$(dirname "$envdrop")" ]]; then
+    cat >"$envdrop" <<'EOF'
+# Obelisk CLI: live config is under /var/lib (not /etc seed on k3s).
+export OBELISK_CONFIG="${OBELISK_CONFIG:-/var/lib/obelisk/obelisk.yaml}"
+EOF
+    chmod 644 "$envdrop"
+    log "wrote $envdrop (OBELISK_CONFIG)"
+  fi
 }
 
 post_install_cleanup() {

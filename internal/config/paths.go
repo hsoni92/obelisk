@@ -7,13 +7,18 @@ import (
 )
 
 // ResolvePath picks the active obelisk.yaml location.
-// Order: OBELISK_CONFIG, existing DefaultPath, repo dev/obelisk.yaml, ~/.config/obelisk/obelisk.yaml.
+// Order: OBELISK_CONFIG, live appliance file (/var/lib), /etc seed, dev/obelisk.yaml, ~/.config.
 func ResolvePath() string {
 	if p := strings.TrimSpace(os.Getenv("OBELISK_CONFIG")); p != "" {
 		return filepath.Clean(p)
 	}
+	if live := WriteConfigPath(DefaultPath); live != DefaultPath {
+		if _, err := os.Stat(live); err == nil {
+			return live
+		}
+	}
 	if _, err := os.Stat(DefaultPath); err == nil {
-		return DefaultPath
+		return ActiveConfigPath(DefaultPath)
 	}
 	if wd, err := os.Getwd(); err == nil {
 		if _, err := os.Stat(filepath.Join(wd, "deploy", "helm", "platform")); err == nil {
@@ -27,14 +32,31 @@ func ResolvePath() string {
 	return filepath.Join(os.TempDir(), "obelisk", "obelisk.yaml")
 }
 
-// EnsureReadablePath redirects a missing production path to ResolvePath() for local dev.
+// EnsureReadablePath picks the file the API and controller should read.
+// On appliances, ActiveConfigPath wins (/var/lib copy over /etc seed). When /etc
+// is missing entirely (common on k3s hostPath), fall back to ResolvePath() for dev.
 func EnsureReadablePath(requested string) string {
 	if requested == "" {
-		return ResolvePath()
+		requested = ResolvePath()
 	}
-	if _, err := os.Stat(requested); err == nil {
+	requested = filepath.Clean(requested)
+	if applianceConfig(requested) {
+		live := ActiveConfigPath(requested)
+		if live != requested {
+			return live
+		}
+		if _, err := os.Stat(requested); err == nil {
+			return requested
+		}
+		if _, err := os.Stat(WritableApplianceConfigPath); err == nil {
+			return WritableApplianceConfigPath
+		}
+	}
+	_, err := os.Stat(requested)
+	if err == nil {
 		return requested
-	} else if os.IsNotExist(err) && requested == DefaultPath {
+	}
+	if os.IsNotExist(err) && requested == DefaultPath {
 		return ResolvePath()
 	}
 	return requested

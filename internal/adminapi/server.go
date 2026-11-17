@@ -163,7 +163,7 @@ func desiredServiceStates(spec obelisk.Spec) map[string]string {
 }
 
 func (s *Server) handleGetConfig(w http.ResponseWriter, _ *http.Request) {
-	spec, err := config.Load(s.ConfigPath)
+	spec, err := config.Load(config.EnsureReadablePath(s.ConfigPath))
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
