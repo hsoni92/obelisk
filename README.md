@@ -264,6 +264,7 @@ obelisk — middleware appliance CLI
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push
   restore --chain [--adopt-machine-id | --keep-machine-id]
+  configure deployment --profile vps|local [--public-host HOST] [--reconcile]
   configure github
   update [--ref REF] [--skip-images]
   uninstall [--dry-run] [--yes] [--tier full|platform]

@@ -68,6 +68,8 @@ Commands:
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
   restore --chain [--api URL] [--config path] [--passphrase secret] [--adopt-machine-id | --keep-machine-id]
+  configure deployment --profile vps|local [--public-host HOST] [--reconcile]
+  configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
   update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
