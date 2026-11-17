@@ -6,6 +6,8 @@ import (
 	"os"
 	"os/exec"
 	"strings"
+
+	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
 // DefaultAdminPublicURL guesses the admin UI origin operators use in a browser.
@@ -21,7 +23,7 @@ func DefaultAdminPublicURL(ctx context.Context) string {
 		return strings.TrimRight(base, "/")
 	}
 	if ip := firstHostIP(); ip != "" {
-		return fmt.Sprintf("http://%s", ip)
+		return fmt.Sprintf("http://%s:%s", ip, obelisk.AdminHTTPPortString())
 	}
 	return ""
 }
@@ -40,7 +42,7 @@ func kongURLFromKubectl(ctx context.Context) string {
 	ns := envOrDefault("OBELISK_NAMESPACE", "obelisk")
 	port := kubectlJSON(ctx, kc, ns, `jsonpath={.spec.ports[0].port}`)
 	if port == "" {
-		port = "80"
+		port = obelisk.AdminHTTPPortString()
 	}
 	if lb := kubectlJSON(ctx, kc, ns, `jsonpath={.status.loadBalancer.ingress[0].ip}`); lb != "" {
 		return fmt.Sprintf("http://%s:%s", lb, port)

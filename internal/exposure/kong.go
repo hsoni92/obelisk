@@ -356,6 +356,13 @@ func applyKongConfig(ctx context.Context, namespace string, body []byte) error {
 }
 
 func restartKong(ctx context.Context, namespace string) error {
+	ok, err := deploymentExists(ctx, namespace, "obelisk-kong")
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return nil
+	}
 	cmd := exec.CommandContext(ctx, "kubectl", "rollout", "restart",
 		"deployment/obelisk-kong", "-n", namespace)
 	cmd.Env = kubeEnv()
@@ -363,7 +370,27 @@ func restartKong(ctx context.Context, namespace string) error {
 	if err != nil {
 		return fmt.Errorf("restart kong: %w: %s", err, strings.TrimSpace(string(out)))
 	}
+	wait := exec.CommandContext(ctx, "kubectl", "rollout", "status",
+		"deployment/obelisk-kong", "-n", namespace, "--timeout=180s")
+	wait.Env = kubeEnv()
+	if wout, werr := wait.CombinedOutput(); werr != nil {
+		return fmt.Errorf("kong rollout: %w: %s", werr, strings.TrimSpace(string(wout)))
+	}
 	return nil
+}
+
+func deploymentExists(ctx context.Context, namespace, name string) (bool, error) {
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "deployment", name, "-n", namespace)
+	cmd.Env = kubeEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		msg := strings.TrimSpace(string(out))
+		if strings.Contains(msg, "NotFound") || strings.Contains(msg, "not found") {
+			return false, nil
+		}
+		return false, fmt.Errorf("get deployment %s: %w: %s", name, err, msg)
+	}
+	return true, nil
 }
 
 func kubeEnv() []string {

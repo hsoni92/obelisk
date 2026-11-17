@@ -5,6 +5,7 @@ obelisk:
   configHostPath: /etc/obelisk/obelisk.yaml
   helmRoot: /opt/obelisk
   helmRootHostPath: /opt/obelisk
+  adminHTTPPort: 9080
   # VPS: set to public IP or DNS (bootstrap auto-detects when empty on profile=vps).
   publicHost: ""
   # GitHub OAuth app for blueprint login. Create Secret obelisk-github-oauth
@@ -16,3 +17,4 @@ kong:
   service:
     # LoadBalancer works on single-node k3s (servicelb) — use in VM/VPS smoke tests.
     type: ClusterIP
+    httpPort: 9080

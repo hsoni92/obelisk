@@ -30,6 +30,8 @@ spec:
               value: cluster
             - name: OBELISK_NAMESPACE
               value: {{ .Release.Namespace }}
+            - name: OBELISK_HTTP_PORT
+              value: {{ .Values.obelisk.adminHTTPPort | default 9080 | quote }}
             {{- if .Values.obelisk.publicHost }}
             - name: OBELISK_PUBLIC_HOST
               value: {{ .Values.obelisk.publicHost | quote }}

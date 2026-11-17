@@ -58,7 +58,7 @@ spec:
   selector:
     app: obelisk-kong
   ports:
-    - port: 80
+    - port: {{ .Values.kong.service.httpPort | default 9080 }}
       targetPort: proxy
       name: http
     - port: 443

@@ -5,10 +5,7 @@ import (
 	"encoding/json"
 	"flag"
 	"fmt"
-	"io"
-	"net/http"
 	"os"
-	"strings"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
@@ -22,7 +19,7 @@ func main() {
 	}
 	switch os.Args[1] {
 	case "status":
-		cmdStatus(os.Args[2:])
+		cmdStatus(os.Args[2:]) // human-friendly report; --json for machines
 	case "preflight":
 		cmdPreflight(os.Args[2:])
 	case "service":
@@ -60,7 +57,7 @@ func usage() {
 Commands:
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
-  status [--api URL] [--config path]
+  status [--json] [--config path] [--helm-root path]
   service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng> [--config path] [--helm-root path]
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
@@ -100,36 +97,6 @@ func cmdInitConfig(args []string) {
 		os.Exit(1)
 	}
 	fmt.Println("wrote", *path)
-}
-
-func cmdStatus(args []string) {
-	fs := flag.NewFlagSet("status", flag.ExitOnError)
-	api := fs.String("api", os.Getenv("OBELISK_API"), "admin API base URL")
-	cfg := fs.String("config", config.ResolvePath(), "local config path")
-	_ = fs.Parse(args)
-	if *api != "" {
-		resp, err := http.Get(strings.TrimRight(*api, "/") + "/api/v1/status")
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			os.Exit(1)
-		}
-		defer resp.Body.Close()
-		body, _ := io.ReadAll(resp.Body)
-		fmt.Println(string(body))
-		return
-	}
-	spec, err := config.Load(*cfg)
-	if err != nil {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(1)
-	}
-	enc := json.NewEncoder(os.Stdout)
-	enc.SetIndent("", "  ")
-	_ = enc.Encode(map[string]any{
-		"profile":  spec.Deployment.Profile,
-		"services": spec.Services,
-		"projects": len(spec.Projects),
-	})
 }
 
 func cmdService(args []string) {

@@ -17,7 +17,7 @@ else
   echo "[obelisk] creating k3d cluster $CLUSTER (k3s, traefik disabled)"
   k3d cluster create "$CLUSTER" \
     --k3s-arg "--disable=traefik@server:0" \
-    --port "9080:80@loadbalancer"
+    --port "9080:9080@loadbalancer"
 fi
 
 # metrics-server is required for kubectl top (overview vitals sampler).

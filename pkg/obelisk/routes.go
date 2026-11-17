@@ -61,8 +61,11 @@ func RustFSServerDomains(inst ServiceInstance) string {
 	if host == "" {
 		return ""
 	}
-	if p := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT")); p != "" && p != "80" {
+	if p := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT")); p != "" {
 		return host + ":" + p
+	}
+	if AdminHTTPPort() != 80 {
+		return host + ":" + AdminHTTPPortString()
 	}
 	return host
 }

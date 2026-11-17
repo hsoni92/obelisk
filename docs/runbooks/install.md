@@ -66,7 +66,7 @@ Shallow teardown (keep PVCs for debugging): `sudo obelisk uninstall --tier platf
 1. Clone or copy Obelisk to `/opt/obelisk`.
 2. On **VPS**: `OBELISK_PROFILE=vps OBELISK_ROOT=/opt/obelisk OBELISK_BUILD_IMAGES=true sudo -E ./install/bootstrap.sh`
 3. On **local** with optional Tailscale: `OBELISK_PROFILE=local OBELISK_TAILSCALE=true sudo ./install/bootstrap.sh`
-4. Open admin UI via Kong on the host HTTP port (VPS: Kong uses LoadBalancer / k3s servicelb on port 80).
+4. Open admin UI via Kong on **port 9080** (VPS: k3s servicelb maps host :9080 → Kong).
 
 ## UI dev on a laptop (no `/etc/obelisk`)
 

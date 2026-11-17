@@ -79,7 +79,7 @@ Full product spec: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 
 | Profile | Tailscale | Typical use |
 |---------|-----------|-------------|
-| **`vps`** | Not installed (not required) | Public VPS + Kong on port 80 |
+| **`vps`** | Not installed (not required) | Public VPS + Kong on port **9080** |
 | **`local`** | Optional at install | Home lab; opt in when you need remote reachability |
 
 > **Tailscale Funnel** (RustFS S3 route only) applies when Tailscale is enabled on **local**. VPS public HTTP uses Kong on the host interface—not Funnel. Postgres and Redis are **not** exposed to the public internet by default.

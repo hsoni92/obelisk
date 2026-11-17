@@ -147,6 +147,29 @@ deploy_platform() {
   log "platform helm release applied (images ${OBELISK_IMAGE_TAG})"
 }
 
+wait_platform_rollout() {
+  export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
+  command -v kubectl >/dev/null 2>&1 || return 0
+  kubectl cluster-info >/dev/null 2>&1 || return 0
+  local timeout="${OBELISK_PLATFORM_WAIT_SEC:-300}"
+  for dep in obelisk-kong obelisk-controller obelisk-admin-ui; do
+    if ! kubectl get deployment -n "$NAMESPACE" "$dep" >/dev/null 2>&1; then
+      continue
+    fi
+    log "waiting for $dep rollout (up to ${timeout}s)"
+    if ! kubectl rollout status "deployment/$dep" -n "$NAMESPACE" --timeout="${timeout}s"; then
+      die "deployment $dep did not become ready"
+    fi
+  done
+  if [[ -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
+    # shellcheck source=install/resolve-admin-url.sh
+    source "$SCRIPT_DIR/resolve-admin-url.sh"
+    if ! obelisk_wait_kong_health; then
+      die "Kong did not serve /api/v1/health — use port 9080 (not :3000) and check obelisk-kong + obelisk-controller pods"
+    fi
+  fi
+}
+
 install_cli() {
   if [[ -f "$OBELISK_ROOT/obelisk" ]]; then
     install -m 0755 "$OBELISK_ROOT/obelisk" /usr/local/bin/obelisk
@@ -171,6 +194,7 @@ main() {
   maybe_tailscale
   write_config
   deploy_platform
+  wait_platform_rollout
   install_cli
   post_install_cleanup
   log "platform-ready — open admin UI via Kong route on this host"

@@ -46,7 +46,7 @@ func PublicHTTPEdgeURL(inst ServiceInstance) string {
 	if p := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT")); p != "" {
 		return fmt.Sprintf("http://%s:%s", host, p)
 	}
-	return "http://" + host
+	return fmt.Sprintf("http://%s:%s", host, AdminHTTPPortString())
 }
 
 // KongEdgeHosts lists Host/SNI values for an instance (includes legacy short names for id "default").

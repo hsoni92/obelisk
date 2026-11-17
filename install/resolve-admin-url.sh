@@ -4,7 +4,7 @@ set -euo pipefail
 
 obelisk_resolve_kong_base() {
   local ns="${OBELISK_NAMESPACE:-obelisk}"
-  local port="80"
+  local port="${OBELISK_HTTP_PORT:-9080}"
 
   if [[ -n "${OBELISK_KONG_URL:-}" ]]; then
     printf '%s' "${OBELISK_KONG_URL%/}/"
@@ -13,7 +13,7 @@ obelisk_resolve_kong_base() {
 
   if command -v kubectl >/dev/null && [[ -r /etc/rancher/k3s/k3s.yaml ]]; then
     export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
-    port="$(kubectl get svc -n "$ns" obelisk-kong -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo 80)"
+    port="$(kubectl get svc -n "$ns" obelisk-kong -o jsonpath='{.spec.ports[?(@.name=="http")].port}' 2>/dev/null || echo 9080)"
     local lb_ip=""
     lb_ip="$(kubectl get svc -n "$ns" obelisk-kong -o jsonpath='{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)"
     if [[ -n "$lb_ip" ]]; then

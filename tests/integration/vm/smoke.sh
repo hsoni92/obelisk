@@ -54,7 +54,7 @@ resolve_kong_base() {
   local ip
   ip="$(hostname -I | awk '{print $1}')"
   local lb_port
-  lb_port="$(kubectl get svc -n "$NAMESPACE" obelisk-kong -o jsonpath='{.spec.ports[0].port}' 2>/dev/null || echo 80)"
+  lb_port="$(kubectl get svc -n "$NAMESPACE" obelisk-kong -o jsonpath='{.spec.ports[?(@.name=="http")].port}' 2>/dev/null || echo 9080)"
   KONG_BASE="http://${ip}:${lb_port}/"
   log "Kong via node IP (k3s servicelb): $KONG_BASE"
 }
