@@ -5,6 +5,7 @@ go 1.22
 require (
 	github.com/minio/minio-go/v7 v7.0.80
 	golang.org/x/crypto v0.28.0
+	golang.org/x/sys v0.27.0
 	golang.org/x/term v0.26.0
 	gopkg.in/yaml.v3 v3.0.1
 )
@@ -21,6 +22,5 @@ require (
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/rs/xid v1.6.0 // indirect
 	golang.org/x/net v0.30.0 // indirect
-	golang.org/x/sys v0.27.0 // indirect
 	golang.org/x/text v0.19.0 // indirect
 )
