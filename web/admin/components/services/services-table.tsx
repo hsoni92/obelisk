@@ -340,7 +340,6 @@ export function ServicesTable({
             connection={row.original.connection}
             enabled={row.original.instance.enabled}
             compact
-            className="min-w-[220px] max-w-md py-0.5"
           />
         ),
       },
@@ -557,7 +556,7 @@ export function ServicesTable({
                 ref={rowVirtualizer.measureElement}
                 className={cn(
                   GRID,
-                  "absolute left-0 w-full border-b border-border px-3 hover:bg-muted/40",
+                  "absolute left-0 w-full overflow-hidden border-b border-border px-3 hover:bg-muted/40",
                 )}
                 style={{
                   height: ROW_HEIGHT,
@@ -572,6 +571,7 @@ export function ServicesTable({
                     className={cn(
                       "min-w-0",
                       cell.column.id === "select" && SELECT_CELL,
+                      cell.column.id === "endpoint" && "overflow-hidden",
                     )}
                   >
                     {flexRender(cell.column.columnDef.cell, cell.getContext())}

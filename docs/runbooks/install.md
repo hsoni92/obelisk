@@ -33,10 +33,10 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 ```bash
 sudo obelisk update
 sudo obelisk update --ref v0.2.0    # pin a tag or branch
-sudo obelisk update --skip-images   # helm/controller rollout only
+sudo obelisk update --skip-images   # helm/controller rollout only (no new UI image)
 ```
 
-This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
+This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Each upgrade tags images uniquely so Helm rolls the admin UI and controller pods (rebuilding the same `0.1.0` tag alone does not refresh running pods). Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
 
 ## Uninstall / failed install
 

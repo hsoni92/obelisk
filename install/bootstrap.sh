@@ -7,6 +7,10 @@ if [[ -f "$SCRIPT_DIR/obelisk-paths.sh" ]]; then
   # shellcheck source=install/obelisk-paths.sh
   source "$SCRIPT_DIR/obelisk-paths.sh"
 fi
+if [[ -f "$SCRIPT_DIR/image-tag.sh" ]]; then
+  # shellcheck source=install/image-tag.sh
+  source "$SCRIPT_DIR/image-tag.sh"
+fi
 OBELISK_ROOT="${OBELISK_ROOT:-/opt/obelisk}"
 CONFIG_PATH="${OBELISK_CONFIG:-/etc/obelisk/obelisk.yaml}"
 NAMESPACE="${OBELISK_NAMESPACE:-obelisk}"
@@ -43,6 +47,18 @@ install_k3s() {
   log "k3s installed"
 }
 
+ensure_image_tag() {
+  if [[ -n "${OBELISK_IMAGE_TAG:-}" ]]; then
+    return
+  fi
+  if declare -F obelisk_resolve_image_tag >/dev/null; then
+    export OBELISK_IMAGE_TAG="$(obelisk_resolve_image_tag)"
+  else
+    export OBELISK_IMAGE_TAG="0.1.0-$(date -u +%Y%m%dT%H%M%SZ)"
+  fi
+  log "platform image tag: $OBELISK_IMAGE_TAG"
+}
+
 build_images() {
   if [[ "${OBELISK_BUILD_IMAGES:-false}" != "true" ]]; then
     log "skipping image build (set OBELISK_BUILD_IMAGES=true to build and import)"
@@ -54,7 +70,8 @@ build_images() {
   if [[ ! -x "$OBELISK_ROOT/install/build-images.sh" ]]; then
     die "OBELISK_BUILD_IMAGES set but $OBELISK_ROOT/install/build-images.sh missing or not executable"
   fi
-  OBELISK_IMAGE_TAG="${OBELISK_IMAGE_TAG:-0.1.0}" "$OBELISK_ROOT/install/build-images.sh"
+  ensure_image_tag
+  OBELISK_IMAGE_TAG="$OBELISK_IMAGE_TAG" "$OBELISK_ROOT/install/build-images.sh"
 }
 
 maybe_tailscale() {
@@ -97,6 +114,7 @@ deploy_platform() {
   command -v helm >/dev/null || {
     curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   }
+  ensure_image_tag
   local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
   if [[ "$PROFILE" == "vps" && -z "$helm_extra" ]]; then
     helm_extra='--set kong.service.type=LoadBalancer'
@@ -120,9 +138,11 @@ deploy_platform() {
     --namespace "$NAMESPACE" --create-namespace --wait --timeout 15m \
     --set obelisk.configHostPath="$CONFIG_PATH" \
     --set obelisk.helmRoot="$OBELISK_ROOT" \
+    --set "obelisk.imageController=obelisk-controller:${OBELISK_IMAGE_TAG}" \
+    --set "obelisk.imageAdminUI=obelisk-admin-ui:${OBELISK_IMAGE_TAG}" \
     $([[ -n "$public_host" ]] && echo --set "obelisk.publicHost=$public_host") \
     ${helm_extra}
-  log "platform helm release applied"
+  log "platform helm release applied (images ${OBELISK_IMAGE_TAG})"
 }
 
 install_cli() {

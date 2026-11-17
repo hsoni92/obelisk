@@ -15,12 +15,22 @@ var instanceIDRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}[a-z0-9]$`)
 
 // AllocateInstanceID returns a new globally unique, DNS/k8s-safe instance id.
 func AllocateInstanceID(spec *Spec) string {
+	return AllocateInstanceIDForType(spec, "")
+}
+
+// AllocateInstanceIDForType returns a unique id for a new instance of typ.
+// When typ is empty, ids must be unique across all instances (legacy callers).
+func AllocateInstanceIDForType(spec *Spec, typ string) string {
 	for attempt := 0; attempt < 64; attempt++ {
 		id := randomInstanceID()
 		if !instanceIDValid(id) {
 			continue
 		}
-		if _, _, taken := FindInstance(spec, id); taken {
+		if typ != "" {
+			if _, _, taken := FindInstanceByTypeAndID(spec, typ, id); taken {
+				continue
+			}
+		} else if _, _, taken := FindInstance(spec, id); taken {
 			continue
 		}
 		return id

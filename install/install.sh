@@ -134,8 +134,9 @@ write_install_meta() {
   local meta="$OBELISK_ROOT/.install-meta.json"
   local ts
   ts="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  local tag="${OBELISK_IMAGE_TAG:-}"
   cat >"$meta" <<EOF
-{"repo":"$OBELISK_REPO","ref":"$OBELISK_REF","installed_at":"$ts"}
+{"repo":"$OBELISK_REPO","ref":"$OBELISK_REF","installed_at":"$ts","image_tag":"$tag"}
 EOF
   log "wrote $meta"
 }
@@ -194,6 +195,12 @@ run_install_body() {
   fi
   ensure_go
   build_cli
+  if [[ -f "$OBELISK_ROOT/install/image-tag.sh" ]]; then
+    # shellcheck source=install/image-tag.sh
+    source "$OBELISK_ROOT/install/image-tag.sh"
+    export OBELISK_IMAGE_TAG="$(obelisk_resolve_image_tag)"
+    log "platform image tag: $OBELISK_IMAGE_TAG"
+  fi
   invoke_bootstrap
   write_install_meta
   print_admin_url

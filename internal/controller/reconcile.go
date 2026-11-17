@@ -6,7 +6,9 @@ import (
 	"log/slog"
 	"os/exec"
 	"sort"
+	"strings"
 	"sync"
+	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/exposure"
@@ -52,22 +54,62 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		}
 		return report, nil
 	}
+	if pruned := r.pruneOrphanReleases(ctx, spec); len(pruned) > 0 {
+		report.Messages = append(report.Messages, "pruned orphan releases: "+strings.Join(pruned, ", "))
+	}
+
+	ordered := instancesReconcileOrder(spec.Instances)
+	var disabled, enabled []obelisk.ServiceInstance
+	for _, inst := range ordered {
+		if inst.Enabled {
+			enabled = append(enabled, inst)
+		} else {
+			disabled = append(disabled, inst)
+		}
+	}
+
+	type instResult struct {
+		key   string
+		state string
+		msg   string
+		err   error
+	}
+
 	var reconcileErr error
-	for _, inst := range instancesReconcileOrder(spec.Instances) {
-		state, msg, err := r.reconcileInstance(ctx, inst)
-		report.ServiceStates[inst.StateKey()] = state
-		if msg != "" {
-			report.Messages = append(report.Messages, msg)
+	apply := func(res instResult) {
+		report.ServiceStates[res.key] = res.state
+		if res.msg != "" {
+			report.Messages = append(report.Messages, res.msg)
 		}
-		if err != nil {
+		if res.err != nil {
 			if reconcileErr == nil {
-				reconcileErr = err
+				reconcileErr = res.err
 			}
-			report.Messages = append(report.Messages,
-				fmt.Sprintf("%s: %v", inst.StateKey(), err))
-			report.ServiceStates[inst.StateKey()] = "degraded"
-			continue
+			report.Messages = append(report.Messages, fmt.Sprintf("%s: %v", res.key, res.err))
+			report.ServiceStates[res.key] = "degraded"
 		}
+	}
+
+	if len(disabled) > 0 {
+		ch := make(chan instResult, len(disabled))
+		var wg sync.WaitGroup
+		for _, inst := range disabled {
+			wg.Add(1)
+			go func(inst obelisk.ServiceInstance) {
+				defer wg.Done()
+				state, msg, err := r.reconcileInstance(ctx, inst)
+				ch <- instResult{inst.StateKey(), state, msg, err}
+			}(inst)
+		}
+		wg.Wait()
+		close(ch)
+		for res := range ch {
+			apply(res)
+		}
+	}
+	for _, inst := range enabled {
+		state, msg, err := r.reconcileInstance(ctx, inst)
+		apply(instResult{inst.StateKey(), state, msg, err})
 	}
 	if spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
 		if err := r.ensureTailscale(ctx); err != nil {
@@ -109,7 +151,11 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.Service
 			return "degraded", "", err
 		}
 		defer cleanup()
-		if err := r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath); err != nil {
+		if err := r.helmScaleRelease(ctx, release, 0); err != nil {
+			slog.Warn("kubectl scale before helm", "release", release, "err", err)
+		}
+		opts := helmUpgradeOpts{waitTimeout: 2 * time.Minute}
+		if err := r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath, opts); err != nil {
 			return "degraded", "", err
 		}
 		st := r.observeInstanceState(ctx, inst)
@@ -135,7 +181,7 @@ func (r *Reconciler) helmUpgradeInstance(ctx context.Context, inst obelisk.Servi
 	}
 	defer cleanup()
 	slog.Info("helm upgrade", "release", release, "chart", chart)
-	return r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath)
+	return r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath, helmUpgradeOpts{})
 }
 
 func (r *Reconciler) helmUpgrade(ctx context.Context, service string) error {
@@ -147,7 +193,7 @@ func (r *Reconciler) helmUpgrade(ctx context.Context, service string) error {
 		ns = "obelisk"
 	}
 	slog.Info("helm upgrade", "release", release, "chart", chart)
-	return r.helmUpgradeInstall(ctx, service, chart, release, ns, "")
+	return r.helmUpgradeInstall(ctx, service, chart, release, ns, "", helmUpgradeOpts{})
 }
 
 func (r *Reconciler) helmScaleRelease(ctx context.Context, release string, replicas int) error {

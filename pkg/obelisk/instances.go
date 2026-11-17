@@ -193,23 +193,46 @@ func NormalizeInstances(spec *Spec) {
 		normalizeInstanceCredentials(&spec.Instances[i])
 	}
 	repairDuplicateInstanceIDs(spec)
+	remapCanonicalDefaultIDs(spec)
 	SyncLegacyServiceFlags(spec)
 }
 
-// repairDuplicateInstanceIDs reassigns ids when configs reused the same id globally.
+// remapCanonicalDefaultIDs restores id "default" when display name says so and the
+// slot is free for that type. Repairs configs that lost release names after import.
+func remapCanonicalDefaultIDs(spec *Spec) {
+	for i := range spec.Instances {
+		inst := &spec.Instances[i]
+		if inst.ID == LegacyDefaultInstanceID {
+			continue
+		}
+		name := strings.TrimSpace(strings.ToLower(inst.DisplayName))
+		if name != "default" && name != LegacyDefaultInstanceID {
+			continue
+		}
+		if _, _, taken := FindInstanceByTypeAndID(spec, inst.Type, LegacyDefaultInstanceID); taken {
+			continue
+		}
+		inst.ID = LegacyDefaultInstanceID
+	}
+}
+
+// repairDuplicateInstanceIDs reassigns ids when the same type reuses an instance id.
+// Cross-type id reuse (e.g. postgres/default + redis/default) is intentional: release
+// names are per-type and must stay stable across blueprint import.
 func repairDuplicateInstanceIDs(spec *Spec) {
 	seen := map[string]struct{}{}
 	for i := range spec.Instances {
-		id := spec.Instances[i].ID
-		if _, ok := seen[id]; !ok {
-			seen[id] = struct{}{}
+		inst := &spec.Instances[i]
+		key := inst.Type + "\x00" + inst.ID
+		if _, ok := seen[key]; !ok {
+			seen[key] = struct{}{}
 			continue
 		}
-		prev := id
-		spec.Instances[i].ID = AllocateInstanceID(spec)
-		seen[spec.Instances[i].ID] = struct{}{}
-		if spec.Instances[i].DisplayName == prev || spec.Instances[i].DisplayName == LegacyDefaultInstanceID {
-			spec.Instances[i].DisplayName = displayNameOr(spec.Instances[i].ID, spec.Instances[i].DisplayName)
+		prev := inst.ID
+		inst.ID = AllocateInstanceIDForType(spec, inst.Type)
+		seen[inst.Type+"\x00"+inst.ID] = struct{}{}
+		if inst.DisplayName == prev || inst.DisplayName == LegacyDefaultInstanceID {
+			inst.DisplayName = displayNameOr(inst.ID, inst.DisplayName)
 		}
 	}
 }

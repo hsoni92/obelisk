@@ -23,10 +23,20 @@ func TestRepairDuplicateInstanceIDs(t *testing.T) {
 	}
 	repairDuplicateInstanceIDs(&spec)
 	if spec.Instances[0].ID != LegacyDefaultInstanceID {
-		t.Fatalf("first keeps legacy id: %+v", spec.Instances[0])
+		t.Fatalf("postgres keeps legacy id: %+v", spec.Instances[0])
 	}
-	if spec.Instances[1].ID == LegacyDefaultInstanceID {
-		t.Fatalf("second should be reassigned: %+v", spec.Instances[1])
+	if spec.Instances[1].ID != LegacyDefaultInstanceID {
+		t.Fatalf("redis keeps legacy id across types: %+v", spec.Instances[1])
+	}
+	spec.Instances = append(spec.Instances, ServiceInstance{
+		ID: LegacyDefaultInstanceID, Type: "redis", DisplayName: "replica",
+	})
+	repairDuplicateInstanceIDs(&spec)
+	if spec.Instances[1].ID != LegacyDefaultInstanceID {
+		t.Fatalf("first redis keeps id: %+v", spec.Instances[1])
+	}
+	if spec.Instances[2].ID == LegacyDefaultInstanceID {
+		t.Fatalf("duplicate redis id reassigned: %+v", spec.Instances[2])
 	}
 }
 
