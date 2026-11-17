@@ -93,7 +93,52 @@ export function connectionUse(conn?: InstanceConnection): string | null {
 
 /** Copy-ready block for details / share dialogs. */
 export function connectionDetailsBlob(conn?: InstanceConnection): string | null {
-  return connectionUse(conn);
+  const use = conn?.use?.trim();
+  if (use) return use;
+  const entries = connectionEntries(conn);
+  if (entries.length === 0) return null;
+  return entries.map((e) => `${e.label}: ${e.value}`).join("\n");
+}
+
+/** Structured rows for the admin UI (every remote connection field). */
+export function connectionCredentialLines(
+  conn?: InstanceConnection,
+): ConnectionEntry[] {
+  const use = conn?.use?.trim();
+  if (use) {
+    const out: ConnectionEntry[] = [];
+    for (const line of use.split("\n")) {
+      const t = line.trim();
+      if (!t) continue;
+      const eq = t.indexOf("=");
+      if (eq > 0) {
+        out.push({
+          label: t.slice(0, eq).trim(),
+          value: t.slice(eq + 1).trim(),
+        });
+      } else {
+        out.push({ label: "Connection", value: t });
+      }
+    }
+    if (out.length > 0) return out;
+  }
+  return connectionEntries(conn);
+}
+
+/** True when URLs are present but expected secret env lines are absent. */
+export function connectionCredentialsIncomplete(
+  conn?: InstanceConnection,
+): boolean {
+  const use = conn?.use?.trim() ?? "";
+  if (!use) return false;
+  const has = (key: string) => use.split("\n").some((l) => l.startsWith(`${key}=`));
+  if (conn?.s3_http && (!has("AWS_ACCESS_KEY_ID") || !has("AWS_SECRET_ACCESS_KEY"))) {
+    return true;
+  }
+  if (conn?.qdrant_http && !has("QDRANT_API_KEY") && !has("api-key")) {
+    return true;
+  }
+  return false;
 }
 
 export function stateBadgeVariant(state: string) {

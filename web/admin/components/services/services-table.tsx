@@ -3,13 +3,11 @@
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
-import { CopyButton } from "@/components/services/copy-button";
+import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { ServiceDetailsDialog } from "@/components/services/service-details-dialog";
 import type { RowPending } from "@/components/services/services-bulk-actions";
 import {
-  connectionPreview,
-  connectionUse,
   startStopTarget,
   stateBadgeVariant,
   type ServiceRow,
@@ -335,37 +333,16 @@ export function ServicesTable({
       },
       {
         id: "endpoint",
-        header: "Endpoint",
+        header: "Remote connection",
         enableSorting: false,
-        cell: ({ row }) => {
-          const creds = connectionUse(row.original.connection);
-          const preview = connectionPreview(row.original.connection);
-          if (!creds || !preview) {
-            const hint = row.original.statusHint;
-            return (
-              <span
-                className="line-clamp-2 text-metadata text-muted-foreground"
-                title={hint}
-              >
-                {hint ??
-                  (row.original.instance.enabled
-                    ? "Credentials loading…"
-                    : "Enable to expose")}
-              </span>
-            );
-          }
-          return (
-            <div className="flex min-w-0 items-center gap-1.5">
-              <code
-                className="min-w-0 flex-1 truncate font-mono text-[11px] text-foreground"
-                title={creds}
-              >
-                {preview}
-              </code>
-              <CopyButton value={creds} label="Copy credentials" />
-            </div>
-          );
-        },
+        cell: ({ row }) => (
+          <ConnectionCredentialsPanel
+            connection={row.original.connection}
+            enabled={row.original.instance.enabled}
+            compact
+            className="min-w-[220px] max-w-md py-0.5"
+          />
+        ),
       },
       {
         id: "actions",

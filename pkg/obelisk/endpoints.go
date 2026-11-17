@@ -131,22 +131,29 @@ func instanceUse(inst ServiceInstance, ic InstanceConnection) string {
 		}
 		ak := strings.TrimSpace(inst.Credentials.AccessKey)
 		sk := strings.TrimSpace(inst.Credentials.SecretKey)
-		if ak == "" || sk == "" {
+		lines := []string{fmt.Sprintf("S3_ENDPOINT=%s", ic.S3HTTP)}
+		if ak != "" {
+			lines = append(lines, fmt.Sprintf("AWS_ACCESS_KEY_ID=%s", ak))
+		}
+		if sk != "" {
+			lines = append(lines, fmt.Sprintf("AWS_SECRET_ACCESS_KEY=%s", sk))
+		}
+		if len(lines) == 1 {
 			return ic.S3HTTP
 		}
-		return fmt.Sprintf(
-			"S3_ENDPOINT=%s\nAWS_ACCESS_KEY_ID=%s\nAWS_SECRET_ACCESS_KEY=%s",
-			ic.S3HTTP, ak, sk,
-		)
+		return strings.Join(lines, "\n")
 	case "qdrant":
 		key := strings.TrimSpace(inst.Credentials.AccessKey)
 		if ic.QdrantHTTP == "" {
 			return ""
 		}
 		if key == "" {
-			return ic.QdrantHTTP
+			return fmt.Sprintf("%s\n%s", ic.QdrantHTTP, ic.QdrantGRPC)
 		}
-		return fmt.Sprintf("%s\napi-key: %s", ic.QdrantHTTP, key)
+		return fmt.Sprintf(
+			"QDRANT_URL=%s\nQDRANT_GRPC=%s\nQDRANT_API_KEY=%s",
+			ic.QdrantHTTP, ic.QdrantGRPC, key,
+		)
 	case "searxng":
 		sk := strings.TrimSpace(inst.Credentials.SecretKey)
 		if ic.SearXNGHTTP == "" {

@@ -14,11 +14,8 @@ import {
 } from "@/components/ui/dialog";
 import type { ServiceInstance } from "@/lib/api";
 import { relativeTime } from "@/lib/overview-series";
-import {
-  connectionDetailsBlob,
-  stateBadgeVariant,
-  type ServiceRow,
-} from "@/lib/service-rows";
+import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
+import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
 import * as React from "react";
 
 function Section({
@@ -78,8 +75,6 @@ export function ServiceDetailsDialog({
 }: Props) {
   const inst = row?.instance;
   const backup = inst?.deployment?.backup;
-  const connectionBlob = connectionDetailsBlob(row?.connection);
-
   return (
     <Dialog open={!!row} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg">
@@ -183,36 +178,16 @@ export function ServiceDetailsDialog({
                 </dl>
               </Section>
 
-              <Section title="Connection">
-                {connectionBlob ? (
-                  <div className="space-y-2 py-2">
-                    <p className="text-metadata text-muted-foreground">
-                      Copy this block into your app or{" "}
-                      <code className="text-xs">.env</code> — it includes
-                      everything needed to call the service API.
-                    </p>
-                    <div className="flex items-start gap-2">
-                      <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs text-foreground">
-                        {connectionBlob}
-                      </pre>
-                      <CopyButton
-                        value={connectionBlob}
-                        label="Copy credentials"
-                      />
-                    </div>
-                  </div>
-                ) : (
-                  <dl>
-                    <Field
-                      label="Credentials"
-                      value={
-                        inst.enabled
-                          ? "Waiting for connection details…"
-                          : "Enable this instance to generate credentials"
-                      }
-                    />
-                  </dl>
-                )}
+              <Section title="Remote connection">
+                <p className="mb-3 text-metadata text-muted-foreground">
+                  Endpoints and secrets for clients on the public Internet or
+                  your LAN — copy fields individually or use{" "}
+                  <span className="font-medium">Copy all credentials</span>.
+                </p>
+                <ConnectionCredentialsPanel
+                  connection={row.connection}
+                  enabled={inst.enabled}
+                />
               </Section>
             </DialogBody>
             <DialogFooter>

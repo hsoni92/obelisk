@@ -13,7 +13,7 @@ import (
 func CollectSecrets(configPath string, spec obelisk.Spec) (Secrets, error) {
 	sec := Secrets{Version: 1, Instances: map[string]obelisk.InstanceCredentials{}}
 	for _, inst := range spec.Instances {
-		sec.Instances[inst.ID] = inst.Credentials
+		sec.Instances[inst.StateKey()] = inst.Credentials
 	}
 	if dest, err := backup.LoadDestinationsCredentials(configPath); err != nil {
 		return Secrets{}, err
@@ -103,7 +103,10 @@ func MergeInstanceSecrets(spec *obelisk.Spec, sec Secrets) {
 		return
 	}
 	for i := range spec.Instances {
-		cred, ok := sec.Instances[spec.Instances[i].ID]
+		cred, ok := sec.Instances[spec.Instances[i].StateKey()]
+		if !ok {
+			cred, ok = sec.Instances[spec.Instances[i].ID]
+		}
 		if ok {
 			spec.Instances[i].Credentials = cred
 		}

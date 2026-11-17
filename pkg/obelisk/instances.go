@@ -53,7 +53,7 @@ func DefaultCredentialsForType(typ string) InstanceCredentials {
 		}
 	case "rustfs":
 		return InstanceCredentials{
-			AccessKey: "obelisk",
+			AccessKey: randomDevSecret(16),
 			SecretKey: randomDevSecret(24),
 		}
 	case "qdrant":

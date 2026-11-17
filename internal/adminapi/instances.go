@@ -8,6 +8,7 @@ import (
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/credentials"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -117,8 +118,12 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 	s.mu.Unlock()
 	s.recordAudit("Instance", "created", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
+	ns := instanceNamespace()
+	resolved := obelisk.SpecWithResolvedCredentials(spec, func(in obelisk.ServiceInstance) obelisk.InstanceCredentials {
+		return credentials.MergeInstanceCredentials(r.Context(), ns, in)
+	})
 	use := ""
-	for _, c := range obelisk.BuildConnections(spec, nil).Instances {
+	for _, c := range obelisk.BuildConnections(resolved, nil).Instances {
 		if c.ID == inst.ID && c.Type == inst.Type {
 			use = c.Use
 			break

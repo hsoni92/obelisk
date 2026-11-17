@@ -33,8 +33,22 @@ func TestBuildConnections_EnabledNotRunningStillShares(t *testing.T) {
 		t.Fatalf("expected 1 instance, got %+v", c)
 	}
 	use := c.Instances[0].Use
-	if !strings.Contains(use, "S3_ENDPOINT=") || !strings.Contains(use, "obelisk") || !strings.Contains(use, "s3cr3t") {
+	if !strings.Contains(use, "S3_ENDPOINT=") || !strings.Contains(use, "AWS_ACCESS_KEY_ID=") ||
+		!strings.Contains(use, "AWS_SECRET_ACCESS_KEY=") || !strings.Contains(use, "obelisk") || !strings.Contains(use, "s3cr3t") {
 		t.Fatalf("unexpected use block:\n%s", use)
+	}
+}
+
+func TestInstanceUse_QdrantIncludesKey(t *testing.T) {
+	spec := DefaultSpec("vps")
+	spec.Instances = []ServiceInstance{{
+		ID: "iq1", Type: "qdrant", Enabled: true,
+		Credentials: InstanceCredentials{AccessKey: "qkey"},
+	}}
+	c := BuildConnections(spec, nil)
+	use := c.Instances[0].Use
+	if !strings.Contains(use, "QDRANT_API_KEY=qkey") {
+		t.Fatalf("unexpected use:\n%s", use)
 	}
 }
 

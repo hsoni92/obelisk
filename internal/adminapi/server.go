@@ -10,6 +10,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/credentials"
 	"github.com/hsoni92/obelisk/internal/history"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
@@ -255,9 +256,16 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	cfg := config.EnsureReadablePath(s.ConfigPath)
-	rec := controller.Reconciler{ConfigPath: cfg, HelmRoot: s.HelmRoot}
+	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
-	writeJSON(w, obelisk.BuildConnections(spec, states))
+	ns := rec.Namespace
+	if ns == "" {
+		ns = instanceNamespace()
+	}
+	resolved := obelisk.SpecWithResolvedCredentials(spec, func(inst obelisk.ServiceInstance) obelisk.InstanceCredentials {
+		return credentials.MergeInstanceCredentials(r.Context(), ns, inst)
+	})
+	writeJSON(w, obelisk.BuildConnections(resolved, states))
 }
 
 func (s *Server) handleListProjects(w http.ResponseWriter, _ *http.Request) {

@@ -1,5 +1,6 @@
 "use client";
 
+import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { CopyButton } from "@/components/services/copy-button";
 import { Button } from "@/components/ui/button";
 import {
@@ -134,8 +135,6 @@ function CreateInstanceBody({
     }
   }
 
-  const useBlock = result?.use?.trim();
-
   return (
     <>
       {result ? (
@@ -162,12 +161,16 @@ function CreateInstanceBody({
                 </span>
                 <CopyButton value={result.instance.id} />
               </div>
-              {useBlock ? (
-                <div className="flex items-start gap-2 border-t border-border pt-3">
-                  <pre className="min-w-0 flex-1 whitespace-pre-wrap break-all font-mono text-xs">
-                    {useBlock}
-                  </pre>
-                  <CopyButton value={useBlock} label="Copy credentials" />
+              {result.use?.trim() ? (
+                <div className="border-t border-border pt-3">
+                  <ConnectionCredentialsPanel
+                    connection={{
+                      id: result.instance.id,
+                      type: result.instance.type,
+                      use: result.use,
+                    }}
+                    enabled
+                  />
                 </div>
               ) : null}
             </div>
