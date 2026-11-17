@@ -62,6 +62,24 @@ func (m *memRemote) pushCount() int {
 	return m.pushes
 }
 
+func startSyncLoop(t *testing.T, s *Syncer) {
+	t.Helper()
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan struct{})
+	go func() {
+		s.Loop(ctx)
+		close(done)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			t.Error("blueprint sync loop did not exit after cancel")
+		}
+	})
+}
+
 func newTestSyncer(t *testing.T, remote Remote) (*Syncer, string) {
 	t.Helper()
 	dir := t.TempDir()
@@ -89,9 +107,7 @@ func newTestSyncer(t *testing.T, remote Remote) (*Syncer, string) {
 func TestSyncCoalescesSaves(t *testing.T) {
 	remote := &memRemote{}
 	s, _ := newTestSyncer(t, remote)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go s.Loop(ctx)
+	startSyncLoop(t, s)
 	for i := 0; i < 5; i++ {
 		s.Enqueue()
 	}
@@ -108,9 +124,7 @@ func TestSyncCoalescesSaves(t *testing.T) {
 func TestSyncRetriesFailures(t *testing.T) {
 	remote := &memRemote{failUntil: 2}
 	s, _ := newTestSyncer(t, remote)
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go s.Loop(ctx)
+	startSyncLoop(t, s)
 	s.Enqueue()
 	deadline := time.Now().Add(3 * time.Second)
 	for time.Now().Before(deadline) && remote.pushCount() < 3 {
