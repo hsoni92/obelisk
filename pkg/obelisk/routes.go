@@ -2,7 +2,6 @@ package obelisk
 
 import (
 	"fmt"
-	"net"
 	"os"
 	"strings"
 )
@@ -12,15 +11,15 @@ func KongRouteServiceName(inst ServiceInstance) string {
 	return fmt.Sprintf("route-%s-%s", inst.Type, inst.ID)
 }
 
+// KongTCPRouteServiceName is the Kong stream service name for native TLS edge routes.
+func KongTCPRouteServiceName(inst ServiceInstance) string {
+	return fmt.Sprintf("route-tcp-%s-%s", inst.Type, inst.ID)
+}
+
 // PublicHTTPPaths returns Kong path prefixes for HTTP-exposed instance types.
-// RustFS uses host-based Kong routes (SigV4 cannot be path-prefixed); see PublicS3Host.
+// VPS uses hostname-based Kong routes on port 80 instead of path prefixes.
 func PublicHTTPPaths(inst ServiceInstance) []string {
-	switch inst.Type {
-	case "rustfs":
-		return nil
-	default:
-		return nil
-	}
+	return nil
 }
 
 // PublicHTTPPath returns the canonical public HTTP path prefix for an instance, or "".
@@ -32,34 +31,20 @@ func PublicHTTPPath(inst ServiceInstance) string {
 	return paths[0]
 }
 
-// PublicS3BaseDomain is the DNS suffix shared by RustFS instance hostnames.
-// Bare IPs map to sslip.io so clients can resolve s3-<id>.<ip-as-label>.sslip.io without extra DNS.
-func PublicS3BaseDomain() string {
-	host := PublicHost()
-	if ip := net.ParseIP(host); ip != nil {
-		return strings.ReplaceAll(host, ".", "-") + ".sslip.io"
-	}
-	return host
-}
-
-// PublicS3Host is the virtual host clients and SDKs should use for an instance's S3 API (root path /).
+// PublicS3Host is the RustFS S3 virtual host (s3- prefix).
 func PublicS3Host(inst ServiceInstance) string {
 	if inst.Type != "rustfs" {
 		return ""
 	}
-	return fmt.Sprintf("s3-%s.%s", inst.ID, PublicS3BaseDomain())
+	return PublicEdgeHost(inst)
 }
 
-// PublicS3Endpoint is the full S3 base URL (no bucket suffix) for SDK endpoint / endpoint_url configuration.
+// PublicS3Endpoint is the full S3 base URL for SDKs (Kong HTTP :80).
 func PublicS3Endpoint(inst ServiceInstance) string {
-	host := PublicS3Host(inst)
-	if host == "" {
+	if inst.Type != "rustfs" {
 		return ""
 	}
-	if p := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT")); p != "" {
-		return fmt.Sprintf("http://%s:%s", host, p)
-	}
-	return "http://" + host
+	return PublicHTTPEdgeURL(inst)
 }
 
 // KongRustFSHosts lists Host header values Kong should route to this RustFS instance.
@@ -67,14 +52,10 @@ func KongRustFSHosts(inst ServiceInstance) []string {
 	if inst.Type != "rustfs" {
 		return nil
 	}
-	hosts := []string{PublicS3Host(inst)}
-	if inst.ID == LegacyDefaultInstanceID {
-		hosts = append(hosts, "s3."+PublicS3BaseDomain())
-	}
-	return hosts
+	return KongEdgeHosts(inst)
 }
 
-// RustFSServerDomains is the value for RUSTFS_SERVER_DOMAINS (Host header clients send, including port when non-default).
+// RustFSServerDomains is RUSTFS_SERVER_DOMAINS (client Host header, with non-default HTTP port if set).
 func RustFSServerDomains(inst ServiceInstance) string {
 	host := PublicS3Host(inst)
 	if host == "" {

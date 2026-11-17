@@ -24,7 +24,7 @@ func TestBuildConnections_Instance(t *testing.T) {
 
 func TestBuildConnections_EnabledNotRunningStillShares(t *testing.T) {
 	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
-	spec := DefaultSpec("vps")
+	spec := DefaultSpec("vps") // profile=vps → http edge hostnames
 	spec.Instances = []ServiceInstance{{
 		ID: "pqr", Type: "rustfs", Enabled: true,
 		Credentials: InstanceCredentials{AccessKey: "obelisk", SecretKey: "s3cr3t"},

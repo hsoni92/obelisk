@@ -52,7 +52,11 @@ func PublicHost() string {
 func BuildConnections(spec Spec, states map[string]string) Connections {
 	_ = states
 	host := PublicHost()
+	vpsEdge := VPSEdge(spec)
 	out := Connections{}
+	if vpsEdge {
+		out.Notes = "VPS edge: HTTP APIs on port 80 (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort + " (same hostname, Kong SNI). Trust Obelisk's auto-generated edge cert or terminate TLS upstream."
+	}
 
 	for _, inst := range spec.Instances {
 		if !inst.Enabled {
@@ -64,16 +68,14 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			DisplayName: inst.DisplayName,
 			RouteID:     inst.ID,
 		}
-		switch inst.Type {
-		case "rustfs":
-			if h := PublicS3Host(inst); h != "" {
+		if vpsEdge {
+			if h := PublicEdgeHost(inst); h != "" {
 				ic.PublicPath = h
 			}
-		default:
-			if p := PublicHTTPPath(inst); p != "" {
-				ic.PublicPath = p
-			}
+		} else if p := PublicHTTPPath(inst); p != "" {
+			ic.PublicPath = p
 		}
+
 		switch inst.Type {
 		case "postgres", "mysql", "mongodb":
 			user := inst.Credentials.Username
@@ -88,27 +90,72 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			if pass == "" {
 				pass = "SECRET"
 			}
+			edgeHost := host
+			if vpsEdge {
+				edgeHost = PublicEdgeHost(inst)
+			}
 			switch inst.Type {
 			case "postgres":
-				ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
+				if vpsEdge {
+					ic.Postgres = fmt.Sprintf(
+						"postgresql://%s:%s@%s:%s/%s?sslmode=require",
+						user, pass, edgeHost, NativeEdgeTLSPort, db,
+					)
+				} else {
+					ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
+				}
 			case "mysql":
-				ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
+				if vpsEdge {
+					ic.MySQL = fmt.Sprintf(
+						"mysql://%s:%s@tcp(%s:%s)/%s?tls=true",
+						user, pass, edgeHost, NativeEdgeTLSPort, db,
+					)
+				} else {
+					ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
+				}
 			case "mongodb":
-				ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
+				if vpsEdge {
+					ic.MongoDB = fmt.Sprintf(
+						"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true",
+						user, pass, edgeHost, NativeEdgeTLSPort, db,
+					)
+				} else {
+					ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
+				}
 			}
 		case "redis":
-			if inst.Credentials.Password != "" {
+			if vpsEdge {
+				edgeHost := PublicEdgeHost(inst)
+				if inst.Credentials.Password != "" {
+					ic.Redis = fmt.Sprintf("rediss://:%s@%s:%s/0", url.QueryEscape(inst.Credentials.Password), edgeHost, NativeEdgeTLSPort)
+				} else {
+					ic.Redis = fmt.Sprintf("rediss://%s:%s/0", edgeHost, NativeEdgeTLSPort)
+				}
+			} else if inst.Credentials.Password != "" {
 				ic.Redis = fmt.Sprintf("redis://:%s@%s:6379/0", url.QueryEscape(inst.Credentials.Password), host)
 			} else {
 				ic.Redis = fmt.Sprintf("redis://%s:6379/0", host)
 			}
 		case "rustfs":
-			ic.S3HTTP = PublicS3Endpoint(inst)
+			if vpsEdge {
+				ic.S3HTTP = PublicS3Endpoint(inst)
+			} else {
+				ic.S3HTTP = PublicS3Endpoint(inst)
+			}
 		case "qdrant":
-			ic.QdrantHTTP = fmt.Sprintf("http://%s:6333", host)
-			ic.QdrantGRPC = fmt.Sprintf("%s:6334", host)
+			if vpsEdge {
+				ic.QdrantHTTP = PublicHTTPEdgeURL(inst)
+				ic.QdrantGRPC = ""
+			} else {
+				ic.QdrantHTTP = fmt.Sprintf("http://%s:6333", host)
+				ic.QdrantGRPC = fmt.Sprintf("%s:6334", host)
+			}
 		case "searxng":
-			ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
+			if vpsEdge {
+				ic.SearXNGHTTP = PublicHTTPEdgeURL(inst)
+			} else {
+				ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
+			}
 		}
 		ic.Use = instanceUse(inst, ic)
 		out.Instances = append(out.Instances, ic)
@@ -150,7 +197,13 @@ func instanceUse(inst ServiceInstance, ic InstanceConnection) string {
 			return ""
 		}
 		if key == "" {
+			if ic.QdrantGRPC == "" {
+				return ic.QdrantHTTP
+			}
 			return fmt.Sprintf("%s\n%s", ic.QdrantHTTP, ic.QdrantGRPC)
+		}
+		if ic.QdrantGRPC == "" {
+			return fmt.Sprintf("QDRANT_URL=%s\nQDRANT_API_KEY=%s", ic.QdrantHTTP, key)
 		}
 		return fmt.Sprintf(
 			"QDRANT_URL=%s\nQDRANT_GRPC=%s\nQDRANT_API_KEY=%s",

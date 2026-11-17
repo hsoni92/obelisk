@@ -123,3 +123,31 @@ services: []
 		t.Fatalf("expected route service name:\n%s", s)
 	}
 }
+
+func TestMergeInstanceRoutes_RedisNativeTLS(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
+	spec := obelisk.DefaultSpec("vps")
+	spec.Instances = []obelisk.ServiceInstance{{
+		ID: "pqr", Type: "redis", Enabled: true,
+	}}
+	out, err := mergeInstanceRoutes([]byte(`_format_version: "3.0"
+_transform: true
+services: []
+`), spec)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(out)
+	if !strings.Contains(s, "route-tcp-redis-pqr") {
+		t.Fatalf("missing tcp route:\n%s", s)
+	}
+	if !strings.Contains(s, "redis-pqr.vps.example.com") {
+		t.Fatalf("missing sni host:\n%s", s)
+	}
+	if !strings.Contains(s, "protocol: tcp") {
+		t.Fatalf("missing tcp protocol:\n%s", s)
+	}
+	if !strings.Contains(s, "certificates:") {
+		t.Fatalf("missing edge cert:\n%s", s)
+	}
+}

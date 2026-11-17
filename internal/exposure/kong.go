@@ -13,7 +13,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// ReconcileKong merges RustFS S3 routes into the platform Kong declarative config
+// ReconcileKong merges instance edge routes into the platform Kong declarative config
 // and applies it when it differs from the cluster ConfigMap.
 func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace string) error {
 	if namespace == "" {
@@ -24,7 +24,7 @@ func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace s
 	if err != nil {
 		return fmt.Errorf("read kong base %s: %w", basePath, err)
 	}
-	rendered, err := mergeRustFSRoutes(base, spec)
+	rendered, err := mergeInstanceRoutes(base, spec)
 	if err != nil {
 		return err
 	}
@@ -42,22 +42,34 @@ func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace s
 }
 
 type kongDeclarative struct {
-	FormatVersion string        `yaml:"_format_version"`
-	Transform     bool          `yaml:"_transform"`
-	Services      []kongService `yaml:"services"`
+	FormatVersion string            `yaml:"_format_version"`
+	Transform     bool              `yaml:"_transform"`
+	Services      []kongService     `yaml:"services"`
+	Certificates  []kongCertificate `yaml:"certificates,omitempty"`
+}
+
+type kongCertificate struct {
+	Cert string   `yaml:"cert"`
+	Key  string   `yaml:"key"`
+	SNIs []string `yaml:"snis,omitempty"`
 }
 
 type kongService struct {
-	Name    string       `yaml:"name"`
-	URL     string       `yaml:"url"`
-	Routes  []kongRoute  `yaml:"routes"`
-	Plugins []kongPlugin `yaml:"plugins,omitempty"`
+	Name     string       `yaml:"name"`
+	URL      string       `yaml:"url,omitempty"`
+	Host     string       `yaml:"host,omitempty"`
+	Port     int          `yaml:"port,omitempty"`
+	Protocol string       `yaml:"protocol,omitempty"`
+	Routes   []kongRoute  `yaml:"routes"`
+	Plugins  []kongPlugin `yaml:"plugins,omitempty"`
 }
 
 type kongRoute struct {
 	Name         string       `yaml:"name"`
 	Paths        []string     `yaml:"paths,omitempty"`
 	Hosts        []string     `yaml:"hosts,omitempty"`
+	Protocols    []string     `yaml:"protocols,omitempty"`
+	SNIs         []string     `yaml:"snis,omitempty"`
 	StripPath    *bool        `yaml:"strip_path,omitempty"`
 	PreserveHost *bool        `yaml:"preserve_host,omitempty"`
 	Plugins      []kongPlugin `yaml:"plugins,omitempty"`
@@ -83,7 +95,7 @@ func kongYAMLSemanticallyEqual(a, b []byte) bool {
 }
 
 func kongDeclarativeEqual(a, b kongDeclarative) bool {
-	if len(a.Services) != len(b.Services) {
+	if len(a.Services) != len(b.Services) || len(a.Certificates) != len(b.Certificates) {
 		return false
 	}
 	for i := range a.Services {
@@ -91,11 +103,24 @@ func kongDeclarativeEqual(a, b kongDeclarative) bool {
 			return false
 		}
 	}
+	for i := range a.Certificates {
+		ca, cb := a.Certificates[i], b.Certificates[i]
+		if ca.Cert != cb.Cert || ca.Key != cb.Key || !stringSliceEqual(ca.SNIs, cb.SNIs) {
+			return false
+		}
+	}
 	return true
 }
 
 func kongServiceEqual(a, b kongService) bool {
-	if a.Name != b.Name || a.URL != b.URL {
+	if a.Name != b.Name || a.Protocol != b.Protocol {
+		return false
+	}
+	if a.Protocol == "tcp" {
+		if a.Host != b.Host || a.Port != b.Port {
+			return false
+		}
+	} else if a.URL != b.URL {
 		return false
 	}
 	if len(a.Routes) != len(b.Routes) || len(a.Plugins) != len(b.Plugins) {
@@ -104,6 +129,9 @@ func kongServiceEqual(a, b kongService) bool {
 	for i := range a.Routes {
 		ra, rb := a.Routes[i], b.Routes[i]
 		if ra.Name != rb.Name || !stringSliceEqual(ra.Paths, rb.Paths) || !stringSliceEqual(ra.Hosts, rb.Hosts) {
+			return false
+		}
+		if !stringSliceEqual(ra.Protocols, rb.Protocols) || !stringSliceEqual(ra.SNIs, rb.SNIs) {
 			return false
 		}
 		if !boolPtrEqual(ra.StripPath, rb.StripPath) || !boolPtrEqual(ra.PreserveHost, rb.PreserveHost) {
@@ -140,7 +168,7 @@ func boolPtrEqual(a, b *bool) bool {
 	return *a == *b
 }
 
-func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
+func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 	var doc kongDeclarative
 	if err := yaml.Unmarshal(baseYAML, &doc); err != nil {
 		return nil, fmt.Errorf("parse kong base: %w", err)
@@ -153,14 +181,33 @@ func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 		filtered = append(filtered, svc)
 	}
 	for _, inst := range spec.Instances {
-		if inst.Type != "rustfs" || !inst.Enabled {
+		if !inst.Enabled {
 			continue
 		}
-		if svc, ok := kongServiceForInstance(inst); ok {
+		if !obelisk.VPSEdge(spec) {
+			continue
+		}
+		if svc, ok := kongHTTPServiceForInstance(inst); ok {
+			filtered = append(filtered, svc)
+		}
+		if svc, ok := kongTCPServiceForInstance(inst); ok {
 			filtered = append(filtered, svc)
 		}
 	}
 	doc.Services = filtered
+	doc.Certificates = nil
+	if obelisk.VPSEdge(spec) && edgeNeedsNativeTLS(spec) {
+		certPEM, keyPEM, err := edgeWildcardTLSCert(obelisk.PublicEdgeBaseDomain())
+		if err != nil {
+			return nil, fmt.Errorf("edge tls cert: %w", err)
+		}
+		wildcard := "*." + obelisk.PublicEdgeBaseDomain()
+		doc.Certificates = []kongCertificate{{
+			Cert: indentPEM(certPEM),
+			Key:  indentPEM(keyPEM),
+			SNIs: []string{wildcard, obelisk.PublicEdgeBaseDomain()},
+		}}
+	}
 	out, err := yaml.Marshal(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("marshal kong: %w", err)
@@ -168,32 +215,56 @@ func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 	return out, nil
 }
 
+// mergeRustFSRoutes is an alias kept for tests.
+func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
+	return mergeInstanceRoutes(baseYAML, spec)
+}
+
+func indentPEM(pem string) string {
+	return strings.TrimSpace(pem)
+}
+
+func edgeNeedsNativeTLS(spec obelisk.Spec) bool {
+	for _, inst := range spec.Instances {
+		if !inst.Enabled {
+			continue
+		}
+		if _, ok := obelisk.NativeEdgeTypes[inst.Type]; ok {
+			return true
+		}
+	}
+	return false
+}
+
 func isManagedInstanceRoute(name string) bool {
 	return strings.HasPrefix(name, "route-") || strings.HasPrefix(name, "rustfs-s3")
 }
 
-func kongServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool) {
+func kongHTTPServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool) {
+	port, ok := obelisk.HTTPEdgeTypes[inst.Type]
+	if !ok {
+		return kongService{}, false
+	}
+	hosts := obelisk.KongEdgeHosts(inst)
+	if len(hosts) == 0 {
+		return kongService{}, false
+	}
 	name := obelisk.KongRouteServiceName(inst)
-	routeName := name
-	switch inst.Type {
-	case "rustfs":
-		hosts := obelisk.KongRustFSHosts(inst)
-		if len(hosts) == 0 {
-			return kongService{}, false
-		}
-		strip := false
-		preserve := true
-		return kongService{
-			Name: name,
-			URL:  fmt.Sprintf("http://%s:9000", inst.ReleaseName()),
-			Routes: []kongRoute{{
-				Name:         routeName,
-				Hosts:        hosts,
-				Paths:        []string{"/"},
-				StripPath:    &strip,
-				PreserveHost: &preserve,
-			}},
-		Plugins: []kongPlugin{
+	strip := false
+	preserve := true
+	svc := kongService{
+		Name: name,
+		URL:  fmt.Sprintf("http://%s:%d", inst.ReleaseName(), port),
+		Routes: []kongRoute{{
+			Name:         name,
+			Hosts:        hosts,
+			Paths:        []string{"/"},
+			StripPath:    &strip,
+			PreserveHost: &preserve,
+		}},
+	}
+	if inst.Type == "rustfs" {
+		svc.Plugins = []kongPlugin{
 			{
 				Name: "rate-limiting",
 				Config: map[string]any{
@@ -206,11 +277,32 @@ func kongServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool) {
 					"allowed_payload_size": 50,
 				},
 			},
-		},
-	}, true
-	default:
+		}
+	}
+	return svc, true
+}
+
+func kongTCPServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool) {
+	port, ok := obelisk.NativeEdgeTypes[inst.Type]
+	if !ok {
 		return kongService{}, false
 	}
+	snis := obelisk.KongEdgeHosts(inst)
+	if len(snis) == 0 {
+		return kongService{}, false
+	}
+	name := obelisk.KongTCPRouteServiceName(inst)
+	return kongService{
+		Name:     name,
+		Protocol: "tcp",
+		Host:     inst.ReleaseName(),
+		Port:     port,
+		Routes: []kongRoute{{
+			Name:      name,
+			Protocols: []string{"tls"},
+			SNIs:      snis,
+		}},
+	}, true
 }
 
 func kongConfigFromCluster(ctx context.Context, namespace string) (string, error) {
