@@ -7,12 +7,19 @@ OBELISK_REPO="${OBELISK_REPO:-hsoni92/obelisk}"
 OBELISK_REF="${OBELISK_REF:-main}"
 INSTALL_LOG="${OBELISK_INSTALL_LOG:-/var/log/obelisk-install.log}"
 
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-if [[ -f "$SCRIPT_DIR/fetch-source.sh" ]]; then
+# When piped from curl, BASH_SOURCE[0] is unset (set -u would abort); sibling sources are inlined below.
+SCRIPT_DIR=""
+if [[ -n "${BASH_SOURCE[0]:-}" ]]; then
+  _install_sh="${BASH_SOURCE[0]}"
+  if [[ -f "$_install_sh" ]]; then
+    SCRIPT_DIR="$(cd "$(dirname "$_install_sh")" && pwd)"
+  fi
+fi
+if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/fetch-source.sh" ]]; then
   # shellcheck source=install/fetch-source.sh
   source "$SCRIPT_DIR/fetch-source.sh"
 fi
-if [[ -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
+if [[ -n "$SCRIPT_DIR" && -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
   # shellcheck source=install/resolve-admin-url.sh
   source "$SCRIPT_DIR/resolve-admin-url.sh"
 fi
