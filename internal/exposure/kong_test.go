@@ -150,4 +150,10 @@ services: []
 	if !strings.Contains(s, "certificates:") {
 		t.Fatalf("missing edge cert:\n%s", s)
 	}
+	if strings.Contains(s, "snis:\n            - '*.") {
+		t.Fatalf("expected kong snis objects, got bare strings:\n%s", s)
+	}
+	if !strings.Contains(s, "name: '*.") && !strings.Contains(s, "name: \"*.") {
+		t.Fatalf("missing sni name field:\n%s", s)
+	}
 }

@@ -48,10 +48,15 @@ type kongDeclarative struct {
 	Certificates  []kongCertificate `yaml:"certificates,omitempty"`
 }
 
+type kongSNIName struct {
+	Name string `yaml:"name"`
+}
+
+// Kong 3.4 declarative expects snis as {name: ...} objects, not bare strings.
 type kongCertificate struct {
-	Cert string   `yaml:"cert"`
-	Key  string   `yaml:"key"`
-	SNIs []string `yaml:"snis,omitempty"`
+	Cert string        `yaml:"cert"`
+	Key  string        `yaml:"key"`
+	SNIs []kongSNIName `yaml:"snis,omitempty"`
 }
 
 type kongService struct {
@@ -105,8 +110,13 @@ func kongDeclarativeEqual(a, b kongDeclarative) bool {
 	}
 	for i := range a.Certificates {
 		ca, cb := a.Certificates[i], b.Certificates[i]
-		if ca.Cert != cb.Cert || ca.Key != cb.Key || !stringSliceEqual(ca.SNIs, cb.SNIs) {
+		if ca.Cert != cb.Cert || ca.Key != cb.Key || len(ca.SNIs) != len(cb.SNIs) {
 			return false
+		}
+		for j := range ca.SNIs {
+			if ca.SNIs[j].Name != cb.SNIs[j].Name {
+				return false
+			}
 		}
 	}
 	return true
@@ -201,11 +211,12 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 		if err != nil {
 			return nil, fmt.Errorf("edge tls cert: %w", err)
 		}
-		wildcard := "*." + obelisk.PublicEdgeBaseDomain()
+		base := obelisk.PublicEdgeBaseDomain()
+		wildcard := "*." + base
 		doc.Certificates = []kongCertificate{{
 			Cert: indentPEM(certPEM),
 			Key:  indentPEM(keyPEM),
-			SNIs: []string{wildcard, obelisk.PublicEdgeBaseDomain()},
+			SNIs: []kongSNIName{{Name: wildcard}, {Name: base}},
 		}}
 	}
 	out, err := yaml.Marshal(&doc)
