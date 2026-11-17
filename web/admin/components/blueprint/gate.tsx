@@ -7,15 +7,23 @@ import { useEffect, useMemo, useState } from "react";
 
 export function BlueprintGate({ children }: { children: React.ReactNode }) {
   const router = useRouter();
-  const { data, isLoading, isError, error, failureCount, isFetching } =
+  const { data, isLoading, isError, error, isFetching } =
     useGetBlueprintStatusQuery(undefined, {
       pollingInterval: 5000,
     });
   const [bootGrace, setBootGrace] = useState(true);
+  const [errorStreak, setErrorStreak] = useState(0);
   useEffect(() => {
     const t = window.setTimeout(() => setBootGrace(false), 25000);
     return () => window.clearTimeout(t);
   }, []);
+  useEffect(() => {
+    if (isError && !isFetching) {
+      setErrorStreak((n) => n + 1);
+    } else if (data) {
+      setErrorStreak(0);
+    }
+  }, [isError, isFetching, data]);
   const wrongPort = useMemo(() => {
     if (typeof window === "undefined") return false;
     const port = window.location.port;
@@ -33,8 +41,8 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     }
   }, [data, router]);
 
-  const failures = failureCount ?? 0;
-  const showFatal = isError && !isFetching && failures >= 3 && !bootGrace;
+  const showFatal =
+    isError && !isFetching && errorStreak >= 3 && !bootGrace;
   if (showFatal) {
     const detail = rtkErrorMessage(error);
     return (
