@@ -260,15 +260,20 @@ stage_s6_rbac() {
 
 stage_s7_images() {
   resume_after S7 || { log "skip S7 (resume)"; return 0; }
-  if command -v k3s >/dev/null; then
-    while IFS= read -r ref; do
-      [[ -z "$ref" ]] && continue
-      log "k3s ctr rm $ref"
-      k3s ctr images rm "$ref" 2>/dev/null || true
-    done < <(k3s ctr images ls 2>/dev/null | awk '{print $1}' | grep -E 'obelisk-(controller|admin-ui)' || true)
-  fi
-  if docker info >/dev/null 2>&1; then
-    docker image rm -f obelisk-controller:0.1.0 obelisk-admin-ui:0.1.0 2>/dev/null || true
+  local cleanup="$OBELISK_ROOT/install/cleanup.sh"
+  if [[ -f "$cleanup" ]]; then
+    OBELISK_CLEANUP_ALL_PLATFORM_IMAGES=true OBELISK_ROOT="$OBELISK_ROOT" bash "$cleanup" || PARTIAL=true
+  else
+    if command -v k3s >/dev/null; then
+      while IFS= read -r ref; do
+        [[ -z "$ref" ]] && continue
+        log "k3s ctr rm $ref"
+        k3s ctr images rm "$ref" 2>/dev/null || true
+      done < <(k3s ctr images ls 2>/dev/null | awk '{print $1}' | grep -E 'obelisk-(controller|admin-ui)' || true)
+    fi
+    if docker info >/dev/null 2>&1; then
+      docker image rm -f obelisk-controller:0.1.0 obelisk-admin-ui:0.1.0 2>/dev/null || true
+    fi
   fi
   write_meta S7
 }

@@ -23,6 +23,7 @@ func TestBuildConnections_Instance(t *testing.T) {
 }
 
 func TestBuildConnections_EnabledNotRunningStillShares(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
 	spec := DefaultSpec("vps")
 	spec.Instances = []ServiceInstance{{
 		ID: "pqr", Type: "rustfs", Enabled: true,
@@ -33,7 +34,8 @@ func TestBuildConnections_EnabledNotRunningStillShares(t *testing.T) {
 		t.Fatalf("expected 1 instance, got %+v", c)
 	}
 	use := c.Instances[0].Use
-	if !strings.Contains(use, "S3_ENDPOINT=") || !strings.Contains(use, "AWS_ACCESS_KEY_ID=") ||
+	if !strings.Contains(use, "S3_ENDPOINT=http://s3-pqr.vps.example.com") ||
+		!strings.Contains(use, "AWS_ACCESS_KEY_ID=") ||
 		!strings.Contains(use, "AWS_SECRET_ACCESS_KEY=") || !strings.Contains(use, "obelisk") || !strings.Contains(use, "s3cr3t") {
 		t.Fatalf("unexpected use block:\n%s", use)
 	}

@@ -32,6 +32,11 @@ func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup fun
 		"credentials": creds,
 		"replicas":    replicas,
 	}
+	if inst.Type == "rustfs" {
+		if d := obelisk.RustFSServerDomains(inst); d != "" {
+			vals["serverDomains"] = d
+		}
+	}
 	data, err := yaml.Marshal(vals)
 	if err != nil {
 		return "", func() {}, err

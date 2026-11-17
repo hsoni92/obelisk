@@ -60,8 +60,11 @@ services:
 	if !strings.Contains(s, "url: http://obelisk-rustfs:9000") {
 		t.Fatalf("missing rustfs upstream:\n%s", s)
 	}
-	if !strings.Contains(s, "/s3") {
-		t.Fatalf("missing /s3 path:\n%s", s)
+	if !strings.Contains(s, "s3-default.") {
+		t.Fatalf("missing rustfs virtual host:\n%s", s)
+	}
+	if !strings.Contains(s, "preserve_host: true") {
+		t.Fatalf("missing preserve_host:\n%s", s)
 	}
 }
 
@@ -95,8 +98,8 @@ services: []
 	if !strings.Contains(s, "obelisk-rustfs-iarchive01:9000") {
 		t.Fatalf("missing release-specific upstream:\n%s", s)
 	}
-	if !strings.Contains(s, "/s3/iarchive01") {
-		t.Fatalf("missing instance path:\n%s", s)
+	if !strings.Contains(s, "s3-iarchive01.") {
+		t.Fatalf("missing instance host:\n%s", s)
 	}
 }
 
@@ -113,8 +116,8 @@ services: []
 		t.Fatal(err)
 	}
 	s := string(out)
-	if !strings.Contains(s, "/s3/ia1b2c3d4e5f") {
-		t.Fatalf("expected id in path:\n%s", s)
+	if !strings.Contains(s, "s3-ia1b2c3d4e5f.") {
+		t.Fatalf("expected id in host:\n%s", s)
 	}
 	if !strings.Contains(s, "route-rustfs-ia1b2c3d4e5f") {
 		t.Fatalf("expected route service name:\n%s", s)

@@ -55,10 +55,12 @@ type kongService struct {
 }
 
 type kongRoute struct {
-	Name       string   `yaml:"name"`
-	Paths      []string `yaml:"paths"`
-	StripPath  *bool    `yaml:"strip_path,omitempty"`
-	Plugins    []kongPlugin `yaml:"plugins,omitempty"`
+	Name         string       `yaml:"name"`
+	Paths        []string     `yaml:"paths,omitempty"`
+	Hosts        []string     `yaml:"hosts,omitempty"`
+	StripPath    *bool        `yaml:"strip_path,omitempty"`
+	PreserveHost *bool        `yaml:"preserve_host,omitempty"`
+	Plugins      []kongPlugin `yaml:"plugins,omitempty"`
 }
 
 type kongPlugin struct {
@@ -101,10 +103,10 @@ func kongServiceEqual(a, b kongService) bool {
 	}
 	for i := range a.Routes {
 		ra, rb := a.Routes[i], b.Routes[i]
-		if ra.Name != rb.Name || !stringSliceEqual(ra.Paths, rb.Paths) {
+		if ra.Name != rb.Name || !stringSliceEqual(ra.Paths, rb.Paths) || !stringSliceEqual(ra.Hosts, rb.Hosts) {
 			return false
 		}
-		if !boolPtrEqual(ra.StripPath, rb.StripPath) {
+		if !boolPtrEqual(ra.StripPath, rb.StripPath) || !boolPtrEqual(ra.PreserveHost, rb.PreserveHost) {
 			return false
 		}
 	}
@@ -171,22 +173,25 @@ func isManagedInstanceRoute(name string) bool {
 }
 
 func kongServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool) {
-	paths := obelisk.PublicHTTPPaths(inst)
-	if len(paths) == 0 {
-		return kongService{}, false
-	}
 	name := obelisk.KongRouteServiceName(inst)
-	strip := true
 	routeName := name
 	switch inst.Type {
 	case "rustfs":
+		hosts := obelisk.KongRustFSHosts(inst)
+		if len(hosts) == 0 {
+			return kongService{}, false
+		}
+		strip := false
+		preserve := true
 		return kongService{
 			Name: name,
 			URL:  fmt.Sprintf("http://%s:9000", inst.ReleaseName()),
 			Routes: []kongRoute{{
-				Name:      routeName,
-				Paths:     paths,
-				StripPath: &strip,
+				Name:         routeName,
+				Hosts:        hosts,
+				Paths:        []string{"/"},
+				StripPath:    &strip,
+				PreserveHost: &preserve,
 			}},
 		Plugins: []kongPlugin{
 			{

@@ -40,14 +40,30 @@ func TestRepairDuplicateInstanceIDs(t *testing.T) {
 	}
 }
 
-func TestPublicHTTPPaths_RustFS(t *testing.T) {
+func TestPublicS3Host_RustFS(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "db.example.com")
 	defaultInst := ServiceInstance{ID: LegacyDefaultInstanceID, Type: "rustfs"}
-	paths := PublicHTTPPaths(defaultInst)
-	if len(paths) != 2 || paths[0] != "/s3/default" || paths[1] != "/s3" {
-		t.Fatalf("%v", paths)
+	if got := PublicS3Host(defaultInst); got != "s3-default.db.example.com" {
+		t.Fatalf("default host: %q", got)
+	}
+	hosts := KongRustFSHosts(defaultInst)
+	if len(hosts) != 2 || hosts[0] != "s3-default.db.example.com" || hosts[1] != "s3.db.example.com" {
+		t.Fatalf("%v", hosts)
 	}
 	auto := ServiceInstance{ID: "ia1b2c3d4", Type: "rustfs"}
-	if p := PublicHTTPPath(auto); p != "/s3/ia1b2c3d4" {
-		t.Fatal(p)
+	if got := PublicS3Host(auto); got != "s3-ia1b2c3d4.db.example.com" {
+		t.Fatal(got)
+	}
+}
+
+func TestPublicS3Host_IPUsesSSLip(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "178.105.35.230")
+	inst := ServiceInstance{ID: "pqr", Type: "rustfs"}
+	want := "s3-pqr.178-105-35-230.sslip.io"
+	if got := PublicS3Host(inst); got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+	if got := PublicS3Endpoint(inst); got != "http://"+want {
+		t.Fatalf("endpoint %q", got)
 	}
 }

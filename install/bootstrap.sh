@@ -134,8 +134,10 @@ deploy_platform() {
     fi
   fi
   # shellcheck disable=SC2086
+  local helm_history_max="${OBELISK_HELM_HISTORY_MAX:-10}"
   helm upgrade --install obelisk-platform "$OBELISK_ROOT/deploy/helm/platform" \
     --namespace "$NAMESPACE" --create-namespace --wait --timeout 15m \
+    --history-max "$helm_history_max" \
     --set obelisk.configHostPath="$CONFIG_PATH" \
     --set obelisk.helmRoot="$OBELISK_ROOT" \
     --set "obelisk.imageController=obelisk-controller:${OBELISK_IMAGE_TAG}" \
@@ -152,6 +154,16 @@ install_cli() {
   fi
 }
 
+post_install_cleanup() {
+  local script="$OBELISK_ROOT/install/cleanup.sh"
+  if [[ ! -f "$script" ]]; then
+    return 0
+  fi
+  chmod +x "$script" 2>/dev/null || true
+  export OBELISK_IMAGE_TAG="${OBELISK_IMAGE_TAG:-}"
+  OBELISK_NAMESPACE="$NAMESPACE" OBELISK_ROOT="$OBELISK_ROOT" bash "$script"
+}
+
 main() {
   preflight
   install_k3s
@@ -160,6 +172,7 @@ main() {
   write_config
   deploy_platform
   install_cli
+  post_install_cleanup
   log "platform-ready — open admin UI via Kong route on this host"
 }
 

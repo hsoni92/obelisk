@@ -64,8 +64,15 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			DisplayName: inst.DisplayName,
 			RouteID:     inst.ID,
 		}
-		if p := PublicHTTPPath(inst); p != "" {
-			ic.PublicPath = p
+		switch inst.Type {
+		case "rustfs":
+			if h := PublicS3Host(inst); h != "" {
+				ic.PublicPath = h
+			}
+		default:
+			if p := PublicHTTPPath(inst); p != "" {
+				ic.PublicPath = p
+			}
 		}
 		switch inst.Type {
 		case "postgres", "mysql", "mongodb":
@@ -96,12 +103,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				ic.Redis = fmt.Sprintf("redis://%s:6379/0", host)
 			}
 		case "rustfs":
-			s3Path := PublicHTTPPath(inst)
-			if p := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT")); p != "" {
-				ic.S3HTTP = fmt.Sprintf("http://%s:%s%s", host, p, s3Path)
-			} else {
-				ic.S3HTTP = fmt.Sprintf("http://%s%s", host, s3Path)
-			}
+			ic.S3HTTP = PublicS3Endpoint(inst)
 		case "qdrant":
 			ic.QdrantHTTP = fmt.Sprintf("http://%s:6333", host)
 			ic.QdrantGRPC = fmt.Sprintf("%s:6334", host)

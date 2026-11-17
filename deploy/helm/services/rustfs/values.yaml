@@ -7,6 +7,9 @@ image:
 credentials:
   accessKey: obelisk
   secretKey: changeme-rustfs-dev
+
+# Public S3 hostname clients use (set by controller from OBELISK_PUBLIC_HOST).
+serverDomains: ""
 # helm sets credentials.* per instance from obelisk.yaml
 
 storage:

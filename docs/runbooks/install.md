@@ -38,6 +38,18 @@ sudo obelisk update --skip-images   # helm/controller rollout only (no new UI im
 
 This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Each upgrade tags images uniquely so Helm rolls the admin UI and controller pods (rebuilding the same `0.1.0` tag alone does not refresh running pods). Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
 
+After each install or upgrade, bootstrap runs **`install/cleanup.sh`** automatically: stale platform Docker/k3s images (keeping the current tag), Helm revision pruning, light dangling-layer prune, and install-log rotation.
+
+### Disk cleanup (manual)
+
+```bash
+sudo obelisk cleanup              # stale platform images, Helm history, light Docker prune
+sudo obelisk cleanup --dry-run    # preview
+sudo obelisk cleanup --deep       # normal + Docker build cache (slower next image build)
+```
+
+Set `OBELISK_SKIP_POST_INSTALL_CLEANUP=true` on bootstrap to skip automatic cleanup.
+
 ## Uninstall / failed install
 
 If bootstrap failed or you need to reclaim the VPS:
