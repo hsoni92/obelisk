@@ -100,6 +100,15 @@ export function connectionDetailsBlob(conn?: InstanceConnection): string | null 
   return entries.map((e) => `${e.label}: ${e.value}`).join("\n");
 }
 
+/** KEY=value lines in `use` blocks; not query params inside connection URLs. */
+function useLineEnvKey(line: string): string | null {
+  const eq = line.indexOf("=");
+  if (eq <= 0) return null;
+  const key = line.slice(0, eq).trim();
+  if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(key)) return null;
+  return key;
+}
+
 /** Structured rows for the admin UI (every remote connection field). */
 export function connectionCredentialLines(
   conn?: InstanceConnection,
@@ -107,17 +116,19 @@ export function connectionCredentialLines(
   const use = conn?.use?.trim();
   if (use) {
     const out: ConnectionEntry[] = [];
+    const typed = connectionEntries(conn);
     for (const line of use.split("\n")) {
       const t = line.trim();
       if (!t) continue;
-      const eq = t.indexOf("=");
-      if (eq > 0) {
+      const envKey = useLineEnvKey(t);
+      if (envKey) {
         out.push({
-          label: t.slice(0, eq).trim(),
-          value: t.slice(eq + 1).trim(),
+          label: envKey,
+          value: t.slice(envKey.length + 1).trim(),
         });
       } else {
-        out.push({ label: "Connection", value: t });
+        const match = typed.find((e) => e.value === t);
+        out.push(match ?? { label: "Connection", value: t });
       }
     }
     if (out.length > 0) return out;
