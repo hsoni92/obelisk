@@ -27,7 +27,8 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
   const wrongPort = useMemo(() => {
     if (typeof window === "undefined") return false;
     const port = window.location.port;
-    return port === "3000" || port === "3080";
+    // Next dev uses 3080 with an API proxy; bare :3000 is usually the container UI port.
+    return port === "3000";
   }, []);
 
   useEffect(() => {
@@ -66,13 +67,11 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  // Only block on the first load (no cached data). Do not use isFetching here:
+  // unmounting the console aborts child RTK queries and retriggers fetches → reload loop.
   if (
-    isLoading ||
-    isFetching ||
-    bootGrace ||
-    (isError && !showFatal) ||
-    !data?.authenticated ||
-    !data.repository
+    (!data && (isLoading || (isError && !showFatal))) ||
+    (data && (!data.authenticated || !data.repository))
   ) {
     return <ConsoleShellSkeleton />;
   }

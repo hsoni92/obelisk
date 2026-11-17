@@ -40,6 +40,12 @@ func main() {
 		cmdUpdate(os.Args[2:])
 	case "cleanup":
 		cmdCleanup(os.Args[2:])
+	case "start":
+		cmdStart(os.Args[2:])
+	case "stop":
+		cmdStop(os.Args[2:])
+	case "restart":
+		cmdRestart(os.Args[2:])
 	case "uninstall":
 		cmdUninstall(os.Args[2:])
 	case "help", "-h", "--help":
@@ -65,6 +71,7 @@ Commands:
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
   update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
+  start|stop|restart [--root /opt/obelisk] [--namespace NAME]   VPS: k3s platform lifecycle
   cleanup [--dry-run] [--deep]
   uninstall [--dry-run] [--yes] [--tier full|platform] [--keep-data] [--remove-k3s] [--root path]
 `)

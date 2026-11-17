@@ -206,6 +206,16 @@ sudo obelisk update --ref v0.2.0
 sudo obelisk update --skip-images       # controller/Helm only
 ```
 
+### Start / stop / restart (VPS)
+
+```bash
+sudo obelisk stop
+sudo obelisk start
+sudo obelisk restart
+```
+
+Stops or starts **k3s** on the host (full appliance). See [install runbook](docs/runbooks/install.md).
+
 ### Uninstall
 
 ```bash

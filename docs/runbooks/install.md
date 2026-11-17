@@ -50,6 +50,19 @@ sudo obelisk cleanup --deep       # normal + Docker build cache (slower next ima
 
 Set `OBELISK_SKIP_POST_INSTALL_CLEANUP=true` on bootstrap to skip automatic cleanup.
 
+### Platform start / stop / restart
+
+On the VPS, Obelisk runs on **k3s**. These commands control the **whole appliance** (Kong, controller, admin UI, and any enabled data services):
+
+```bash
+sudo obelisk stop      # stop k3s — everything on the host goes down
+sudo obelisk start     # start k3s; wait for platform rollouts + Kong /api/v1/health
+sudo obelisk restart   # systemctl restart k3s, then same waits as start
+sudo obelisk start --no-wait   # return once k3s is up (skip rollout / health wait)
+```
+
+Use **`sudo obelisk status`** after start or restart to verify URLs and component health.
+
 ## Uninstall / failed install
 
 If bootstrap failed or you need to reclaim the VPS:
