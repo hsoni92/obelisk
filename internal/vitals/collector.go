@@ -47,8 +47,11 @@ func (c Collector) CollectMinute(ctx context.Context, store *Store, in collectIn
 	nodeTop, topErr := kubectlTopNode(ctx)
 	podTops, podsErr := kubectlTopPods(ctx, ns)
 
-	if capErr != nil || podsErr != nil {
+	if podsErr != nil {
 		return
+	}
+	if capErr != nil {
+		caps = nodeCaps{}
 	}
 
 	machineMemTotal := caps.MemoryBytes

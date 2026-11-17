@@ -89,7 +89,10 @@ function VitalsMeta({
 
 function MachineTotals({ vitals }: { vitals: VitalsSnapshot }) {
   const m = vitals.machine;
-  const sampled = Boolean(vitals.collected_at) && !vitals.collecting;
+  const sampled =
+    Boolean(vitals.collected_at) &&
+    !vitals.collecting &&
+  (m.memory_total_bytes > 0 || m.cpu_percent > 0 || m.disk_total_bytes > 0);
   return (
     <div className="mt-5 grid gap-4 md:grid-cols-3">
       <MachineMeter

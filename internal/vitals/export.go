@@ -10,6 +10,9 @@ func scarceResource(m MachineVitals) string {
 	mem := sharePct(m.MemoryUsed, m.MemoryTotal)
 	disk := sharePct(m.DiskUsed, m.DiskTotal)
 	cpu := m.CPUPercent
+	if m.MemoryTotal <= 0 && m.DiskTotal <= 0 && cpu <= 0 {
+		return ""
+	}
 	if mem >= disk && mem >= cpu {
 		return "memory"
 	}
