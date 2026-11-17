@@ -522,6 +522,17 @@ export const overviewPollOptions = { pollingInterval: 8000 } as const;
 /** Activity history is file-backed only — safe to poll while the drawer is open. */
 export const activityHistoryPollOptions = { pollingInterval: 8000 } as const;
 
+/** Toast-worthy load failure: no cached data yet (not a refetch abort after start/stop). */
+export function rtkQueryLoadFailed(
+  error: unknown,
+  data: unknown,
+  isLoading: boolean,
+  isFetching = false,
+): boolean {
+  if (!error || isLoading || isFetching) return false;
+  return data == null;
+}
+
 export function rtkErrorMessage(error: unknown): string {
   if (!error || typeof error !== "object") return "request failed";
   if ("data" in error) {
@@ -544,7 +555,11 @@ export function rtkErrorMessage(error: unknown): string {
     }
   }
   if ("error" in error && typeof (error as { error: unknown }).error === "string") {
-    return (error as { error: string }).error;
+    const name = (error as { error: string }).error;
+    if (name === "FETCH_ERROR") {
+      return "Network error (request interrupted or unreachable)";
+    }
+    return name;
   }
   if ("status" in error) {
     return `HTTP ${String((error as { status: unknown }).status)}`;

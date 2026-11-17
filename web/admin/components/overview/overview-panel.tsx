@@ -15,6 +15,7 @@ import { OverviewSkeleton } from "@/components/skeletons";
 import {
   overviewPollOptions,
   rtkErrorMessage,
+  rtkQueryLoadFailed,
   useGetBackupConfigQuery,
   useGetOverviewQuery,
 } from "@/lib/api";
@@ -73,17 +74,14 @@ export function OverviewPanel({
   onOpenDR: () => void;
 }) {
   const [hours, setHours] = useState(6);
-  const { data, error, isLoading, fulfilledTimeStamp } = useGetOverviewQuery(
-    { hours },
-    overviewPollOptions,
-  );
+  const { data, error, isLoading, isFetching, fulfilledTimeStamp } =
+    useGetOverviewQuery({ hours }, overviewPollOptions);
 
-  const errorMsg = error ? rtkErrorMessage(error) : null;
   useEffect(() => {
-    if (errorMsg) {
-      toast.error("Could not load overview", errorMsg);
+    if (rtkQueryLoadFailed(error, data, isLoading, isFetching)) {
+      toast.error("Could not load overview", rtkErrorMessage(error));
     }
-  }, [errorMsg]);
+  }, [error, data, isLoading, isFetching]);
 
   const { data: backupConfig } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 8000,

@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
 import {
   rtkErrorMessage,
+  rtkQueryLoadFailed,
   statusPollOptions,
   useGetBackupConfigQuery,
   useGetStatusQuery,
@@ -17,21 +18,27 @@ import { useEffect, useState } from "react";
 export default function DRPage() {
   const [busy, setBusy] = useState<string | null>(null);
 
-  const { data: status, error: statusError } = useGetStatusQuery(
-    undefined,
-    statusPollOptions,
-  );
+  const {
+    data: status,
+    error: statusError,
+    isLoading: statusLoading,
+    isFetching: statusFetching,
+  } = useGetStatusQuery(undefined, statusPollOptions);
   const { data: backupCfg } = useGetBackupConfigQuery();
   const [runBackup] = useRunBackupMutation();
 
   const backupReady = backupCfg?.backup_ready ?? status?.backup?.ready;
 
-  const statusErrorMsg = statusError ? rtkErrorMessage(statusError) : null;
   useEffect(() => {
-    if (statusErrorMsg) {
-      toast.error("Could not load appliance status", statusErrorMsg);
+    if (
+      rtkQueryLoadFailed(statusError, status, statusLoading, statusFetching)
+    ) {
+      toast.error(
+        "Could not load appliance status",
+        rtkErrorMessage(statusError),
+      );
     }
-  }, [statusErrorMsg]);
+  }, [statusError, status, statusLoading, statusFetching]);
 
   async function backupNow() {
     setBusy("backup");

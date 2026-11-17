@@ -22,6 +22,7 @@ export type {
 export {
   obeliskApi,
   rtkErrorMessage,
+  rtkQueryLoadFailed,
   activityHistoryPollOptions,
   overviewPollOptions,
   statusPollOptions,

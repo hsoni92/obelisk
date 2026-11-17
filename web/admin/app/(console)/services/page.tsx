@@ -19,6 +19,7 @@ import {
 } from "@/components/services/configure-instance-dialog";
 import {
   rtkErrorMessage,
+  rtkQueryLoadFailed,
   statusPollOptions,
   useCreateInstanceMutation,
   useGetBackupConfigQuery,
@@ -77,11 +78,13 @@ function ServicesPageContent() {
     data: status,
     error: statusError,
     isLoading: statusLoading,
+    isFetching: statusFetching,
   } = useGetStatusQuery(undefined, statusPollOptions);
-  const { data: connections, error: connectionsError } = useGetConnectionsQuery(
-    undefined,
-    statusPollOptions,
-  );
+  const {
+    data: connections,
+    error: connectionsError,
+    isFetching: connectionsFetching,
+  } = useGetConnectionsQuery(undefined, statusPollOptions);
 
   const { data: backupConfig } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 30_000,
@@ -115,13 +118,37 @@ function ServicesPageContent() {
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
 
-  const queryError = statusError ?? connectionsError;
-  const queryErrorMsg = queryError ? rtkErrorMessage(queryError) : null;
   useEffect(() => {
-    if (queryErrorMsg) {
-      toast.error("Could not load services", queryErrorMsg);
+    if (
+      rtkQueryLoadFailed(
+        statusError,
+        status,
+        statusLoading,
+        statusFetching,
+      )
+    ) {
+      toast.error("Could not load services", rtkErrorMessage(statusError));
+      return;
     }
-  }, [queryErrorMsg]);
+    if (
+      rtkQueryLoadFailed(
+        connectionsError,
+        connections,
+        statusLoading,
+        connectionsFetching,
+      )
+    ) {
+      toast.error("Could not load services", rtkErrorMessage(connectionsError));
+    }
+  }, [
+    statusError,
+    connectionsError,
+    status,
+    connections,
+    statusLoading,
+    statusFetching,
+    connectionsFetching,
+  ]);
 
   const allTableRows = useMemo(
     () =>
