@@ -124,7 +124,7 @@ services: []
 	}
 }
 
-func TestMergeInstanceRoutes_RedisNativeTLS(t *testing.T) {
+func TestMergeInstanceRoutes_NoNativeTCPInKong(t *testing.T) {
 	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
 	spec := obelisk.DefaultSpec("vps")
 	spec.Instances = []obelisk.ServiceInstance{{
@@ -138,19 +138,7 @@ services: []
 		t.Fatal(err)
 	}
 	s := string(out)
-	if !strings.Contains(s, "route-tcp-redis-pqr") {
-		t.Fatalf("missing tcp route:\n%s", s)
-	}
-	if !strings.Contains(s, "redis-pqr.vps.example.com") {
-		t.Fatalf("missing sni host:\n%s", s)
-	}
-	if !strings.Contains(s, "protocol: tcp") {
-		t.Fatalf("missing tcp protocol:\n%s", s)
-	}
-	if !strings.Contains(s, "tls_passthrough") {
-		t.Fatalf("missing tls_passthrough protocol:\n%s", s)
-	}
-	if strings.Contains(s, "certificates:") {
-		t.Fatalf("expected no kong termination certs (passthrough):\n%s", s)
+	if strings.Contains(s, "route-tcp-redis-pqr") {
+		t.Fatalf("native redis must use nginx edge, not Kong stream:\n%s", s)
 	}
 }

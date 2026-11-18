@@ -200,9 +200,7 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 		if svc, ok := kongHTTPServiceForInstance(inst); ok {
 			filtered = append(filtered, svc)
 		}
-		if svc, ok := kongTCPServiceForInstance(inst); ok {
-			filtered = append(filtered, svc)
-		}
+		// Native TLS data services use obelisk-native-edge (nginx stream SNI), not Kong stream.
 	}
 	doc.Services = filtered
 	// Native protocols use TLS passthrough; databases terminate TLS themselves (see edge TLS secret).

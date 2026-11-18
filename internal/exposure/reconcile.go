@@ -16,5 +16,8 @@ func Reconcile(ctx context.Context, spec obelisk.Spec, helmRoot, namespace strin
 	if err := ReconcileKong(ctx, spec, helmRoot, namespace); err != nil {
 		return err
 	}
+	if err := ReconcileNativeEdge(ctx, spec, namespace); err != nil {
+		return err
+	}
 	return ApplyFunnel(spec)
 }

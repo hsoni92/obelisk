@@ -56,7 +56,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 	vpsEdge := VPSEdge(spec)
 	out := Connections{}
 	if vpsEdge {
-		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (per-instance hostnames; Kong SNI passthrough). Trust Obelisk's auto-generated edge certificate presented by the database service. Obelisk never binds host ports 80 or 443."
+		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (per-instance hostnames; nginx stream SNI passthrough). Trust Obelisk's auto-generated edge certificate presented by the database service. Postgres 17+ uses direct SSL for SNI routing. Obelisk never binds host ports 80 or 443."
 	}
 
 	for _, inst := range spec.Instances {

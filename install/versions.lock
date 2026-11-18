@@ -1,7 +1,7 @@
 # Pinned platform versions — consumed by bootstrap and CI
 K3S_VERSION=v1.29.5+k3s1
 KONG_VERSION=3.6
-POSTGRES_IMAGE=postgres:16-alpine
+POSTGRES_IMAGE=postgres:17-alpine
 MYSQL_IMAGE=mysql:8.4
 MONGODB_IMAGE=mongo:7
 REDIS_IMAGE=redis:7-alpine

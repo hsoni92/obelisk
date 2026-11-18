@@ -32,16 +32,11 @@ spec:
               value: /kong/kong.yaml
             - name: KONG_PROXY_LISTEN
               value: "0.0.0.0:8000"
-            # Plain TCP + per-route tls_passthrough (Postgres/MySQL use SSLRequest before TLS; Kong cannot terminate).
-            - name: KONG_STREAM_LISTEN
-              value: "0.0.0.0:8443"
             - name: KONG_ADMIN_LISTEN
               value: "127.0.0.1:8001"
           ports:
             - containerPort: 8000
               name: proxy
-            - containerPort: 8443
-              name: streamtls
           volumeMounts:
             - name: kong-config
               mountPath: /kong
@@ -62,8 +57,3 @@ spec:
     - port: {{ .Values.kong.service.httpPort | default 9080 }}
       targetPort: proxy
       name: http
-    {{- if .Values.kong.service.exposeTls }}
-    - port: {{ .Values.kong.service.tlsPort | default 9443 }}
-      targetPort: streamtls
-      name: tls
-    {{- end }}

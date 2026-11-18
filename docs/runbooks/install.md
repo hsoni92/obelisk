@@ -113,7 +113,7 @@ co-located web edge (an app's own Ingress, nginx, or Kong). Obelisk exposes:
 Overrides: `OBELISK_HTTP_PORT` and `OBELISK_TLS_PORT` (or Helm
 `kong.service.httpPort` / `kong.service.tlsPort`). Setting either to 80/443 is
 **rejected** — the config validator errors and bootstrap fails fast. Set
-`kong.service.exposeTls=false` to run admin-only with no native edge at all.
+`nativeEdge.enabled=false` to run admin-only with no native TLS edge (port 9443).
 
 Sharing a host with another app: leave `kong.service.type=ClusterIP` and route to
 Obelisk from that app's ingress, or use `LoadBalancer` on 9080/9443 only.

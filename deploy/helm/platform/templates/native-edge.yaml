@@ -1,0 +1,63 @@
+{{- if and .Values.kong.enabled .Values.nativeEdge.enabled }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: native-edge-config
+  namespace: {{ .Values.namespace }}
+data:
+  nginx.conf: |
+    worker_processes auto;
+    events { worker_connections 256; }
+    stream {
+      server { listen 8443; return 444; }
+    }
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: obelisk-native-edge
+  namespace: {{ .Values.namespace }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: obelisk-native-edge
+  template:
+    metadata:
+      labels:
+        app: obelisk-native-edge
+    spec:
+      containers:
+        - name: nginx
+          image: {{ .Values.nativeEdge.image }}
+          ports:
+            - containerPort: 8443
+              name: streamtls
+          volumeMounts:
+            - name: config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+          readinessProbe:
+            tcpSocket:
+              port: 8443
+            initialDelaySeconds: 2
+            periodSeconds: 5
+      volumes:
+        - name: config
+          configMap:
+            name: native-edge-config
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: obelisk-native-edge
+  namespace: {{ .Values.namespace }}
+spec:
+  type: {{ .Values.nativeEdge.service.type }}
+  selector:
+    app: obelisk-native-edge
+  ports:
+    - port: {{ .Values.nativeEdge.service.tlsPort | default 9443 }}
+      targetPort: streamtls
+      name: tls
+{{- end }}
