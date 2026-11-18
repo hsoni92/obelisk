@@ -55,7 +55,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 	vpsEdge := VPSEdge(spec)
 	out := Connections{}
 	if vpsEdge {
-		out.Notes = "VPS edge: HTTP APIs on port 80 (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort + " (same hostname, Kong SNI). Trust Obelisk's auto-generated edge cert or terminate TLS upstream."
+		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (same hostname, Kong SNI). Trust Obelisk's auto-generated edge cert or terminate TLS upstream. Obelisk never binds host ports 80 or 443."
 	}
 
 	for _, inst := range spec.Instances {
@@ -99,7 +99,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.Postgres = fmt.Sprintf(
 						"postgresql://%s:%s@%s:%s/%s?sslmode=require",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
@@ -108,7 +108,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.MySQL = fmt.Sprintf(
 						"mysql://%s:%s@tcp(%s:%s)/%s?tls=true",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
@@ -117,7 +117,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.MongoDB = fmt.Sprintf(
 						"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
@@ -127,9 +127,9 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			if vpsEdge {
 				edgeHost := PublicEdgeHost(inst)
 				if inst.Credentials.Password != "" {
-					ic.Redis = fmt.Sprintf("rediss://:%s@%s:%s/0", url.QueryEscape(inst.Credentials.Password), edgeHost, NativeEdgeTLSPort)
+					ic.Redis = fmt.Sprintf("rediss://:%s@%s:%s/0", url.QueryEscape(inst.Credentials.Password), edgeHost, NativeEdgeTLSPort())
 				} else {
-					ic.Redis = fmt.Sprintf("rediss://%s:%s/0", edgeHost, NativeEdgeTLSPort)
+					ic.Redis = fmt.Sprintf("rediss://%s:%s/0", edgeHost, NativeEdgeTLSPort())
 				}
 			} else if inst.Credentials.Password != "" {
 				ic.Redis = fmt.Sprintf("redis://:%s@%s:6379/0", url.QueryEscape(inst.Credentials.Password), host)

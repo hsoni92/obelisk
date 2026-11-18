@@ -18,3 +18,7 @@ kong:
     # LoadBalancer works on single-node k3s (servicelb) — use in VM/VPS smoke tests.
     type: ClusterIP
     httpPort: 9080
+    # Native data-service TLS (Redis/Postgres/MySQL/Mongo via SNI). Never 80/443 so a
+    # co-located web server keeps the host edge. Set exposeTls=false for admin-only.
+    exposeTls: true
+    tlsPort: 9443

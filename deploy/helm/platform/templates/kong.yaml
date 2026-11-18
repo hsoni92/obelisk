@@ -61,6 +61,8 @@ spec:
     - port: {{ .Values.kong.service.httpPort | default 9080 }}
       targetPort: proxy
       name: http
-    - port: 443
+    {{- if .Values.kong.service.exposeTls }}
+    - port: {{ .Values.kong.service.tlsPort | default 9443 }}
       targetPort: streamtls
       name: tls
+    {{- end }}

@@ -63,7 +63,7 @@ func TestPublicS3Host_IPUsesSSLip(t *testing.T) {
 	if got := PublicS3Host(inst); got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
-	if got := PublicS3Endpoint(inst); got != "http://"+want {
+	if got := PublicS3Endpoint(inst); got != "http://"+want+":9080" {
 		t.Fatalf("endpoint %q", got)
 	}
 }

@@ -79,7 +79,7 @@ Full product spec: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 
 | Profile | Tailscale | Typical use |
 |---------|-----------|-------------|
-| **`vps`** | Not installed (not required) | Public VPS + Kong on port **9080** |
+| **`vps`** | Not installed (not required) | Public VPS + Kong on port **9080** (native TLS edge **9443**); never 80/443 |
 | **`local`** | Optional at install | Home lab; opt in when you need remote reachability |
 
 > **Tailscale Funnel** (RustFS S3 route only) applies when Tailscale is enabled on **local**. VPS public HTTP uses Kong on the host interface—not Funnel. Postgres and Redis are **not** exposed to the public internet by default.
@@ -214,7 +214,9 @@ sudo obelisk start
 sudo obelisk restart
 ```
 
-Stops or starts **k3s** on the host (full appliance). See [install runbook](docs/runbooks/install.md).
+Stops or starts **only the `obelisk` namespace**; k3s and every other namespace keep
+running. Add `--system` to control the whole k3s service on a dedicated appliance.
+See [install runbook](docs/runbooks/install.md).
 
 ### Uninstall
 

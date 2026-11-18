@@ -76,7 +76,9 @@ Commands:
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
   version            show install ref from /opt/obelisk/.install-meta.json
   update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
-  start|stop|restart [--root /opt/obelisk] [--namespace NAME]   VPS: k3s platform lifecycle
+  start|stop|restart [--root /opt/obelisk] [--namespace NAME] [--system]
+                     start/stop/restart ONLY the obelisk namespace (k3s keeps running)
+                     --system: whole-node k3s control for dedicated appliances
   cleanup [--dry-run] [--deep]
   uninstall [--dry-run] [--yes] [--tier full|platform] [--keep-data] [--remove-k3s] [--root path]
 `)

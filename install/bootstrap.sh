@@ -33,7 +33,25 @@ preflight() {
   if [[ "$PROFILE" == "vps" && "$ENABLE_TAILSCALE" == "true" ]]; then
     die "Tailscale is not used on VPS profile"
   fi
+  preflight_host_edge
   log "preflight ok profile=$PROFILE tailscale=$ENABLE_TAILSCALE"
+}
+
+# preflight_host_edge warns when something already owns the host's web edge.
+# Obelisk never binds 80/443 itself; this only surfaces a co-located server so the
+# operator knows the appliance is sharing the host rather than replacing it.
+preflight_host_edge() {
+  command -v ss >/dev/null 2>&1 || return 0
+  local port label
+  for port in 80 443; do
+    if ss -tlnH "sport = :$port" 2>/dev/null | grep -q .; then
+      case "$port" in
+        80) label=HTTP ;;
+        443) label=HTTPS ;;
+      esac
+      log "note: host :$port ($label) is already in use — Obelisk will not bind 80/443 (uses 9080/9443)"
+    fi
+  done
 }
 
 install_k3s() {
@@ -118,8 +136,18 @@ deploy_platform() {
   local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
   if [[ "$PROFILE" == "vps" && -z "$helm_extra" ]]; then
     helm_extra='--set kong.service.type=LoadBalancer'
-    log "VPS default: kong LoadBalancer (k3s servicelb)"
+    log "VPS default: kong LoadBalancer (k3s servicelb) on 9080 + 9443 (never 80/443)"
   fi
+  # Obelisk must never claim the host's HTTP/HTTPS edge (80/443): a co-located app
+  # (e.g. an existing k3s Ingress/Kong) already owns those. Non-invasive by default.
+  local edge_tls_port="${OBELISK_TLS_PORT:-9443}"
+  local edge_http_port="${OBELISK_HTTP_PORT:-9080}"
+  case "$edge_tls_port" in
+    80|443) die "OBELISK_TLS_PORT=$edge_tls_port collides with the host web edge; use 9443" ;;
+  esac
+  case "$edge_http_port" in
+    80|443) die "OBELISK_HTTP_PORT=$edge_http_port collides with the host web edge; use 9080" ;;
+  esac
   local public_host="${OBELISK_PUBLIC_HOST:-}"
   if [[ -z "$public_host" && "$PROFILE" == "vps" && -f "$SCRIPT_DIR/resolve-admin-url.sh" ]]; then
     # shellcheck source=install/resolve-admin-url.sh
@@ -143,6 +171,8 @@ deploy_platform() {
     --set "obelisk.imageController=obelisk-controller:${OBELISK_IMAGE_TAG}" \
     --set "obelisk.imageAdminUI=obelisk-admin-ui:${OBELISK_IMAGE_TAG}" \
     $([[ -n "$public_host" ]] && echo --set "obelisk.publicHost=$public_host") \
+    --set "kong.service.httpPort=$edge_http_port" \
+    --set "kong.service.tlsPort=$edge_tls_port" \
     ${helm_extra}
   log "platform helm release applied (images ${OBELISK_IMAGE_TAG})"
 }
