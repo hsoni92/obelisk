@@ -23,7 +23,7 @@ func PublicEdgeBaseDomain() string {
 	return host
 }
 
-// PublicEdgeHost returns the virtual hostname for an enabled instance (e.g. redis-pqr.example.com).
+// PublicEdgeHost returns the virtual hostname for an enabled instance (e.g. redis-calm-otter.example.com).
 // RustFS keeps the s3- prefix for SDK compatibility.
 func PublicEdgeHost(inst ServiceInstance) string {
 	if inst.Type == "" || inst.ID == "" {

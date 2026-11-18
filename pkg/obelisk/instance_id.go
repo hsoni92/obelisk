@@ -8,7 +8,6 @@ import (
 const (
 	// LegacyDefaultInstanceID is the migrated single-instance id from service flags.
 	LegacyDefaultInstanceID = "default"
-	instanceIDLen           = 12
 )
 
 var instanceIDRe = regexp.MustCompile(`^[a-z][a-z0-9-]{0,30}[a-z0-9]$`)
@@ -35,12 +34,11 @@ func AllocateInstanceIDForType(spec *Spec, typ string) string {
 		}
 		return id
 	}
-	return "i" + randomDevSecret(instanceIDLen-1)
+	return randomRouteSlug() + "-" + randomDevSecret(4)
 }
 
 func randomInstanceID() string {
-	// Lowercase hex from randomDevSecret; prefix with letter for k8s name rules.
-	return "i" + randomDevSecret(instanceIDLen-1)
+	return randomRouteSlug()
 }
 
 func instanceIDValid(id string) bool {

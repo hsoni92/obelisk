@@ -41,6 +41,14 @@ export type ServiceInstance = {
     access_key?: string;
     secret_key?: string;
   };
+  /** Extra logical DBs (postgres/mysql/mongodb). Bootstrap DB is always `default`. */
+  databases?: string[];
+};
+
+export type InstanceDatabasesResponse = {
+  bootstrap_database: string;
+  additional_databases: string[];
+  connections: { name: string; url: string }[];
 };
 
 export type StatusResponse = {

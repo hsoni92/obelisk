@@ -122,6 +122,12 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 	resolved := obelisk.SpecWithResolvedCredentials(spec, func(in obelisk.ServiceInstance) obelisk.InstanceCredentials {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, in)
 	})
+	for i := range spec.Instances {
+		if spec.Instances[i].Type == inst.Type && spec.Instances[i].ID == inst.ID {
+			inst = spec.Instances[i]
+			break
+		}
+	}
 	use := ""
 	for _, c := range obelisk.BuildConnections(resolved, nil).Instances {
 		if c.ID == inst.ID && c.Type == inst.Type {

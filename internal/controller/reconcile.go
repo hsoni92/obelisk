@@ -171,7 +171,13 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, vpsEdge bool, inst o
 		return "degraded", "", err
 	}
 	st := r.observeInstanceState(ctx, inst)
-	return st, fmt.Sprintf("%s release applied", inst.StateKey()), nil
+	msg = fmt.Sprintf("%s release applied", inst.StateKey())
+	if st == "running" {
+		if err := r.ensureInstanceDatabases(ctx, inst); err != nil {
+			return "degraded", msg, fmt.Errorf("databases: %w", err)
+		}
+	}
+	return st, msg, nil
 }
 
 func (r *Reconciler) helmUpgradeInstance(ctx context.Context, vpsEdge bool, inst obelisk.ServiceInstance) error {

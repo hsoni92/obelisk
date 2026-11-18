@@ -179,6 +179,35 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Status", "Connections", "Overview"],
     }),
+    getInstanceDatabases: builder.query<
+      import("@/lib/types").InstanceDatabasesResponse,
+      { id: string; type: string }
+    >({
+      query: ({ id, type }) =>
+        `/instances/${encodeURIComponent(id)}/databases?type=${encodeURIComponent(type)}`,
+      providesTags: ["Connections"],
+    }),
+    addInstanceDatabase: builder.mutation<
+      unknown,
+      { id: string; type: string; name: string }
+    >({
+      query: ({ id, type, name }) => ({
+        url: `/instances/${encodeURIComponent(id)}/databases?type=${encodeURIComponent(type)}`,
+        method: "POST",
+        body: { name },
+      }),
+      invalidatesTags: ["Connections", "Status"],
+    }),
+    removeInstanceDatabase: builder.mutation<
+      unknown,
+      { id: string; type: string; name: string }
+    >({
+      query: ({ id, type, name }) => ({
+        url: `/instances/${encodeURIComponent(id)}/databases/${encodeURIComponent(name)}?type=${encodeURIComponent(type)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Connections", "Status"],
+    }),
     patchBackupTarget: builder.mutation<
       BackupTargetResponse,
       {
@@ -483,6 +512,9 @@ export const {
   useTestBackupDestinationMutation,
   useTestAllBackupDestinationsMutation,
   useCreateInstanceMutation,
+  useGetInstanceDatabasesQuery,
+  useAddInstanceDatabaseMutation,
+  useRemoveInstanceDatabaseMutation,
   usePatchInstanceMutation,
   usePatchBackupTargetMutation,
   useTestBackupRemoteMutation,
