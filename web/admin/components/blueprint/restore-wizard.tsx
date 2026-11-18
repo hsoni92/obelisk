@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
+import { FieldPassword } from "@/components/ui/field";
 import {
   rtkErrorMessage,
   useGetBlueprintStatusQuery,
@@ -118,10 +118,9 @@ export function RestoreWizard() {
         </fieldset>
       )}
       <div className="mt-3 flex flex-wrap items-end gap-3">
-        <Field
+        <FieldPassword
           id="restore-passphrase"
           label="Passphrase"
-          type="password"
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
           autoComplete="current-password"

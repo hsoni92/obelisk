@@ -67,7 +67,8 @@ func (rt *Runtime) ChainPull(ctx context.Context, ch *Chain) error {
 
 // ChainUnlock decrypts the pulled bundle and holds the key in memory.
 func (rt *Runtime) ChainUnlock(ch *Chain) error {
-	if strings.TrimSpace(ch.Passphrase) == "" {
+	ch.Passphrase = strings.TrimSpace(ch.Passphrase)
+	if ch.Passphrase == "" {
 		return fmt.Errorf("passphrase is required")
 	}
 	var manifest Manifest

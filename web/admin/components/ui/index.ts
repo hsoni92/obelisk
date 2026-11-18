@@ -69,7 +69,7 @@ export {
   DropdownMenuSubContent,
   DropdownMenuTrigger,
 } from "./dropdown-menu";
-export { Field } from "./field";
+export { Field, FieldPassword } from "./field";
 export {
   Form,
   FormControl,

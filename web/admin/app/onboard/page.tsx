@@ -2,7 +2,7 @@
 
 import { AuthFrame } from "@/components/blueprint/auth-frame";
 import { Button } from "@/components/ui/button";
-import { Field } from "@/components/ui/field";
+import { Field, FieldPassword } from "@/components/ui/field";
 import {
   rtkErrorMessage,
   useGetBlueprintStatusQuery,
@@ -105,19 +105,17 @@ export default function OnboardPage() {
           autoComplete="off"
           placeholder="owner/obelisk-appliance"
         />
-        <Field
+        <FieldPassword
           id="blueprint-pass"
           label="Passphrase"
-          type="password"
           value={passphrase}
           onChange={(e) => setPassphrase(e.target.value)}
           autoComplete="new-password"
         />
         {!restoring && (
-          <Field
+          <FieldPassword
             id="blueprint-pass-confirm"
             label="Confirm passphrase"
-            type="password"
             value={confirm}
             onChange={(e) => setConfirm(e.target.value)}
             autoComplete="new-password"

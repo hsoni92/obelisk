@@ -138,7 +138,7 @@ func Unpack(files map[string][]byte, key []byte) (Bundle, error) {
 	}
 	plain, err := Decrypt(key, nonce, ct, aad(manifest))
 	if err != nil {
-		return Bundle{}, err
+		return Bundle{}, ErrWrongPassphrase
 	}
 	var secrets Secrets
 	if err := json.Unmarshal(plain, &secrets); err != nil {
@@ -154,7 +154,7 @@ func Unpack(files map[string][]byte, key []byte) (Bundle, error) {
 	}
 	sum := sha256.Sum256(got)
 	if hex.EncodeToString(sum[:]) != manifest.ContentSHA256 {
-		return Bundle{}, ErrTamper
+		return Bundle{}, ErrBundleCorrupt
 	}
 	return Bundle{Manifest: manifest, Files: files, Spec: spec, Secrets: secrets}, nil
 }

@@ -225,7 +225,7 @@ func writeBlueprintErr(w http.ResponseWriter, err error) {
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})
 	case errors.Is(err, blueprint.ErrLocked), errors.Is(err, blueprint.ErrOnboardingRequired), errors.Is(err, blueprint.ErrImportRequired):
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})
-	case errors.Is(err, blueprint.ErrTamper):
+	case errors.Is(err, blueprint.ErrBundleCorrupt), errors.Is(err, blueprint.ErrTamper):
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 	default:
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})

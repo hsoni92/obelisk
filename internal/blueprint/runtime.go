@@ -188,7 +188,8 @@ func (rt *Runtime) Logout(sessionID string) {
 
 // Onboard creates or selects the repo, unlocks a new key, and pushes generation 1.
 func (rt *Runtime) Onboard(ctx context.Context, repository, branch, passphrase string) error {
-	if strings.TrimSpace(passphrase) == "" {
+	passphrase = strings.TrimSpace(passphrase)
+	if passphrase == "" {
 		return fmt.Errorf("passphrase is required")
 	}
 	full, err := rt.Git.EnsureRepo(ctx, repository)
@@ -230,7 +231,8 @@ func (rt *Runtime) Onboard(ctx context.Context, repository, branch, passphrase s
 
 // Unlock derives the session key from the passphrase and the salt stored on the spec.
 func (rt *Runtime) Unlock(passphrase string) error {
-	if strings.TrimSpace(passphrase) == "" {
+	passphrase = strings.TrimSpace(passphrase)
+	if passphrase == "" {
 		return fmt.Errorf("passphrase is required")
 	}
 	spec, err := config.Load(rt.ConfigPath)
@@ -274,7 +276,8 @@ func (rt *Runtime) Lock() error {
 // choice is "adopt" or "keep" when machine ids differ.
 // When passphrase is empty, an already-unlocked session key is tried first.
 func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice string) error {
-	if strings.TrimSpace(passphrase) == "" && !rt.Session.Unlocked() {
+	passphrase = strings.TrimSpace(passphrase)
+	if passphrase == "" && !rt.Session.Unlocked() {
 		return fmt.Errorf("passphrase is required")
 	}
 	current, err := config.Load(rt.ConfigPath)
@@ -308,7 +311,7 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 		kdf KDFParams
 		key []byte
 	)
-	if strings.TrimSpace(passphrase) != "" {
+	if passphrase != "" {
 		kdf, err = KDFFromManifest(manifest)
 		if err != nil {
 			return err

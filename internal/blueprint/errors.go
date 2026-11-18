@@ -7,6 +7,7 @@ var (
 	ErrLocked              = errors.New("blueprint crypto is locked")
 	ErrWrongPassphrase     = errors.New("wrong passphrase")
 	ErrTamper              = errors.New("blueprint ciphertext failed authentication")
+	ErrBundleCorrupt       = errors.New("blueprint repo files are out of sync (do not hand-edit manifest, obelisk.public.yaml, or secrets.enc)")
 	ErrEmptyRepo           = errors.New("blueprint bundle not in repository")
 	ErrMachineChoice       = errors.New("machine id differs from blueprint; choose adopt or keep")
 	ErrClientNotConfigured = errors.New("GitHub OAuth client is not configured")

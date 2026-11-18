@@ -13,7 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Field } from "@/components/ui/field";
+import { FieldPassword } from "@/components/ui/field";
 import {
   rtkErrorMessage,
   useGetBlueprintStatusQuery,
@@ -329,10 +329,9 @@ export function BlueprintPanel() {
               )}
 
               {needsPassphrase && (
-                <Field
+                <FieldPassword
                   id="import-passphrase"
                   label="Blueprint passphrase"
-                  type="password"
                   value={passphrase}
                   onChange={(e) => setPassphrase(e.target.value)}
                   autoComplete="current-password"
