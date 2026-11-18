@@ -13,9 +13,35 @@ spec:
       labels:
         app: {{ .Release.Name }}
     spec:
+      {{- if .Values.edgeTLS.enabled }}
+      initContainers:
+        - name: edge-tls-init
+          image: {{ .Values.image }}
+          command:
+            - /bin/sh
+            - -ec
+            - |
+              cp /edge-src/tls.crt /edge-dst/tls.crt
+              cp /edge-src/tls.key /edge-dst/tls.key
+              chown mysql:mysql /edge-dst/tls.crt /edge-dst/tls.key
+              chmod 0644 /edge-dst/tls.crt
+              chmod 0600 /edge-dst/tls.key
+          volumeMounts:
+            - name: edge-tls-src
+              mountPath: /edge-src
+              readOnly: true
+            - name: edge-tls
+              mountPath: /edge-dst
+      {{- end }}
       containers:
         - name: mysql
           image: {{ .Values.image }}
+          {{- if .Values.edgeTLS.enabled }}
+          args:
+            - --ssl-cert=/var/run/edge/tls.crt
+            - --ssl-key=/var/run/edge/tls.key
+            - --require_secure_transport=ON
+          {{- end }}
           ports:
             - containerPort: 3306
           env:
@@ -47,6 +73,24 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/mysql
+            {{- if .Values.edgeTLS.enabled }}
+            - name: edge-tls
+              mountPath: /var/run/edge
+              readOnly: true
+            {{- end }}
+      {{- if .Values.edgeTLS.enabled }}
+      volumes:
+        - name: edge-tls-src
+          secret:
+            secretName: {{ .Values.edgeTLS.secretName }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+        - name: edge-tls
+          emptyDir: {}
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

@@ -19,12 +19,15 @@ type InstanceCredentials struct {
 
 // ServiceInstance is one deployable data-service workload.
 type ServiceInstance struct {
+	// ID is the immutable route slug (e.g. calm-otter) used in edge hostnames and Helm release names.
 	ID          string                 `yaml:"id" json:"id"`
 	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng
 	DisplayName string                 `yaml:"display_name,omitempty" json:"display_name,omitempty"`
 	Enabled     bool                   `yaml:"enabled" json:"enabled"`
 	Backup      InstanceBackupSettings `yaml:"backup,omitempty" json:"backup,omitempty"`
 	Credentials InstanceCredentials    `yaml:"credentials" json:"credentials"`
+	// Databases lists extra logical DBs beyond BootstrapDatabaseName (relational engines only).
+	Databases []string `yaml:"databases,omitempty" json:"databases,omitempty"`
 }
 
 func (i ServiceInstance) ReleaseName() string {
@@ -45,7 +48,7 @@ func DefaultCredentialsForType(typ string) InstanceCredentials {
 		return InstanceCredentials{
 			Username: "obelisk",
 			Password: randomDevSecret(16),
-			Database: "obelisk",
+			Database: BootstrapDatabaseName,
 		}
 	case "redis":
 		return InstanceCredentials{
@@ -92,9 +95,8 @@ func NewServiceInstance(typ, id, displayName string) (ServiceInstance, error) {
 		Backup:      DefaultInstanceBackupSettings(typ),
 		Credentials: DefaultCredentialsForType(typ),
 	}
-	switch typ {
-	case "postgres", "mysql", "mongodb":
-		inst.Credentials.Database = id
+	if IsRelationalEngine(typ) {
+		inst.Credentials.Database = BootstrapDatabaseName
 	}
 	return inst, nil
 }
@@ -140,7 +142,7 @@ func ResolvedDBCreds(inst ServiceInstance) (user, password, database string) {
 		}
 		database = strings.TrimSpace(inst.Credentials.Database)
 		if database == "" {
-			database = "obelisk"
+			database = BootstrapDatabaseName
 		}
 	default:
 		user = strings.TrimSpace(inst.Credentials.Username)
@@ -159,7 +161,7 @@ func normalizeInstanceCredentials(inst *ServiceInstance) {
 			inst.Credentials.Username = "obelisk"
 		}
 		if strings.TrimSpace(inst.Credentials.Database) == "" {
-			inst.Credentials.Database = "obelisk"
+			inst.Credentials.Database = BootstrapDatabaseName
 		}
 	}
 }
@@ -244,7 +246,7 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 	case "postgres", "mysql", "mongodb":
 		c.Password = "changeme-in-ui"
 		c.Username = "obelisk"
-		c.Database = "obelisk"
+		c.Database = BootstrapDatabaseName
 	case "rustfs":
 		c.AccessKey = "obelisk"
 		c.SecretKey = "changeme-rustfs-dev"

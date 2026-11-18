@@ -5,4 +5,7 @@ storage:
 credentials:
   username: obelisk
   password: changeme-in-ui
-  database: obelisk
+  database: default
+edgeTLS:
+  enabled: false
+  secretName: obelisk-edge-tls

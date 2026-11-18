@@ -172,5 +172,10 @@ func Validate(spec *obelisk.Spec) error {
 			return err
 		}
 	}
+	for _, port := range []int{obelisk.AdminHTTPPort(), obelisk.NativeEdgeTLSPortNumber()} {
+		if label, conflict := obelisk.ReservedHostPortConflict(port); conflict {
+			return fmt.Errorf("exposure port %d (%s) is reserved; Obelisk never binds host 80/443", port, label)
+		}
+	}
 	return obelisk.ValidateBackupPolicy(*spec)
 }

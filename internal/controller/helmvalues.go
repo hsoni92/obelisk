@@ -7,7 +7,7 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup func(), err error) {
+func writeInstanceValues(vpsEdge, edgeTLSReady bool, inst obelisk.ServiceInstance) (path string, cleanup func(), err error) {
 	creds := map[string]string{}
 	switch inst.Type {
 	case "postgres", "mysql", "mongodb":
@@ -37,6 +37,12 @@ func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup fun
 			vals["serverDomains"] = d
 		}
 	}
+	if vpsEdge && edgeTLSReady && nativeEdgeTLSInCluster(inst.Type) {
+		vals["edgeTLS"] = map[string]any{
+			"enabled":    true,
+			"secretName": "obelisk-edge-tls",
+		}
+	}
 	data, err := yaml.Marshal(vals)
 	if err != nil {
 		return "", func() {}, err
@@ -52,4 +58,13 @@ func writeInstanceValues(inst obelisk.ServiceInstance) (path string, cleanup fun
 	path = f.Name()
 	_ = f.Close()
 	return path, func() { _ = os.Remove(path) }, nil
+}
+
+func nativeEdgeTLSInCluster(typ string) bool {
+	switch typ {
+	case "postgres", "mysql", "mongodb", "redis":
+		return true
+	default:
+		return false
+	}
 }

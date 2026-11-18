@@ -52,14 +52,33 @@ Set `OBELISK_SKIP_POST_INSTALL_CLEANUP=true` on bootstrap to skip automatic clea
 
 ### Platform start / stop / restart
 
-On the VPS, Obelisk runs on **k3s**. These commands control the **whole appliance** (Kong, controller, admin UI, and any enabled data services):
+By default these commands act **only on the `obelisk` namespace**. k3s keeps running
+and every other namespace on the host (your own apps, ingress, data services) is
+untouched.
 
 ```bash
-sudo obelisk stop      # stop k3s — everything on the host goes down
-sudo obelisk start     # start k3s; wait for platform rollouts + Kong /api/v1/health
-sudo obelisk restart   # systemctl restart k3s, then same waits as start
-sudo obelisk start --no-wait   # return once k3s is up (skip rollout / health wait)
+sudo obelisk stop      # scale obelisk workloads to 0; other namespaces unaffected
+sudo obelisk start     # restore the recorded replica counts; wait for health
+sudo obelisk restart   # rolling restart of obelisk deployments only
+sudo obelisk start --no-wait   # return without waiting for rollout / Kong health
 ```
+
+Replica counts are recorded in the `obelisk.dev/stop-replicas` annotation at stop
+time and restored on start, so a scaled-down service (e.g. one you paused in the UI)
+does not come back unexpectedly. CronJobs in the namespace are suspended and resumed.
+
+#### Whole-node control (dedicated appliances only)
+
+On a box that runs **only** Obelisk, `--system` stops the k3s service itself —
+this takes down **every namespace**:
+
+```bash
+sudo obelisk stop --system     # systemctl stop k3s — everything on the host goes down
+sudo obelisk start --system    # start k3s; wait for platform rollouts + Kong health
+sudo obelisk restart --system  # systemctl restart k3s
+```
+
+Never use `--system` on a shared VPS that also hosts other workloads.
 
 Use **`sudo obelisk status`** after start or restart to verify URLs and component health.
 
@@ -80,6 +99,24 @@ Shallow teardown (keep PVCs for debugging): `sudo obelisk uninstall --tier platf
 2. On **VPS**: `OBELISK_PROFILE=vps OBELISK_ROOT=/opt/obelisk OBELISK_BUILD_IMAGES=true sudo -E ./install/bootstrap.sh`
 3. On **local** with optional Tailscale: `OBELISK_PROFILE=local OBELISK_TAILSCALE=true sudo ./install/bootstrap.sh`
 4. Open admin UI via Kong on **port 9080** (VPS: k3s servicelb maps host :9080 → Kong).
+
+### Host port policy (never 80/443)
+
+An Obelisk appliance **never binds host ports 80 or 443**. Those are reserved for a
+co-located web edge (an app's own Ingress, nginx, or Kong). Obelisk exposes:
+
+| Purpose | Port |
+|---------|------|
+| Admin UI, `/api/v1`, HTTP data routes (S3/Qdrant/SearXNG) | **9080** |
+| Native data services (Redis/Postgres/MySQL/Mongo, TLS + SNI) | **9443** |
+
+Overrides: `OBELISK_HTTP_PORT` and `OBELISK_TLS_PORT` (or Helm
+`kong.service.httpPort` / `kong.service.tlsPort`). Setting either to 80/443 is
+**rejected** — the config validator errors and bootstrap fails fast. Set
+`kong.service.exposeTls=false` to run admin-only with no native edge at all.
+
+Sharing a host with another app: leave `kong.service.type=ClusterIP` and route to
+Obelisk from that app's ingress, or use `LoadBalancer` on 9080/9443 only.
 
 ## UI dev on a laptop (no `/etc/obelisk`)
 

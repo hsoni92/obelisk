@@ -4,3 +4,6 @@ storage:
   size: 2Gi
 credentials:
   password: ""
+edgeTLS:
+  enabled: false
+  secretName: obelisk-edge-tls

@@ -30,6 +30,7 @@ type InstanceConnection struct {
 	QdrantHTTP  string `json:"qdrant_http,omitempty"`
 	QdrantGRPC  string `json:"qdrant_grpc,omitempty"`
 	SearXNGHTTP string `json:"searxng_http,omitempty"`
+	Databases   []DatabaseConnection `json:"databases,omitempty"`
 }
 
 // PublicHost returns the hostname clients should use for native protocols.
@@ -55,7 +56,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 	vpsEdge := VPSEdge(spec)
 	out := Connections{}
 	if vpsEdge {
-		out.Notes = "VPS edge: HTTP APIs on port 80 (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort + " (same hostname, Kong SNI). Trust Obelisk's auto-generated edge cert or terminate TLS upstream."
+		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (per-instance hostnames; Kong SNI passthrough). Trust Obelisk's auto-generated edge certificate presented by the database service. Obelisk never binds host ports 80 or 443."
 	}
 
 	for _, inst := range spec.Instances {
@@ -82,10 +83,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			if user == "" {
 				user = "obelisk"
 			}
-			db := inst.Credentials.Database
-			if db == "" {
-				db = "obelisk"
-			}
+			db := BootstrapDatabase(inst)
 			pass := url.QueryEscape(inst.Credentials.Password)
 			if pass == "" {
 				pass = "SECRET"
@@ -99,7 +97,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.Postgres = fmt.Sprintf(
 						"postgresql://%s:%s@%s:%s/%s?sslmode=require",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
@@ -108,7 +106,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.MySQL = fmt.Sprintf(
 						"mysql://%s:%s@tcp(%s:%s)/%s?tls=true",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
@@ -117,7 +115,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				if vpsEdge {
 					ic.MongoDB = fmt.Sprintf(
 						"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true",
-						user, pass, edgeHost, NativeEdgeTLSPort, db,
+						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
 					ic.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
@@ -127,9 +125,9 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			if vpsEdge {
 				edgeHost := PublicEdgeHost(inst)
 				if inst.Credentials.Password != "" {
-					ic.Redis = fmt.Sprintf("rediss://:%s@%s:%s/0", url.QueryEscape(inst.Credentials.Password), edgeHost, NativeEdgeTLSPort)
+					ic.Redis = fmt.Sprintf("rediss://:%s@%s:%s/0", url.QueryEscape(inst.Credentials.Password), edgeHost, NativeEdgeTLSPort())
 				} else {
-					ic.Redis = fmt.Sprintf("rediss://%s:%s/0", edgeHost, NativeEdgeTLSPort)
+					ic.Redis = fmt.Sprintf("rediss://%s:%s/0", edgeHost, NativeEdgeTLSPort())
 				}
 			} else if inst.Credentials.Password != "" {
 				ic.Redis = fmt.Sprintf("redis://:%s@%s:6379/0", url.QueryEscape(inst.Credentials.Password), host)
@@ -157,21 +155,24 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 				ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
 			}
 		}
-		ic.Use = instanceUse(inst, ic)
+		if IsRelationalEngine(inst.Type) {
+			for _, name := range DesiredDatabaseNames(inst) {
+				if u := RelationalConnectionURL(spec, inst, name); u != "" {
+					ic.Databases = append(ic.Databases, DatabaseConnection{Name: name, URL: u})
+				}
+			}
+		}
+		ic.Use = instanceUse(spec, inst, ic)
 		out.Instances = append(out.Instances, ic)
 	}
 	return out
 }
 
 // instanceUse returns one admin-shareable credential block per service type.
-func instanceUse(inst ServiceInstance, ic InstanceConnection) string {
+func instanceUse(spec Spec, inst ServiceInstance, ic InstanceConnection) string {
 	switch inst.Type {
-	case "postgres":
-		return ic.Postgres
-	case "mysql":
-		return ic.MySQL
-	case "mongodb":
-		return ic.MongoDB
+	case "postgres", "mysql", "mongodb":
+		return relationalUseBlock(spec, inst, ic)
 	case "redis":
 		return ic.Redis
 	case "rustfs":
@@ -221,4 +222,34 @@ func instanceUse(inst ServiceInstance, ic InstanceConnection) string {
 	default:
 		return ""
 	}
+}
+
+func relationalUseBlock(spec Spec, inst ServiceInstance, ic InstanceConnection) string {
+	var primary string
+	switch inst.Type {
+	case "postgres":
+		primary = ic.Postgres
+	case "mysql":
+		primary = ic.MySQL
+	case "mongodb":
+		primary = ic.MongoDB
+	}
+	if primary == "" {
+		return ""
+	}
+	bootstrap := BootstrapDatabase(inst)
+	lines := []string{
+		fmt.Sprintf("# database %s (bootstrap)", bootstrap),
+		primary,
+	}
+	for _, name := range inst.Databases {
+		name = strings.TrimSpace(strings.ToLower(name))
+		if name == "" || name == bootstrap {
+			continue
+		}
+		if u := RelationalConnectionURL(spec, inst, name); u != "" {
+			lines = append(lines, fmt.Sprintf("# database %s", name), u)
+		}
+	}
+	return strings.Join(lines, "\n")
 }

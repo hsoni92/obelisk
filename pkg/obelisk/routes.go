@@ -17,7 +17,7 @@ func KongTCPRouteServiceName(inst ServiceInstance) string {
 }
 
 // PublicHTTPPaths returns Kong path prefixes for HTTP-exposed instance types.
-// VPS uses hostname-based Kong routes on port 80 instead of path prefixes.
+// VPS uses hostname-based Kong routes on the Kong HTTP port instead of path prefixes.
 func PublicHTTPPaths(inst ServiceInstance) []string {
 	return nil
 }
@@ -39,7 +39,7 @@ func PublicS3Host(inst ServiceInstance) string {
 	return PublicEdgeHost(inst)
 }
 
-// PublicS3Endpoint is the full S3 base URL for SDKs (Kong HTTP :80).
+// PublicS3Endpoint is the full S3 base URL for SDKs (Kong HTTP port).
 func PublicS3Endpoint(inst ServiceInstance) string {
 	if inst.Type != "rustfs" {
 		return ""

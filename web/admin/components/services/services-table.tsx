@@ -264,9 +264,16 @@ export function ServicesTable({
                 type="button"
                 onClick={() => setDetailsKey(row.original.rowKey)}
                 title="View details"
-                className="min-w-0 truncate rounded-md text-left text-sm font-medium capitalize hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                className="min-w-0 rounded-md text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                {label}
+                <span className="block truncate text-sm font-medium capitalize">
+                  {label}
+                </span>
+                {inst.display_name ? (
+                  <span className="block truncate font-mono text-[11px] text-muted-foreground">
+                    {inst.id}
+                  </span>
+                ) : null}
               </button>
             </div>
           );

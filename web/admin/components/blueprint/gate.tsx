@@ -59,7 +59,7 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
         ) : (
           <p className="text-body text-muted-foreground max-w-md">
             Open the appliance on port 9080 (not :3000). On the host:{" "}
-            <code className="font-mono text-xs">curl -fsS http://&lt;vm-ip&gt;/api/v1/health</code>
+            <code className="font-mono text-xs">curl -fsS http://&lt;vm-ip&gt;:9080/api/v1/health</code>
           </p>
         )}
         <p className="text-body text-muted-foreground text-xs font-mono">{detail}</p>

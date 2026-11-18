@@ -1,12 +1,32 @@
 package obelisk
 
-import "testing"
+import (
+	"regexp"
+	"testing"
+)
+
+var routeSlugShape = regexp.MustCompile(`^[a-z]+-[a-z]+$`)
+
+func TestRandomRouteSlugShape(t *testing.T) {
+	for i := 0; i < 32; i++ {
+		s := randomRouteSlug()
+		if !routeSlugShape.MatchString(s) {
+			t.Fatalf("slug %q", s)
+		}
+		if !instanceIDValid(s) {
+			t.Fatalf("invalid id %q", s)
+		}
+	}
+}
 
 func TestAllocateInstanceID_Unique(t *testing.T) {
 	spec := DefaultSpec("vps")
 	ids := map[string]struct{}{}
 	for i := 0; i < 20; i++ {
 		id := AllocateInstanceID(&spec)
+		if !routeSlugShape.MatchString(id) {
+			t.Fatalf("expected adjective-animal slug, got %q", id)
+		}
 		if _, ok := ids[id]; ok {
 			t.Fatalf("duplicate %s", id)
 		}
@@ -50,8 +70,8 @@ func TestPublicS3Host_RustFS(t *testing.T) {
 	if len(hosts) != 2 || hosts[0] != "s3-default.db.example.com" || hosts[1] != "s3.db.example.com" {
 		t.Fatalf("%v", hosts)
 	}
-	auto := ServiceInstance{ID: "ia1b2c3d4", Type: "rustfs"}
-	if got := PublicS3Host(auto); got != "s3-ia1b2c3d4.db.example.com" {
+	auto := ServiceInstance{ID: "calm-otter", Type: "rustfs"}
+	if got := PublicS3Host(auto); got != "s3-calm-otter.db.example.com" {
 		t.Fatal(got)
 	}
 }
@@ -63,7 +83,7 @@ func TestPublicS3Host_IPUsesSSLip(t *testing.T) {
 	if got := PublicS3Host(inst); got != want {
 		t.Fatalf("got %q want %q", got, want)
 	}
-	if got := PublicS3Endpoint(inst); got != "http://"+want {
+	if got := PublicS3Endpoint(inst); got != "http://"+want+":9080" {
 		t.Fatalf("endpoint %q", got)
 	}
 }

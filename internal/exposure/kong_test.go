@@ -147,13 +147,10 @@ services: []
 	if !strings.Contains(s, "protocol: tcp") {
 		t.Fatalf("missing tcp protocol:\n%s", s)
 	}
-	if !strings.Contains(s, "certificates:") {
-		t.Fatalf("missing edge cert:\n%s", s)
+	if !strings.Contains(s, "tls_passthrough") {
+		t.Fatalf("missing tls_passthrough protocol:\n%s", s)
 	}
-	if strings.Contains(s, "snis:\n            - '*.") {
-		t.Fatalf("expected kong snis objects, got bare strings:\n%s", s)
-	}
-	if !strings.Contains(s, "name: '*.") && !strings.Contains(s, "name: \"*.") {
-		t.Fatalf("missing sni name field:\n%s", s)
+	if strings.Contains(s, "certificates:") {
+		t.Fatalf("expected no kong termination certs (passthrough):\n%s", s)
 	}
 }

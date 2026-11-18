@@ -7,6 +7,7 @@ export type {
   BackupTargetResponse,
   ConnectionsResponse,
   CreateInstanceResponse,
+  InstanceDatabasesResponse,
   MailAccountView,
   BlueprintAuthorizeResponse,
   BlueprintStatus,

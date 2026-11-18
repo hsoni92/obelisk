@@ -17,8 +17,8 @@ func TestBuildConnections_Instance(t *testing.T) {
 	if len(c.Instances) != 1 || c.Instances[0].Postgres == "" {
 		t.Fatalf("got %+v", c)
 	}
-	if c.Instances[0].Use != c.Instances[0].Postgres {
-		t.Fatalf("use = Postgres URL, got %q", c.Instances[0].Use)
+	if !strings.Contains(c.Instances[0].Use, c.Instances[0].Postgres) {
+		t.Fatalf("use should include Postgres URL, got %q", c.Instances[0].Use)
 	}
 }
 

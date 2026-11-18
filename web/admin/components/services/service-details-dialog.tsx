@@ -15,6 +15,7 @@ import {
 import type { ServiceInstance } from "@/lib/api";
 import { relativeTime } from "@/lib/overview-series";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
+import { InstanceDatabasesPanel } from "@/components/services/instance-databases-panel";
 import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
 import * as React from "react";
 
@@ -95,14 +96,18 @@ export function ServiceDetailsDialog({
               <Section title="Identity">
                 <dl>
                   <Field
-                    label="Route key"
+                    label="Display name"
+                    value={inst.display_name || "—"}
+                  />
+                  <Field
+                    label="Endpoint slug"
                     value={inst.id}
                     mono
                     copy={inst.id}
                   />
                   {row.connection?.public_path ? (
                     <Field
-                      label="Public HTTP path"
+                      label="Public hostname"
                       value={row.connection.public_path}
                       mono
                       copy={row.connection.public_path}
@@ -177,6 +182,18 @@ export function ServiceDetailsDialog({
                   )}
                 </dl>
               </Section>
+
+              {(inst.type === "postgres" ||
+                inst.type === "mysql" ||
+                inst.type === "mongodb") && (
+                <Section title="Logical databases">
+                  <InstanceDatabasesPanel
+                    inst={inst}
+                    enabled={inst.enabled}
+                    running={row.state === "running"}
+                  />
+                </Section>
+              )}
 
               <Section title="Remote connection">
                 <p className="mb-3 text-metadata text-muted-foreground">

@@ -19,6 +19,7 @@ import type { ServiceInstance } from "@/lib/types";
 import { useEffect, useMemo, useState } from "react";
 
 export type ConfigureInstanceSave = {
+  display_name?: string;
   credentials?: ServiceInstance["credentials"];
   backup?: {
     enabled?: boolean;
@@ -73,6 +74,9 @@ export function ConfigureInstanceDialog({
         14,
     ),
   );
+  const [displayName, setDisplayName] = useState(
+    instance.display_name?.trim() || "",
+  );
 
   const scheduleIsPreset = useMemo(
     () => BACKUP_SCHEDULE_PRESETS.some((p) => p.value === schedule),
@@ -81,6 +85,7 @@ export function ConfigureInstanceDialog({
 
   useEffect(() => {
     if (!open) return;
+    setDisplayName(instance.display_name?.trim() || "");
     setBackupOn(backupMeta?.enabled ?? instance.backup?.enabled ?? true);
     const pol = backupMeta?.policy;
     setCustomPolicy(pol?.overridden ?? false);
@@ -99,11 +104,23 @@ export function ConfigureInstanceDialog({
     } else {
       setCustomCron("");
     }
-  }, [open, backupMeta, instance.backup?.enabled, globalBackup?.policy]);
+  }, [
+    open,
+    backupMeta,
+    instance.backup?.enabled,
+    instance.display_name,
+    globalBackup?.policy,
+  ]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     const patch: ConfigureInstanceSave = {};
+
+    const trimmedName = displayName.trim();
+    const priorName = instance.display_name?.trim() || "";
+    if (trimmedName !== priorName) {
+      patch.display_name = trimmedName;
+    }
 
     if (backupSupported) {
       patch.backup = { enabled: backupOn };
@@ -129,10 +146,8 @@ export function ConfigureInstanceDialog({
     ) {
       const username = String(data.get("username") || "").trim();
       const password = String(data.get("password") || "");
-      const database = String(data.get("database") || "").trim();
       if (username) body.username = username;
       if (password) body.password = password;
-      if (database) body.database = database;
     } else if (instance.type === "redis") {
       const password = String(data.get("password") || "");
       if (password) body.password = password;
@@ -169,12 +184,23 @@ export function ConfigureInstanceDialog({
               Configure — {instance.display_name || instance.id}
             </DialogTitle>
             <DialogDescription>
-              Credentials apply on next reconcile. Backup policy overrides the
-              DR page defaults for this instance only.
+              Rename the display label anytime; the endpoint slug{" "}
+              <span className="font-mono text-xs">{instance.id}</span> stays
+              fixed so client URLs keep working. Credential changes apply on
+              next reconcile. Backup policy overrides the DR page defaults for
+              this instance only.
             </DialogDescription>
           </DialogHeader>
           <DialogBody>
             <div className="space-y-3">
+              <Field
+                label="Display name"
+                name="display_name"
+                value={displayName}
+                onChange={(e) => setDisplayName(e.currentTarget.value)}
+                placeholder={instance.type}
+                autoComplete="off"
+              />
               <Label className="text-eyebrow">Credentials</Label>
               {(instance.type === "postgres" ||
                 instance.type === "mysql" ||
@@ -192,10 +218,17 @@ export function ConfigureInstanceDialog({
                     placeholder="Leave blank to keep current"
                   />
                   <Field
-                    label="Database"
+                    label="Bootstrap database"
                     name="database"
-                    defaultValue={instance.credentials.database}
+                    defaultValue={
+                      instance.credentials.database || "default"
+                    }
+                    placeholder="default (fixed at launch)"
                   />
+                  <p className="text-metadata text-muted-foreground">
+                    Additional databases are managed in the service details
+                    view.
+                  </p>
                 </>
               )}
               {instance.type === "redis" && (
