@@ -179,6 +179,16 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Status", "Connections", "Overview"],
     }),
+    deleteInstance: builder.mutation<
+      unknown,
+      { id: string; type: string }
+    >({
+      query: ({ id, type }) => ({
+        url: `/instances/${encodeURIComponent(id)}?type=${encodeURIComponent(type)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Status", "Connections", "Overview"],
+    }),
     patchBackupTarget: builder.mutation<
       BackupTargetResponse,
       {
@@ -484,6 +494,7 @@ export const {
   useTestAllBackupDestinationsMutation,
   useCreateInstanceMutation,
   usePatchInstanceMutation,
+  useDeleteInstanceMutation,
   usePatchBackupTargetMutation,
   useTestBackupRemoteMutation,
   useRunBackupMutation,

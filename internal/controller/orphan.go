@@ -41,6 +41,7 @@ func (r *Reconciler) pruneOrphanReleases(ctx context.Context, spec obelisk.Spec)
 			slog.Warn("prune orphan release", "release", rel, "err", err)
 			continue
 		}
+		r.deletePVCsForRelease(ctx, rel)
 		removed = append(removed, rel)
 	}
 	return removed
@@ -107,4 +108,31 @@ func (r *Reconciler) helmUninstall(ctx context.Context, release string) error {
 	}
 	slog.Info("pruned orphan release", "release", release)
 	return nil
+}
+
+// deletePVCsForRelease removes StatefulSet volume claims for a Helm release (data-<release>-*).
+func (r *Reconciler) deletePVCsForRelease(ctx context.Context, release string) {
+	if r.reconcileDisabled() {
+		return
+	}
+	ns := r.namespace()
+	prefix := "data-" + release + "-"
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "pvc", "-n", ns, "-o", "jsonpath={range .items[*]}{.metadata.name}{\"\\n\"}{end}")
+	cmd.Env = kubeconfigEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		slog.Warn("list pvc for terminate", "release", release, "err", err)
+		return
+	}
+	for _, name := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		name = strings.TrimSpace(name)
+		if name == "" || !strings.HasPrefix(name, prefix) {
+			continue
+		}
+		del := exec.CommandContext(ctx, "kubectl", "delete", "pvc", name, "-n", ns, "--wait=false")
+		del.Env = kubeconfigEnv()
+		if _, err := del.CombinedOutput(); err != nil {
+			slog.Warn("delete pvc", "name", name, "err", err)
+		}
+	}
 }

@@ -321,6 +321,16 @@ func FindInstanceByTypeAndID(spec *Spec, typ, id string) (ServiceInstance, int, 
 	return ServiceInstance{}, -1, false
 }
 
+// RemoveInstanceByTypeAndID deletes an instance row from spec (not scale-to-zero).
+func RemoveInstanceByTypeAndID(spec *Spec, typ, id string) (ServiceInstance, bool) {
+	inst, idx, ok := FindInstanceByTypeAndID(spec, typ, id)
+	if !ok {
+		return ServiceInstance{}, false
+	}
+	spec.Instances = append(spec.Instances[:idx], spec.Instances[idx+1:]...)
+	return inst, true
+}
+
 func UniqueInstanceID(spec *Spec, base string) string {
 	if _, _, ok := FindInstance(spec, base); !ok {
 		return base

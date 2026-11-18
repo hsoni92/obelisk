@@ -16,3 +16,14 @@ func TestFindInstanceByTypeAndID(t *testing.T) {
 		t.Fatalf("FindInstance still returns first match")
 	}
 }
+
+func TestRemoveInstanceByTypeAndID(t *testing.T) {
+	spec := Spec{Instances: []ServiceInstance{
+		{ID: "default", Type: "postgres", Enabled: true},
+		{ID: "default", Type: "redis", Enabled: true},
+	}}
+	removed, ok := RemoveInstanceByTypeAndID(&spec, "redis", "default")
+	if !ok || removed.Type != "redis" || len(spec.Instances) != 1 || spec.Instances[0].Type != "postgres" {
+		t.Fatalf("remove redis: got %#v len=%d", removed, len(spec.Instances))
+	}
+}

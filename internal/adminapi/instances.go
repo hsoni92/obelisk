@@ -239,6 +239,7 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 	id := r.PathValue("id")
+	typ := strings.TrimSpace(r.URL.Query().Get("type"))
 	cfg := config.EnsureReadablePath(s.ConfigPath)
 	s.mu.Lock()
 	spec, err := config.Load(cfg)
@@ -247,15 +248,22 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	_, idx, ok := obelisk.FindInstance(&spec, id)
+	var inst obelisk.ServiceInstance
+	var ok bool
+	if typ != "" {
+		inst, ok = obelisk.RemoveInstanceByTypeAndID(&spec, typ, id)
+	} else {
+		var idx int
+		inst, idx, ok = obelisk.FindInstance(&spec, id)
+		if ok {
+			spec.Instances = append(spec.Instances[:idx], spec.Instances[idx+1:]...)
+		}
+	}
 	if !ok {
 		s.mu.Unlock()
 		http.Error(w, "instance not found", http.StatusNotFound)
 		return
 	}
-	inst := spec.Instances[idx]
-	inst.Enabled = false
-	spec.Instances[idx] = inst
 	obelisk.SyncLegacyServiceFlags(&spec)
 	if err := config.Save(cfg, spec); err != nil {
 		s.mu.Unlock()
@@ -263,7 +271,11 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
-	s.recordAudit("Instance", "deleted", inst.Type+"/"+inst.ID)
+	s.recordAudit("Instance", "terminated", inst.Type+"/"+inst.ID)
 	controller.ReconcileAsync(s.reconciler(cfg))
-	writeJSON(w, map[string]any{"deleted": id, "accepted": true})
+	writeJSON(w, map[string]any{
+		"deleted": inst.Type + "/" + inst.ID,
+		"release": inst.ReleaseName(),
+		"accepted": true,
+	})
 }

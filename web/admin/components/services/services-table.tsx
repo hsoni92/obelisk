@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -47,7 +57,7 @@ const TYPE_ICONS = {
 } as const;
 
 const GRID =
-  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_208px] items-center gap-2";
+  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_minmax(200px,auto)] items-center gap-2";
 
 const ROW_HEIGHT = 56;
 
@@ -68,6 +78,7 @@ type ServicesTableProps = {
   /** Start (`true`) or stop (`false`) an instance. Resolves false if the request failed. */
   onToggle: (inst: ServiceInstance, enabled: boolean) => Promise<boolean>;
   onConfigure: (inst: ServiceInstance) => void;
+  onTerminate: (inst: ServiceInstance) => Promise<boolean>;
   onClearFilters?: () => void;
 };
 
@@ -153,11 +164,15 @@ export function ServicesTable({
   bulkPending,
   onToggle,
   onConfigure,
+  onTerminate,
   onClearFilters,
 }: ServicesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "name", desc: false },
   ]);
+  const [terminateTarget, setTerminateTarget] =
+    React.useState<ServiceInstance | null>(null);
+  const [terminateBusy, setTerminateBusy] = React.useState(false);
 
   React.useEffect(() => {
     const visible = new Set(rows.map((r) => r.rowKey));
@@ -385,6 +400,15 @@ export function ServicesTable({
               >
                 Configure
               </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-[96px] text-destructive border-destructive/40 hover:bg-destructive-tint"
+                disabled={busy || !!wait}
+                onClick={() => setTerminateTarget(inst)}
+              >
+                Terminate
+              </Button>
             </div>
           );
         },
@@ -453,6 +477,10 @@ export function ServicesTable({
     );
   }
 
+  const terminateLabel = terminateTarget
+    ? `${terminateTarget.type}/${terminateTarget.display_name || terminateTarget.id}`
+    : "";
+
   return (
     <div className="flex min-h-0 flex-col overflow-clip rounded-2xl bg-card shadow-rb-2">
       <ServiceDetailsDialog
@@ -460,6 +488,40 @@ export function ServicesTable({
         onOpenChange={(o) => !o && setDetailsKey(null)}
         onConfigure={onConfigure}
       />
+      <AlertDialog
+        open={!!terminateTarget}
+        onOpenChange={(o) => !o && !terminateBusy && setTerminateTarget(null)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Terminate {terminateLabel}?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes the instance from the appliance config, uninstalls its
+              Helm release, and deletes local volume data (PVCs). It cannot be
+              undone. Use <strong>Stop</strong> if you only want to scale down
+              and keep data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={terminateBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={terminateBusy || !terminateTarget}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                if (!terminateTarget) return;
+                setTerminateBusy(true);
+                void onTerminate(terminateTarget).then((ok) => {
+                  setTerminateBusy(false);
+                  if (ok) setTerminateTarget(null);
+                });
+              }}
+            >
+              {terminateBusy ? "Terminating…" : "Terminate permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
       <div
         ref={parentRef}
         className="max-h-[min(640px,calc(100vh-18rem))] overflow-auto"

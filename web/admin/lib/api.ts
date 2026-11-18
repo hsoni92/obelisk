@@ -41,6 +41,7 @@ export {
   useGetStatusQuery,
   usePatchBackupTargetMutation,
   usePatchInstanceMutation,
+  useDeleteInstanceMutation,
   useRunBackupMutation,
   useTestBackupRemoteMutation,
   useGetOpenRouterConfigQuery,

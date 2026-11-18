@@ -27,6 +27,7 @@ import {
   useGetOverviewQuery,
   overviewPollOptions,
   useGetStatusQuery,
+  useDeleteInstanceMutation,
   usePatchInstanceMutation,
   type ServiceInstance,
 } from "@/lib/api";
@@ -117,6 +118,7 @@ function ServicesPageContent() {
 
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
+  const [deleteInstance] = useDeleteInstanceMutation();
 
   useEffect(() => {
     if (
@@ -234,6 +236,29 @@ function ServicesPageContent() {
     }
   }
 
+  async function terminateInstance(inst: ServiceInstance): Promise<boolean> {
+    const key = serviceRowKey(inst);
+    setBusy(key);
+    try {
+      await deleteInstance({ id: inst.id, type: inst.type }).unwrap();
+      toast.success(
+        "Instance terminated",
+        `${inst.type}/${inst.id} removed from the cluster (Helm release and PVCs).`,
+      );
+      setSelected((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+      return true;
+    } catch (e) {
+      toast.error("Terminate failed", rtkErrorMessage(e));
+      return false;
+    } finally {
+      setBusy(null);
+    }
+  }
+
   async function saveConfiguration(id: string, patch: ConfigureInstanceSave) {
     const inst = allTableRows.find((r) => r.instance.id === id)?.instance;
     setBusy(inst ? serviceRowKey(inst) : id);
@@ -297,6 +322,7 @@ function ServicesPageContent() {
           }}
           onToggle={setEnabled}
           onConfigure={setConfigureTarget}
+          onTerminate={(inst) => terminateInstance(inst)}
         />
       </div>
     </>
