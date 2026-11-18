@@ -127,16 +127,45 @@ write_config() {
   log "wrote $CONFIG_PATH"
 }
 
+adopt_unmanaged_helm_resources() {
+  # Hot-patched or kubectl-apply'd native edge must be adoptable before helm upgrade.
+  export KUBECONFIG="${KUBECONFIG:-/etc/rancher/k3s/k3s.yaml}"
+  command -v kubectl >/dev/null 2>&1 || return 0
+  local rel="obelisk-platform"
+  local adopt=(
+    "deployment/obelisk-native-edge"
+    "service/obelisk-native-edge"
+  )
+  for obj in "${adopt[@]}"; do
+    if ! kubectl get -n "$NAMESPACE" "$obj" >/dev/null 2>&1; then
+      continue
+    fi
+    if kubectl get -n "$NAMESPACE" "$obj" \
+      -o jsonpath='{.metadata.labels.app\.kubernetes\.io/managed-by}' 2>/dev/null | grep -qx Helm; then
+      continue
+    fi
+    log "adopting $obj for helm release $rel"
+    kubectl annotate -n "$NAMESPACE" "$obj" \
+      "meta.helm.sh/release-name=$rel" \
+      "meta.helm.sh/release-namespace=$NAMESPACE" \
+      --overwrite
+    kubectl label -n "$NAMESPACE" "$obj" \
+      "app.kubernetes.io/managed-by=Helm" \
+      --overwrite
+  done
+}
+
 deploy_platform() {
   export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
   command -v helm >/dev/null || {
     curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
   }
   ensure_image_tag
+  adopt_unmanaged_helm_resources
   local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
   if [[ "$PROFILE" == "vps" && -z "$helm_extra" ]]; then
-    helm_extra='--set kong.service.type=LoadBalancer'
-    log "VPS default: kong LoadBalancer (k3s servicelb) on 9080 + 9443 (never 80/443)"
+    helm_extra='--set kong.service.type=LoadBalancer --set nativeEdge.service.type=LoadBalancer'
+    log "VPS default: LoadBalancer on 9080 (Kong) + 9443 (native edge); never 80/443"
   fi
   # Obelisk must never claim the host's HTTP/HTTPS edge (80/443): a co-located app
   # (e.g. an existing k3s Ingress/Kong) already owns those. Non-invasive by default.
@@ -172,7 +201,7 @@ deploy_platform() {
     --set "obelisk.imageAdminUI=obelisk-admin-ui:${OBELISK_IMAGE_TAG}" \
     $([[ -n "$public_host" ]] && echo --set "obelisk.publicHost=$public_host") \
     --set "kong.service.httpPort=$edge_http_port" \
-    --set "kong.service.tlsPort=$edge_tls_port" \
+    --set "nativeEdge.service.tlsPort=$edge_tls_port" \
     ${helm_extra}
   log "platform helm release applied (images ${OBELISK_IMAGE_TAG})"
 }
@@ -182,7 +211,7 @@ wait_platform_rollout() {
   command -v kubectl >/dev/null 2>&1 || return 0
   kubectl cluster-info >/dev/null 2>&1 || return 0
   local timeout="${OBELISK_PLATFORM_WAIT_SEC:-300}"
-  for dep in obelisk-kong obelisk-controller obelisk-admin-ui; do
+  for dep in obelisk-kong obelisk-native-edge obelisk-controller obelisk-admin-ui; do
     if ! kubectl get deployment -n "$NAMESPACE" "$dep" >/dev/null 2>&1; then
       continue
     fi

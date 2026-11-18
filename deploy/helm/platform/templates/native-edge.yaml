@@ -1,17 +1,5 @@
 {{- if and .Values.kong.enabled .Values.nativeEdge.enabled }}
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: native-edge-config
-  namespace: {{ .Values.namespace }}
-data:
-  nginx.conf: |
-    worker_processes auto;
-    events { worker_connections 256; }
-    stream {
-      server { listen 8443; return 444; }
-    }
----
+# native-edge-config is applied by the controller (same pattern as merged kong-dbless-config).
 apiVersion: apps/v1
 kind: Deployment
 metadata:
