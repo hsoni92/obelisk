@@ -34,13 +34,13 @@ export function FieldPassword({
         <Input
           {...inputProps}
           type={visible ? "text" : "password"}
-          className={cn("pr-11", inputProps.className)}
+          className="pr-11"
         />
         <Button
           type="button"
-          variant="ghost"
-          size="icon"
-          className="absolute right-1 top-1/2 h-8 w-8 -translate-y-1/2 rounded-full text-muted-foreground hover:text-foreground"
+          variant="icon"
+          size="sm"
+          className="absolute right-0.5 top-1/2 h-8 w-8 min-w-8 -translate-y-1/2 shadow-none text-muted-foreground hover:text-foreground"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Hide passphrase" : "Show passphrase"}
           aria-pressed={visible}
