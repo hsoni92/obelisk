@@ -152,7 +152,7 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, vpsEdge bool, inst o
 		if ns == "" {
 			ns = "obelisk"
 		}
-		valuesPath, cleanup, err := writeInstanceValues(vpsEdge, inst)
+		valuesPath, cleanup, err := writeInstanceValues(vpsEdge, r.edgeTLSSecretReady(ctx), inst)
 		if err != nil {
 			return "degraded", "", err
 		}
@@ -181,7 +181,7 @@ func (r *Reconciler) helmUpgradeInstance(ctx context.Context, vpsEdge bool, inst
 	if ns == "" {
 		ns = "obelisk"
 	}
-	valuesPath, cleanup, err := writeInstanceValues(vpsEdge, inst)
+	valuesPath, cleanup, err := writeInstanceValues(vpsEdge, r.edgeTLSSecretReady(ctx), inst)
 	if err != nil {
 		return err
 	}
@@ -220,6 +220,19 @@ func (r *Reconciler) helmScaleRelease(ctx context.Context, release string, repli
 
 func (r *Reconciler) helmScale(ctx context.Context, service string, replicas int) error {
 	return r.helmScaleRelease(ctx, "obelisk-"+service, replicas)
+}
+
+func (r *Reconciler) edgeTLSSecretReady(ctx context.Context) bool {
+	if r.reconcileDisabled() {
+		return false
+	}
+	ns := r.Namespace
+	if ns == "" {
+		ns = "obelisk"
+	}
+	cmd := exec.CommandContext(ctx, "kubectl", "get", "secret", "obelisk-edge-tls", "-n", ns)
+	cmd.Env = kubeconfigEnv()
+	return cmd.Run() == nil
 }
 
 func (r *Reconciler) ensureTailscale(ctx context.Context) error {
