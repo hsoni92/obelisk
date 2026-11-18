@@ -32,8 +32,9 @@ spec:
               value: /kong/kong.yaml
             - name: KONG_PROXY_LISTEN
               value: "0.0.0.0:8000"
+            # Plain TCP + per-route tls_passthrough (Postgres/MySQL use SSLRequest before TLS; Kong cannot terminate).
             - name: KONG_STREAM_LISTEN
-              value: "0.0.0.0:8443 ssl"
+              value: "0.0.0.0:8443"
             - name: KONG_ADMIN_LISTEN
               value: "127.0.0.1:8001"
           ports:

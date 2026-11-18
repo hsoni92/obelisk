@@ -205,20 +205,8 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 		}
 	}
 	doc.Services = filtered
+	// Native protocols use TLS passthrough; databases terminate TLS themselves (see edge TLS secret).
 	doc.Certificates = nil
-	if obelisk.VPSEdge(spec) && edgeNeedsNativeTLS(spec) {
-		certPEM, keyPEM, err := edgeWildcardTLSCert(obelisk.PublicEdgeBaseDomain())
-		if err != nil {
-			return nil, fmt.Errorf("edge tls cert: %w", err)
-		}
-		base := obelisk.PublicEdgeBaseDomain()
-		wildcard := "*." + base
-		doc.Certificates = []kongCertificate{{
-			Cert: indentPEM(certPEM),
-			Key:  indentPEM(keyPEM),
-			SNIs: []kongSNIName{{Name: wildcard}, {Name: base}},
-		}}
-	}
 	out, err := yaml.Marshal(&doc)
 	if err != nil {
 		return nil, fmt.Errorf("marshal kong: %w", err)
@@ -235,7 +223,8 @@ func indentPEM(pem string) string {
 	return strings.TrimSpace(pem)
 }
 
-func edgeNeedsNativeTLS(spec obelisk.Spec) bool {
+// NeedsNativeEdgeTLS reports whether any enabled instance uses the native TLS edge port.
+func NeedsNativeEdgeTLS(spec obelisk.Spec) bool {
 	for _, inst := range spec.Instances {
 		if !inst.Enabled {
 			continue
@@ -310,7 +299,7 @@ func kongTCPServiceForInstance(inst obelisk.ServiceInstance) (kongService, bool)
 		Port:     port,
 		Routes: []kongRoute{{
 			Name:      name,
-			Protocols: []string{"tls"},
+			Protocols: []string{"tls_passthrough"},
 			SNIs:      snis,
 		}},
 	}, true

@@ -58,6 +58,14 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		report.Messages = append(report.Messages, "pruned orphan releases: "+strings.Join(pruned, ", "))
 	}
 
+	var reconcileErr error
+	vpsEdge := obelisk.VPSEdge(spec)
+	if !r.reconcileDisabled() && vpsEdge && exposure.NeedsNativeEdgeTLS(spec) {
+		if err := exposure.ReconcileEdgeTLSSecret(ctx, r.Namespace); err != nil {
+			report.Messages = append(report.Messages, "edge tls: "+err.Error())
+			reconcileErr = err
+		}
+	}
 	ordered := instancesReconcileOrder(spec.Instances)
 	var disabled, enabled []obelisk.ServiceInstance
 	for _, inst := range ordered {
@@ -74,8 +82,6 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		msg   string
 		err   error
 	}
-
-	var reconcileErr error
 	apply := func(res instResult) {
 		report.ServiceStates[res.key] = res.state
 		if res.msg != "" {
@@ -97,7 +103,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			wg.Add(1)
 			go func(inst obelisk.ServiceInstance) {
 				defer wg.Done()
-				state, msg, err := r.reconcileInstance(ctx, inst)
+				state, msg, err := r.reconcileInstance(ctx, vpsEdge, inst)
 				ch <- instResult{inst.StateKey(), state, msg, err}
 			}(inst)
 		}
@@ -108,7 +114,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		}
 	}
 	for _, inst := range enabled {
-		state, msg, err := r.reconcileInstance(ctx, inst)
+		state, msg, err := r.reconcileInstance(ctx, vpsEdge, inst)
 		apply(instResult{inst.StateKey(), state, msg, err})
 	}
 	if spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
@@ -138,7 +144,7 @@ func instancesReconcileOrder(insts []obelisk.ServiceInstance) []obelisk.ServiceI
 	return out
 }
 
-func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.ServiceInstance) (state, msg string, err error) {
+func (r *Reconciler) reconcileInstance(ctx context.Context, vpsEdge bool, inst obelisk.ServiceInstance) (state, msg string, err error) {
 	if !inst.Enabled {
 		chart := fmt.Sprintf("%s/deploy/helm/services/%s", r.HelmRoot, inst.Type)
 		release := inst.ReleaseName()
@@ -146,7 +152,7 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.Service
 		if ns == "" {
 			ns = "obelisk"
 		}
-		valuesPath, cleanup, err := writeInstanceValues(inst)
+		valuesPath, cleanup, err := writeInstanceValues(vpsEdge, inst)
 		if err != nil {
 			return "degraded", "", err
 		}
@@ -161,21 +167,21 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, inst obelisk.Service
 		st := r.observeInstanceState(ctx, inst)
 		return st, fmt.Sprintf("%s scaled to 0 via helm", inst.StateKey()), nil
 	}
-	if err := r.helmUpgradeInstance(ctx, inst); err != nil {
+	if err := r.helmUpgradeInstance(ctx, vpsEdge, inst); err != nil {
 		return "degraded", "", err
 	}
 	st := r.observeInstanceState(ctx, inst)
 	return st, fmt.Sprintf("%s release applied", inst.StateKey()), nil
 }
 
-func (r *Reconciler) helmUpgradeInstance(ctx context.Context, inst obelisk.ServiceInstance) error {
+func (r *Reconciler) helmUpgradeInstance(ctx context.Context, vpsEdge bool, inst obelisk.ServiceInstance) error {
 	chart := fmt.Sprintf("%s/deploy/helm/services/%s", r.HelmRoot, inst.Type)
 	release := inst.ReleaseName()
 	ns := r.Namespace
 	if ns == "" {
 		ns = "obelisk"
 	}
-	valuesPath, cleanup, err := writeInstanceValues(inst)
+	valuesPath, cleanup, err := writeInstanceValues(vpsEdge, inst)
 	if err != nil {
 		return err
 	}

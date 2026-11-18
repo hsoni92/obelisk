@@ -16,6 +16,12 @@ spec:
       containers:
         - name: mongodb
           image: {{ .Values.image }}
+          {{- if .Values.edgeTLS.enabled }}
+          args:
+            - --tlsMode=requireTLS
+            - --tlsCertificateKeyFile=/var/run/edge/tls.pem
+            - --tlsAllowConnectionsWithoutCertificates
+          {{- end }}
           ports:
             - containerPort: 27017
           env:
@@ -42,6 +48,20 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data/db
+            {{- if .Values.edgeTLS.enabled }}
+            - name: edge-tls
+              mountPath: /var/run/edge
+              readOnly: true
+            {{- end }}
+      {{- if .Values.edgeTLS.enabled }}
+      volumes:
+        - name: edge-tls
+          secret:
+            secretName: {{ .Values.edgeTLS.secretName }}
+            items:
+              - key: tls.pem
+                path: tls.pem
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

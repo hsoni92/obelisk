@@ -22,6 +22,18 @@ spec:
             - "256mb"
             - --maxmemory-policy
             - allkeys-lru
+            {{- if .Values.edgeTLS.enabled }}
+            - --tls-port
+            - "6379"
+            - --port
+            - "0"
+            - --tls-cert-file
+            - /var/run/edge/tls.crt
+            - --tls-key-file
+            - /var/run/edge/tls.key
+            - --tls-auth-clients
+            - "no"
+            {{- end }}
             {{- if .Values.credentials.password }}
             - --requirepass
             - $(REDIS_PASSWORD)
@@ -44,6 +56,22 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /data
+            {{- if .Values.edgeTLS.enabled }}
+            - name: edge-tls
+              mountPath: /var/run/edge
+              readOnly: true
+            {{- end }}
+      {{- if .Values.edgeTLS.enabled }}
+      volumes:
+        - name: edge-tls
+          secret:
+            secretName: {{ .Values.edgeTLS.secretName }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data

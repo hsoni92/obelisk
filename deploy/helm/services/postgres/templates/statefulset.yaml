@@ -16,6 +16,16 @@ spec:
       containers:
         - name: postgres
           image: {{ .Values.image }}
+          {{- if .Values.edgeTLS.enabled }}
+          command: ["docker-entrypoint.sh", "postgres"]
+          args:
+            - -c
+            - ssl=on
+            - -c
+            - ssl_cert_file=/var/run/edge/tls.crt
+            - -c
+            - ssl_key_file=/var/run/edge/tls.key
+          {{- end }}
           ports:
             - containerPort: 5432
           env:
@@ -42,6 +52,22 @@ spec:
           volumeMounts:
             - name: data
               mountPath: /var/lib/postgresql/data
+            {{- if .Values.edgeTLS.enabled }}
+            - name: edge-tls
+              mountPath: /var/run/edge
+              readOnly: true
+            {{- end }}
+      {{- if .Values.edgeTLS.enabled }}
+      volumes:
+        - name: edge-tls
+          secret:
+            secretName: {{ .Values.edgeTLS.secretName }}
+            items:
+              - key: tls.crt
+                path: tls.crt
+              - key: tls.key
+                path: tls.key
+      {{- end }}
   volumeClaimTemplates:
     - metadata:
         name: data
