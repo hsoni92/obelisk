@@ -12,6 +12,7 @@ import {
 import { Checkbox } from "@/components/ui/checkbox";
 import {
   Dialog,
+  DialogBody,
   DialogContent,
   DialogFooter,
   DialogHeader,
@@ -57,7 +58,10 @@ export function ProjectsPanel() {
   const [name, setName] = useState("");
   const [members, setMembers] = useState<Set<string>>(() => new Set());
   const [discovery, setDiscovery] = useState(false);
-  const [tokenReveal, setTokenReveal] = useState<string | null>(null);
+  const [tokenReveal, setTokenReveal] = useState<{
+    projectId: string;
+    token: string;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
 
   const instances = useMemo(() => {
@@ -74,7 +78,7 @@ export function ProjectsPanel() {
     setName(p?.name ?? "");
     setMembers(new Set(p?.instance_ids ?? []));
     setDiscovery(p?.discovery_enabled ?? false);
-    setTokenReveal(null);
+    if (!p) setTokenReveal(null);
   }
 
   async function save() {
@@ -128,8 +132,8 @@ export function ProjectsPanel() {
     setBusy(true);
     try {
       const res = await rotateToken(id).unwrap();
-      setTokenReveal(res.token);
-      toast.success("Discovery token rotated");
+      setTokenReveal({ projectId: id, token: res.token });
+      toast.success("Discovery token ready — copy it below");
     } catch (e) {
       toast.error(rtkErrorMessage(e));
     } finally {
@@ -183,21 +187,70 @@ export function ProjectsPanel() {
                     : `${p.instance_ids!.length} instance(s): ${p.instance_ids!.join(", ")}`}
                 </p>
                 {p.discovery_enabled && p.discovery_url && (
-                  <div className="space-y-2 rounded-md border border-border p-3">
-                    <p className="font-medium">Discovery (GET, Bearer token)</p>
+                  <div className="space-y-3 rounded-md border border-border p-3">
+                    <p className="font-medium">Client access</p>
                     <p className="text-xs text-muted-foreground">
-                      One token unlocks every connection URL in this project.
-                      Treat the response as secret.
+                      Call the discovery endpoint with a Bearer token (header
+                      only). The JSON response contains connection URLs — treat
+                      it like a password.
                     </p>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <code className="break-all text-xs">
-                        {discoveryAbsolute(p.discovery_url)}
-                      </code>
-                      <CopyButton
-                        label="Discovery URL"
-                        value={discoveryAbsolute(p.discovery_url)}
-                      />
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        1. Discovery endpoint (GET)
+                      </p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <code className="break-all text-xs">
+                          {discoveryAbsolute(p.discovery_url)}
+                        </code>
+                        <CopyButton
+                          label="Discovery URL"
+                          value={discoveryAbsolute(p.discovery_url)}
+                        />
+                      </div>
                     </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        2. Bearer token
+                      </p>
+                      {!p.discovery_configured &&
+                        tokenReveal?.projectId !== p.id && (
+                          <p className="text-xs text-amber-700 dark:text-amber-400">
+                            Not set yet — click Generate token, then copy the
+                            value shown once.
+                          </p>
+                        )}
+                      {p.discovery_configured &&
+                        tokenReveal?.projectId !== p.id && (
+                          <p className="text-xs text-muted-foreground">
+                            Token exists in the cluster (not shown again). Rotate
+                            to issue a new token and copy it once.
+                          </p>
+                        )}
+                      {tokenReveal?.projectId === p.id && (
+                        <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-2">
+                          <p className="text-xs font-medium">
+                            Copy now — this token is not stored in the UI
+                          </p>
+                          <code className="block break-all text-xs">
+                            {tokenReveal.token}
+                          </code>
+                          <CopyButton
+                            label="Bearer token"
+                            value={tokenReveal.token}
+                          />
+                        </div>
+                      )}
+                    </div>
+                    <details className="text-xs text-muted-foreground">
+                      <summary className="cursor-pointer font-medium text-foreground">
+                        Example curl
+                      </summary>
+                      <pre className="mt-2 overflow-x-auto whitespace-pre-wrap rounded-md bg-muted p-2 font-mono text-[11px]">
+                        {`curl -sS \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  "${discoveryAbsolute(p.discovery_url)}"`}
+                      </pre>
+                    </details>
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
@@ -252,11 +305,11 @@ export function ProjectsPanel() {
       )}
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent className="max-w-lg">
           <DialogHeader>
             <DialogTitle>{edit ? "Edit project" : "New project"}</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
+          <DialogBody className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="project-name">Name</Label>
               <Input
@@ -275,8 +328,8 @@ export function ProjectsPanel() {
               />
             </div>
             <fieldset className="space-y-2">
-              <legend className="text-sm font-medium">Instances</legend>
-              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-2">
+              <legend className="px-0 text-sm font-medium">Instances</legend>
+              <div className="max-h-48 space-y-2 overflow-y-auto rounded-md border border-border p-3">
                 {instances.length === 0 ? (
                   <p className="text-xs text-muted-foreground">
                     No instances yet.
@@ -305,14 +358,14 @@ export function ProjectsPanel() {
                 )}
               </div>
             </fieldset>
-            {tokenReveal && (
+            {tokenReveal && edit?.id === tokenReveal.projectId && (
               <div className="space-y-2 rounded-md border border-amber-500/40 bg-amber-500/5 p-3">
                 <p className="text-xs font-medium">Copy token now — it will not be shown again</p>
-                <code className="block break-all text-xs">{tokenReveal}</code>
-                <CopyButton label="Bearer token" value={tokenReveal} />
+                <code className="block break-all text-xs">{tokenReveal.token}</code>
+                <CopyButton label="Bearer token" value={tokenReveal.token} />
               </div>
             )}
-          </div>
+          </DialogBody>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancel

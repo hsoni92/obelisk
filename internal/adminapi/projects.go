@@ -1,7 +1,6 @@
 package adminapi
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/base64"
 	"encoding/json"
@@ -24,7 +23,7 @@ type projectView struct {
 	DiscoveryURL        string   `json:"discovery_url,omitempty"`
 }
 
-func (s *Server) enrichProjectView(ctx context.Context, ns string, p obelisk.Project) projectView {
+func (s *Server) enrichProjectView(cfg string, p obelisk.Project) projectView {
 	v := projectView{
 		ID:               p.ID,
 		Name:             p.Name,
@@ -33,7 +32,7 @@ func (s *Server) enrichProjectView(ctx context.Context, ns string, p obelisk.Pro
 	}
 	if p.DiscoveryEnabled {
 		v.DiscoveryURL = obelisk.DiscoveryPathPrefix + p.ID
-		tok := disc.ReadToken(ctx, ns, p.ID)
+		tok := disc.ReadToken(cfg, p.ID)
 		v.DiscoveryConfigured = strings.TrimSpace(tok) != ""
 	}
 	return v
@@ -45,10 +44,10 @@ func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	ns := instanceNamespace()
+	cfg := config.EnsureReadablePath(s.ConfigPath)
 	var out []projectView
 	for _, p := range spec.Projects {
-		out = append(out, s.enrichProjectView(r.Context(), ns, p))
+		out = append(out, s.enrichProjectView(cfg, p))
 	}
 	writeJSON(w, out)
 }
@@ -103,8 +102,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.recordAudit("Project", "created", p.Name)
-	ns := instanceNamespace()
-	writeJSON(w, s.enrichProjectView(r.Context(), ns, p))
+	writeJSON(w, s.enrichProjectView(cfg, p))
 }
 
 type patchProjectRequest struct {
@@ -162,12 +160,11 @@ func (s *Server) handlePatchProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	ns := instanceNamespace()
 	if !p.DiscoveryEnabled {
-		disc.DeleteSecret(r.Context(), ns, p.ID)
+		disc.DeleteToken(cfg, p.ID)
 	}
 	s.recordAudit("Project", "updated", p.Name)
-	writeJSON(w, s.enrichProjectView(r.Context(), ns, *p))
+	writeJSON(w, s.enrichProjectView(cfg, *p))
 }
 
 func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
@@ -199,7 +196,7 @@ func (s *Server) handleDeleteProject(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	disc.DeleteSecret(r.Context(), instanceNamespace(), id)
+	disc.DeleteToken(cfg, id)
 	s.recordAudit("Project", "deleted", removed.Name)
 	writeJSON(w, map[string]string{"deleted": id})
 }
@@ -230,8 +227,7 @@ func (s *Server) handleRotateDiscoveryToken(w http.ResponseWriter, r *http.Reque
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	ns := instanceNamespace()
-	if err := disc.WriteToken(r.Context(), ns, id, tok); err != nil {
+	if err := disc.WriteToken(cfg, id, tok); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -267,13 +263,13 @@ func (s *Server) handleDiscoverProject(w http.ResponseWriter, r *http.Request) {
 		writeJSONStatus(w, http.StatusNotFound, map[string]string{"error": "not_found"})
 		return
 	}
-	ns := instanceNamespace()
-	stored := disc.ReadToken(r.Context(), ns, id)
+	stored := disc.ReadToken(cfg, id)
 	if !disc.ValidToken(stored, token) {
 		writeJSONStatus(w, http.StatusUnauthorized, map[string]string{"error": "invalid_token"})
 		return
 	}
 	rec := s.reconciler(cfg)
+	ns := instanceNamespace()
 	states := s.cachedServiceStates(r.Context(), spec, rec)
 	resolved := obelisk.SpecWithResolvedCredentials(spec, func(inst obelisk.ServiceInstance) obelisk.InstanceCredentials {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, inst)
