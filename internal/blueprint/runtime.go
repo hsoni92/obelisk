@@ -42,6 +42,7 @@ type Status struct {
 	NeedsOnboarding      bool   `json:"needs_onboarding"`
 	DiscoveredRepository string `json:"discovered_repository,omitempty"`
 	KeyID                string `json:"key_id,omitempty"`
+	RemoteKeyID          string `json:"remote_key_id,omitempty"`
 }
 
 // Runtime is the in-process blueprint controller: OAuth, unlock, and sync.
@@ -67,6 +68,7 @@ type probeCache struct {
 	present    bool
 	generation int
 	machineID  string
+	keyID      string
 	err        string
 }
 
@@ -324,7 +326,7 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 				return err
 			}
 			if manifest.KeyID != "" && KeyID(key) != manifest.KeyID {
-				return ErrWrongPassphrase
+				return fmt.Errorf("%w (derived key_id %s, manifest key_id %s)", ErrWrongPassphrase, KeyID(key), manifest.KeyID)
 			}
 		} else {
 			sKey, sKeyID, sKDF, ok := rt.Session.Snapshot()
@@ -484,6 +486,7 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 			if json.Unmarshal(manifest, &m) == nil {
 				probe.generation = m.Generation
 				probe.machineID = m.MachineID
+				probe.keyID = m.KeyID
 			}
 		}
 		rt.probeMu.Lock()
@@ -493,6 +496,7 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 	st.BundlePresent = probe.present
 	st.RemoteGeneration = probe.generation
 	st.RemoteMachineID = probe.machineID
+	st.RemoteKeyID = probe.keyID
 	if probe.err != "" && st.LastPushError == "" {
 		st.LastPushError = probe.err
 	}
