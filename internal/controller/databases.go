@@ -91,11 +91,18 @@ func ensurePostgresDatabases(ctx context.Context, ns, pod, user string, names []
 func ensureMySQLDatabases(ctx context.Context, ns, pod, user, pass string, names []string) error {
 	for _, db := range names {
 		sql := fmt.Sprintf("CREATE DATABASE IF NOT EXISTS `%s`", mysqlQuoteIdent(db))
-		if err := kubectlExec(ctx, ns, pod, "mysql", "mysql", "-u"+user, "-p"+pass, "-e", sql); err != nil {
+		if err := kubectlExec(ctx, ns, pod, "mysql", "mysql", "-uroot", "-p"+pass, "-e", sql); err != nil {
 			return err
 		}
+		if user == "root" {
+			continue
+		}
 		grant := fmt.Sprintf("GRANT ALL ON `%s`.* TO '%s'@'%%'", mysqlQuoteIdent(db), mysqlQuoteIdent(user))
-		if err := kubectlExec(ctx, ns, pod, "mysql", "mysql", "-u"+user, "-p"+pass, "-e", grant); err != nil {
+		if err := kubectlExec(ctx, ns, pod, "mysql", "mysql", "-uroot", "-p"+pass, "-e", grant); err != nil {
+			msg := err.Error()
+			if strings.Contains(msg, "already exists") {
+				continue
+			}
 			return err
 		}
 	}

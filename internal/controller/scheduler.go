@@ -323,6 +323,10 @@ func (s *Scheduler) applyInstance(ctx context.Context, vpsEdge bool, inst obelis
 
 	if helmSt == "deployed" && !needsApply && pods.Ready == pods.Total && pods.Total > 0 {
 		if err := s.rec.ensureInstanceDatabases(ctx, inst); err != nil {
+			if execAccessDenied(err) {
+				cr := s.rec.classifyInstance(ctx, inst)
+				return cr.State, ReasonDBInitFailed, err.Error(), nil
+			}
 			return "degraded", ReasonDBInitFailed, err.Error(), err
 		}
 		return "running", "", "", nil
@@ -350,6 +354,9 @@ func (s *Scheduler) applyInstance(ctx context.Context, vpsEdge bool, inst obelis
 	cr := s.rec.classifyInstance(ctx, inst)
 	if cr.State == "running" {
 		if err := s.rec.ensureInstanceDatabases(ctx, inst); err != nil {
+			if execAccessDenied(err) {
+				return cr.State, ReasonDBInitFailed, err.Error(), nil
+			}
 			return "degraded", ReasonDBInitFailed, err.Error(), err
 		}
 	}

@@ -184,6 +184,9 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, vpsEdge bool, inst o
 	msg = fmt.Sprintf("%s release applied", inst.StateKey())
 	if st == "running" {
 		if err := r.ensureInstanceDatabases(ctx, inst); err != nil {
+			if execAccessDenied(err) {
+				return st, msg, nil
+			}
 			return "degraded", msg, fmt.Errorf("databases: %w", err)
 		}
 	}
