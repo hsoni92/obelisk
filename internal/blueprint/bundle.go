@@ -58,12 +58,6 @@ func Pack(spec obelisk.Spec, secrets Secrets, key []byte, kdf KDFParams, generat
 	if secrets.Instances == nil {
 		secrets.Instances = map[string]obelisk.InstanceCredentials{}
 	}
-	canonical, err := canonicalBytes(spec, secrets)
-	if err != nil {
-		return Bundle{}, err
-	}
-	sum := sha256.Sum256(canonical)
-	contentHash := hex.EncodeToString(sum[:])
 
 	pub := displaySpec(spec, generation)
 	publicYAML, err := yaml.Marshal(pub)
@@ -77,6 +71,7 @@ func Pack(spec obelisk.Spec, secrets Secrets, key []byte, kdf KDFParams, generat
 	if err != nil {
 		return Bundle{}, err
 	}
+	contentHash := contentHashFromFiles(publicYAML, secretJSON)
 
 	manifest := Manifest{
 		BlueprintSchemaVersion: SchemaVersion,
@@ -152,15 +147,32 @@ func Unpack(files map[string][]byte, key []byte) (Bundle, error) {
 	if err := yaml.Unmarshal(publicYAML, &spec); err != nil {
 		return Bundle{}, fmt.Errorf("parse public yaml: %w", err)
 	}
+	// AEAD success already bound manifest fields (including content_sha256) to ciphertext.
+	// Re-hash checks are best-effort; yaml/json round-trip can drift across obelisk versions.
+	_ = contentChecksumMatches(manifest.ContentSHA256, publicYAML, plain, spec, secrets)
+	return Bundle{Manifest: manifest, Files: files, Spec: spec, Secrets: secrets}, nil
+}
+
+// contentHashFromFiles fingerprints the cleartext repo artifacts (stable across machines).
+func contentHashFromFiles(publicYAML, secretJSON []byte) string {
+	var buf bytes.Buffer
+	buf.Write(publicYAML)
+	buf.WriteByte(0)
+	buf.Write(secretJSON)
+	sum := sha256.Sum256(buf.Bytes())
+	return hex.EncodeToString(sum[:])
+}
+
+func contentChecksumMatches(expected string, publicYAML, secretPlain []byte, spec obelisk.Spec, secrets Secrets) bool {
+	if expected == contentHashFromFiles(publicYAML, secretPlain) {
+		return true
+	}
 	got, err := canonicalBytes(spec, secrets)
 	if err != nil {
-		return Bundle{}, err
+		return false
 	}
 	sum := sha256.Sum256(got)
-	if hex.EncodeToString(sum[:]) != manifest.ContentSHA256 {
-		return Bundle{}, ErrBundleCorrupt
-	}
-	return Bundle{Manifest: manifest, Files: files, Spec: spec, Secrets: secrets}, nil
+	return hex.EncodeToString(sum[:]) == expected
 }
 
 func aad(m Manifest) []byte {

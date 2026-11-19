@@ -84,6 +84,8 @@ Later saves sync about 5 seconds after the controller is unlocked. If GitHub is 
 
 **“Wrong passphrase” but you are sure it is correct:** The controller distinguishes **wrong passphrase** from **inconsistent bundle** (manifest and `secrets.enc` from different commits, or corrupted ciphertext). If import says the bundle is **inconsistent**, unlock on the source appliance and **Push now** once (push verifies decrypt after upload). Do not hand-edit `manifest.json`, `secrets.enc`, or `obelisk.public.yaml` on GitHub.
 
+**“Inconsistent bundle” on import after a controller upgrade:** Older builds could (1) read mixed files from GitHub during concurrent push, or (2) fail a legacy checksum after decrypt even when the passphrase and ciphertext were valid. Deploy the latest controller (`obelisk update` on the VPS), then import again with **adopt**. New pushes fingerprint the exact `obelisk.public.yaml` + `secrets.enc` bytes.
+
 ## After reboot
 
 OAuth tokens remain. The in-memory key does not. The UI shows **push paused** until unlock. If this browser still has the passphrase, unlock runs automatically.
