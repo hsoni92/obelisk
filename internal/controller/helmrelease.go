@@ -14,6 +14,32 @@ type helmUpgradeOpts struct {
 	waitTimeout time.Duration
 }
 
+// helmUpgradeInstallOnce runs a single helm upgrade attempt (retries/backoff live in the scheduler).
+func (r *Reconciler) helmUpgradeInstallOnce(ctx context.Context, service, chart, release, ns, valuesFile string, opts helmUpgradeOpts) error {
+	if opts.waitTimeout <= 0 {
+		opts.waitTimeout = 2 * time.Minute
+	}
+	if err := r.healHelmPending(ctx, release); err != nil {
+		slog.Warn("helm pending heal", "release", release, "err", err)
+	}
+	args := []string{"upgrade", "--install", release, chart,
+		"--namespace", ns, "--create-namespace",
+		"--wait", "--timeout", opts.waitTimeout.String()}
+	if valuesFile != "" {
+		args = append(args, "-f", valuesFile)
+	}
+	st, _ := r.helmReleaseStatus(ctx, release)
+	if st == "pending-upgrade" || st == "pending-install" || st == "pending-rollback" {
+		args = append(args, "--force")
+	}
+	out, err := commandRunner(ctx, "helm", args...)
+	text := strings.TrimSpace(string(out))
+	if err != nil {
+		return fmt.Errorf("helm %s: %w: %s", release, err, text)
+	}
+	return nil
+}
+
 func (r *Reconciler) helmUpgradeInstall(ctx context.Context, service, chart, release, ns, valuesFile string, opts helmUpgradeOpts) error {
 	if opts.waitTimeout <= 0 {
 		opts.waitTimeout = 5 * time.Minute

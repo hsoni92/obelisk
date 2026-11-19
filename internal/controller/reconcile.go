@@ -113,9 +113,22 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			apply(res)
 		}
 	}
-	for _, inst := range enabled {
-		state, msg, err := r.reconcileInstance(ctx, vpsEdge, inst)
-		apply(instResult{inst.StateKey(), state, msg, err})
+	if len(enabled) > 0 {
+		ch := make(chan instResult, len(enabled))
+		var wg sync.WaitGroup
+		for _, inst := range enabled {
+			wg.Add(1)
+			go func(inst obelisk.ServiceInstance) {
+				defer wg.Done()
+				state, msg, err := r.reconcileInstance(ctx, vpsEdge, inst)
+				ch <- instResult{inst.StateKey(), state, msg, err}
+			}(inst)
+		}
+		wg.Wait()
+		close(ch)
+		for res := range ch {
+			apply(res)
+		}
 	}
 	if spec.Deployment.Profile == "local" && spec.Deployment.Tailscale.Enabled {
 		if err := r.ensureTailscale(ctx); err != nil {
@@ -157,20 +170,17 @@ func (r *Reconciler) reconcileInstance(ctx context.Context, vpsEdge bool, inst o
 			return "degraded", "", err
 		}
 		defer cleanup()
-		if err := r.helmScaleRelease(ctx, release, 0); err != nil {
-			slog.Warn("kubectl scale before helm", "release", release, "err", err)
-		}
 		opts := helmUpgradeOpts{waitTimeout: 2 * time.Minute}
 		if err := r.helmUpgradeInstall(ctx, inst.Type, chart, release, ns, valuesPath, opts); err != nil {
 			return "degraded", "", err
 		}
-		st := r.observeInstanceState(ctx, inst)
+		st := r.classifyInstance(ctx, inst).State
 		return st, fmt.Sprintf("%s scaled to 0 via helm", inst.StateKey()), nil
 	}
 	if err := r.helmUpgradeInstance(ctx, vpsEdge, inst); err != nil {
 		return "degraded", "", err
 	}
-	st := r.observeInstanceState(ctx, inst)
+	st := r.classifyInstance(ctx, inst).State
 	msg = fmt.Sprintf("%s release applied", inst.StateKey())
 	if st == "running" {
 		if err := r.ensureInstanceDatabases(ctx, inst); err != nil {

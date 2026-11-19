@@ -21,6 +21,8 @@ type instanceDeploymentView struct {
 type instanceView struct {
 	obelisk.ServiceInstance
 	State      string                 `json:"state"`
+	ReasonCode string                 `json:"reason_code,omitempty"`
+	Reason     string                 `json:"reason,omitempty"`
 	Deployment instanceDeploymentView `json:"deployment"`
 }
 
@@ -52,7 +54,7 @@ func instanceNamespace() string {
 
 func enrichInstanceView(inst obelisk.ServiceInstance, state string, spec obelisk.Spec) instanceView {
 	global := obelisk.ResolvedBackupPolicy(spec)
-	return instanceView{
+	view := instanceView{
 		ServiceInstance: maskInstance(inst),
 		State:           state,
 		Deployment: instanceDeploymentView{
@@ -61,6 +63,16 @@ func enrichInstanceView(inst obelisk.ServiceInstance, state string, spec obelisk
 			Backup:    obelisk.BuildInstanceBackupView(inst, global),
 		},
 	}
+	if e := controller.GlobalEngine(); e != nil && e.Scheduler != nil {
+		if st := e.Scheduler.InstanceStatus(inst.StateKey()); st != nil {
+			if st.State != "" {
+				view.State = st.State
+			}
+			view.ReasonCode = st.ReasonCode
+			view.Reason = st.Detail
+		}
+	}
+	return view
 }
 
 func maskInstance(inst obelisk.ServiceInstance) obelisk.ServiceInstance {
@@ -117,7 +129,11 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 	s.recordAudit("Instance", "created", inst.Type+"/"+inst.ID)
-	controller.ReconcileAsync(s.reconciler(cfg))
+	if eng := controller.GlobalEngine(); eng != nil {
+		eng.TriggerInstance(inst.StateKey())
+	} else {
+		controller.ReconcileAsync(s.reconciler(cfg))
+	}
 	ns := instanceNamespace()
 	resolved := obelisk.SpecWithResolvedCredentials(spec, func(in obelisk.ServiceInstance) obelisk.InstanceCredentials {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, in)
@@ -232,7 +248,11 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 	s.recordAudit("Instance", "updated", inst.Type+"/"+inst.ID)
-	controller.ReconcileAsync(s.reconciler(cfg))
+	if eng := controller.GlobalEngine(); eng != nil {
+		eng.TriggerInstance(inst.StateKey())
+	} else {
+		controller.ReconcileAsync(s.reconciler(cfg))
+	}
 	interim := "starting"
 	if req.Enabled != nil && !*req.Enabled {
 		interim = "stopping"
@@ -278,6 +298,7 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 	}
 	s.mu.Unlock()
 	s.recordAudit("Instance", "terminated", inst.Type+"/"+inst.ID)
+	controller.MarkReleaseDeleteIntent(inst.ReleaseName())
 	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{
 		"deleted": inst.Type + "/" + inst.ID,

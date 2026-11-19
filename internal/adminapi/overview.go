@@ -21,6 +21,7 @@ type OverviewComponent struct {
 	InstanceID string `json:"instance_id,omitempty"`
 	Desired    bool   `json:"desired"`
 	State      string `json:"state"`
+	ReasonCode string `json:"reason_code,omitempty"`
 	HelmStatus string `json:"helm_status,omitempty"`
 	Revision   int    `json:"revision,omitempty"`
 	Reason     string `json:"reason,omitempty"`
@@ -97,6 +98,12 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		State:   "running",
 		Release: controller.PlatformRelease,
 	}, reconcileOff)
+	if e := controller.GlobalEngine(); e != nil && e.Scheduler != nil {
+		if errMsg, at := e.Scheduler.ExposureError(); errMsg != "" && time.Since(at) < 5*time.Minute {
+			platform.State = "degraded"
+			platform.Reason = "exposure: " + errMsg
+		}
+	}
 	components = append(components, platform)
 	bumpSummary(&sum, platform.State)
 
@@ -116,6 +123,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 			Release:    inst.ReleaseName(),
 		}
 		comp = s.observeRelease(r, rec, comp, reconcileOff)
+		comp = overlaySchedulerStatus(comp)
 		components = append(components, comp)
 		bumpSummary(&sum, comp.State)
 	}
@@ -211,6 +219,20 @@ func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp
 		comp.Reason = helm.Err.Error()
 		return comp
 	}
+	if helm.Status == "" {
+		if comp.Desired {
+			comp.State = "starting"
+			if comp.Reason == "" {
+				comp.Reason = "Initial install pending"
+			}
+		}
+		pods := rec.PodsForRelease(r.Context(), comp.Release)
+		if pods.Err == nil {
+			comp.PodsReady = pods.Ready
+			comp.PodsTotal = pods.Total
+		}
+		return comp
+	}
 	comp.HelmStatus = helm.Status
 	comp.Revision = helm.Revision
 	if helm.Description != "" {
@@ -256,6 +278,27 @@ func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp
 		if comp.Desired && pods.Total == 0 && comp.State == "running" {
 			comp.State = "starting"
 		}
+	}
+	return comp
+}
+
+func overlaySchedulerStatus(comp OverviewComponent) OverviewComponent {
+	e := controller.GlobalEngine()
+	if e == nil || e.Scheduler == nil || comp.Key == "" {
+		return comp
+	}
+	st := e.Scheduler.InstanceStatus(comp.Key)
+	if st == nil {
+		return comp
+	}
+	if st.State != "" {
+		comp.State = st.State
+	}
+	if st.ReasonCode != "" {
+		comp.ReasonCode = st.ReasonCode
+	}
+	if st.Detail != "" {
+		comp.Reason = st.Detail
 	}
 	return comp
 }

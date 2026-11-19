@@ -42,8 +42,6 @@ spec:
             - -c
             - ssl=on
             - -c
-            - sslnegotiation=direct
-            - -c
             - ssl_cert_file=/var/run/edge/tls.crt
             - -c
             - ssl_key_file=/var/run/edge/tls.key

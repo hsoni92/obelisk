@@ -21,9 +21,11 @@ type HelmReleaseDetail struct {
 
 // PodSummary from kubectl pod list for a release label.
 type PodSummary struct {
-	Ready int
-	Total int
-	Err   error
+	Ready         int
+	Total         int
+	Err           error
+	PrimaryReason string
+	Detail        string
 }
 
 func (r *Reconciler) namespace() string {
@@ -40,8 +42,11 @@ func (r *Reconciler) HelmReleaseDetail(ctx context.Context, release string) Helm
 	ns := r.namespace()
 	cmd := exec.CommandContext(ctx, "helm", "status", release, "-n", ns, "-o", "json")
 	cmd.Env = kubeconfigEnv()
-	raw, err := cmd.Output()
+	raw, err := cmd.CombinedOutput()
 	if err != nil {
+		if HelmReleaseNotFound(raw, err) {
+			return HelmReleaseDetail{}
+		}
 		return HelmReleaseDetail{Err: fmt.Errorf("helm status %s: %w", release, err)}
 	}
 	var doc struct {
@@ -68,21 +73,29 @@ func (r *Reconciler) PodsForRelease(ctx context.Context, release string) PodSumm
 		return PodSummary{}
 	}
 	ns := r.namespace()
-	cmd := exec.CommandContext(ctx, "kubectl", "get", "pods",
+	raw, err := commandRunner(ctx, "kubectl", "get", "pods",
 		"-n", ns,
 		"-l", fmt.Sprintf("app=%s", release),
 		"-o", "json")
-	cmd.Env = kubeconfigEnv()
-	raw, err := cmd.Output()
 	if err != nil {
 		return PodSummary{Err: err}
 	}
 	var doc struct {
 		Items []struct {
 			Status struct {
-				Phase string `json:"phase"`
+				Phase             string `json:"phase"`
 				ContainerStatuses []struct {
 					Ready bool `json:"ready"`
+					State struct {
+						Waiting *struct {
+							Reason  string `json:"reason"`
+							Message string `json:"message"`
+						} `json:"waiting"`
+						Terminated *struct {
+							Reason  string `json:"reason"`
+							Message string `json:"message"`
+						} `json:"terminated"`
+					} `json:"state"`
 				} `json:"containerStatuses"`
 			} `json:"status"`
 		} `json:"items"`
@@ -97,15 +110,50 @@ func (r *Reconciler) PodsForRelease(ctx context.Context, release string) PodSumm
 			for _, c := range pod.Status.ContainerStatuses {
 				if !c.Ready {
 					allReady = false
+					if out.PrimaryReason == "" {
+						out.PrimaryReason, out.Detail = firstPodIssue(c)
+					}
 					break
 				}
 			}
 			if allReady {
 				out.Ready++
 			}
+		} else if out.PrimaryReason == "" {
+			out.PrimaryReason = pod.Status.Phase
+			if pod.Status.Phase == "Pending" {
+				for _, c := range pod.Status.ContainerStatuses {
+					if r, d := firstPodIssue(c); r != "" {
+						out.PrimaryReason, out.Detail = r, d
+						break
+					}
+				}
+			}
 		}
 	}
 	return out
+}
+
+func firstPodIssue(c struct {
+	Ready bool `json:"ready"`
+	State struct {
+		Waiting *struct {
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"waiting"`
+		Terminated *struct {
+			Reason  string `json:"reason"`
+			Message string `json:"message"`
+		} `json:"terminated"`
+	} `json:"state"`
+}) (reason, detail string) {
+	if c.State.Waiting != nil && c.State.Waiting.Reason != "" {
+		return c.State.Waiting.Reason, c.State.Waiting.Message
+	}
+	if c.State.Terminated != nil && c.State.Terminated.Reason != "" {
+		return c.State.Terminated.Reason, c.State.Terminated.Message
+	}
+	return "", ""
 }
 
 func truncate(s string, n int) string {

@@ -20,9 +20,12 @@ import (
 
 // ObserveServiceStates reports cluster state without running helm upgrade.
 func (r *Reconciler) ObserveServiceStates(ctx context.Context, spec obelisk.Spec) map[string]string {
+	if e := GlobalEngine(); e != nil && e.Scheduler != nil {
+		return e.Scheduler.ObserveStates(ctx, spec)
+	}
 	out := map[string]string{}
 	for _, inst := range spec.Instances {
-		out[inst.StateKey()] = r.observeInstanceState(ctx, inst)
+		out[inst.StateKey()] = r.classifyInstance(ctx, inst).State
 	}
 	return out
 }
@@ -106,8 +109,11 @@ func (r *Reconciler) helmReleaseStatus(ctx context.Context, release string) (str
 	}
 	cmd := exec.CommandContext(ctx, "helm", "status", release, "-n", ns, "-o", "json")
 	cmd.Env = kubeconfigEnv()
-	raw, err := cmd.Output()
+	raw, err := cmd.CombinedOutput()
 	if err != nil {
+		if HelmReleaseNotFound(raw, err) {
+			return "", nil
+		}
 		return "", err
 	}
 	var doc struct {
@@ -121,8 +127,12 @@ func (r *Reconciler) helmReleaseStatus(ctx context.Context, release string) (str
 	return strings.ToLower(doc.Info.Status), nil
 }
 
-// ReconcileAsync runs reconcile in the background (single global queue).
+// ReconcileAsync queues a full reconciliation pass (coalesced by the scheduler).
 func ReconcileAsync(rec Reconciler) {
+	if e := GlobalEngine(); e != nil {
+		e.Trigger()
+		return
+	}
 	go func() {
 		report, err := rec.Reconcile(context.Background())
 		if err != nil {

@@ -77,25 +77,14 @@ func main() {
 	gwSrv := &http.Server{Addr: *gatewayAddr, Handler: gw.Handler()}
 	mailSrv := &http.Server{Addr: *mailGatewayAddr, Handler: mgw.Handler()}
 
-	go func() {
-		t := time.NewTicker(*reconcileEvery)
-		defer t.Stop()
-		rec := controller.Reconciler{
-			ConfigPath: cfgFile,
-			HelmRoot:   *helmRoot,
-			Namespace:  strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE")),
-		}
-		for {
-			select {
-			case <-ctx.Done():
-				return
-			case <-t.C:
-				if _, err := rec.Reconcile(ctx); err != nil {
-					log.Printf("reconcile: %v", err)
-				}
-			}
-		}
-	}()
+	rec := controller.Reconciler{
+		ConfigPath: cfgFile,
+		HelmRoot:   *helmRoot,
+		Namespace:  strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE")),
+	}
+	engine := controller.NewEngine(rec)
+	controller.SetGlobalEngine(engine)
+	engine.Start(ctx, *reconcileEvery)
 
 	go func() {
 		log.Printf("admin API listening on %s (config %s, helm-root %s)", *addr, cfgFile, *helmRoot)

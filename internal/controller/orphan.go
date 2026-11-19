@@ -35,13 +35,17 @@ func (r *Reconciler) pruneOrphanReleases(ctx context.Context, spec obelisk.Spec)
 			continue
 		}
 		if _, ok := desired[rel]; ok {
+			resetOrphanGrace(rel)
+			continue
+		}
+		if !consumeDeleteIntent(rel) && !orphanGraceReached(rel) {
+			slog.Debug("orphan grace", "release", rel)
 			continue
 		}
 		if err := r.helmUninstall(ctx, rel); err != nil {
 			slog.Warn("prune orphan release", "release", rel, "err", err)
 			continue
 		}
-		r.deletePVCsForRelease(ctx, rel)
 		removed = append(removed, rel)
 	}
 	return removed
