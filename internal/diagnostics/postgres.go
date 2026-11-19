@@ -31,7 +31,7 @@ func probePostgres(ctx context.Context, connURL string) ([]Check, error) {
 		return checks, err
 	}
 	if edgeTLSFromURL(u, connURL) {
-		cfg.TLSConfig = EdgeTLSConfig(host)
+		cfg.TLSConfig = PostgresEdgeTLSConfig(host)
 		cfg.SSLNegotiation = "direct"
 		cfg.Fallbacks = nil
 	}

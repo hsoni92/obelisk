@@ -17,3 +17,10 @@ func EdgeTLSConfig(serverName string) *tls.Config {
 		InsecureSkipVerify: true,
 	}
 }
+
+// PostgresEdgeTLSConfig is EdgeTLSConfig with ALPN required for sslnegotiation=direct (PostgreSQL 17+).
+func PostgresEdgeTLSConfig(serverName string) *tls.Config {
+	cfg := EdgeTLSConfig(serverName)
+	cfg.NextProtos = []string{"postgresql"}
+	return cfg
+}
