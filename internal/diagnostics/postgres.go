@@ -30,8 +30,10 @@ func probePostgres(ctx context.Context, connURL string) ([]Check, error) {
 		checks[0].Detail = err.Error()
 		return checks, err
 	}
-	if strings.Contains(strings.ToLower(connURL), "sslmode=") || u.Port() != "5432" {
+	if edgeTLSFromURL(u, connURL) {
 		cfg.TLSConfig = EdgeTLSConfig(host)
+		cfg.SSLNegotiation = "direct"
+		cfg.Fallbacks = nil
 	}
 
 	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
@@ -51,4 +53,15 @@ func probePostgres(ctx context.Context, connURL string) ([]Check, error) {
 	}
 	checks = append(checks, Check{Name: "select_1", OK: true})
 	return checks, nil
+}
+
+func edgeTLSFromURL(u *url.URL, connURL string) bool {
+	port := u.Port()
+	if port != "" && port != "5432" {
+		return true
+	}
+	low := strings.ToLower(connURL)
+	return strings.Contains(low, "sslmode=require") ||
+		strings.Contains(low, "sslmode=verify") ||
+		strings.Contains(low, "sslnegotiation=direct")
 }

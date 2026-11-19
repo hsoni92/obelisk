@@ -326,9 +326,9 @@ export function ServicesTable({
                 <TooltipTrigger asChild>
                   <Button
                     type="button"
+                    variant="icon"
                     size="icon"
-                    variant="outline"
-                    className="size-8 shrink-0"
+                    className="size-8 shrink-0 bg-card ring-1 ring-border shadow-none hover:bg-muted"
                     disabled={busy}
                     aria-label={`Configure ${label}`}
                     onClick={(e) => {

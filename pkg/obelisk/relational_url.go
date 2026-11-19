@@ -39,16 +39,16 @@ func RelationalConnectionURL(spec Spec, inst ServiceInstance, dbName string) str
 	case "postgres":
 		if vpsEdge {
 			return fmt.Sprintf(
-				"postgresql://%s:%s@%s:%s/%s?sslmode=require",
-				user, pass, edgeHost, NativeEdgeTLSPort(), dbName,
+				"postgresql://%s:%s@%s:%s/%s?%s",
+				user, pass, edgeHost, NativeEdgeTLSPort(), dbName, VPSPostgresURLQuery,
 			)
 		}
 		return fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, dbName)
 	case "mysql":
 		if vpsEdge {
 			return fmt.Sprintf(
-				"mysql://%s:%s@tcp(%s:%s)/%s?tls=true",
-				user, pass, edgeHost, NativeEdgeTLSPort(), dbName,
+				"mysql://%s:%s@tcp(%s:%s)/%s?%s",
+				user, pass, edgeHost, NativeEdgeTLSPort(), dbName, VPSMySQLURLQuery,
 			)
 		}
 		return fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, dbName)

@@ -39,8 +39,8 @@ export function FieldPassword({
         <Button
           type="button"
           variant="icon"
-          size="sm"
-          className="absolute right-0.5 top-1/2 h-8 w-8 min-w-8 -translate-y-1/2 shadow-none text-muted-foreground hover:text-foreground"
+          size="icon"
+          className="absolute right-0.5 top-1/2 size-8 -translate-y-1/2 bg-transparent shadow-none ring-0 hover:bg-muted text-muted-foreground hover:text-foreground"
           onClick={() => setVisible((v) => !v)}
           aria-label={visible ? "Hide passphrase" : "Show passphrase"}
           aria-pressed={visible}

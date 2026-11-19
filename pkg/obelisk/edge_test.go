@@ -12,6 +12,20 @@ func TestPublicEdgeHost(t *testing.T) {
 	}
 }
 
+func TestBuildConnections_VPSPostgresEdge(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "178.105.35.230")
+	spec := DefaultSpec("vps")
+	spec.Instances = []ServiceInstance{{
+		ID: "sleek-eagle", Type: "postgres", Enabled: true,
+		Credentials: InstanceCredentials{Password: "secret"},
+	}}
+	c := BuildConnections(spec, nil)
+	want := "postgresql://obelisk:secret@postgres-sleek-eagle.178-105-35-230.sslip.io:9443/default?" + VPSPostgresURLQuery
+	if c.Instances[0].Postgres != want {
+		t.Fatalf("postgres %q", c.Instances[0].Postgres)
+	}
+}
+
 func TestBuildConnections_VPSRedisEdge(t *testing.T) {
 	t.Setenv("OBELISK_PUBLIC_HOST", "178.105.35.230")
 	spec := DefaultSpec("vps")

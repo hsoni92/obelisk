@@ -56,7 +56,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 	vpsEdge := VPSEdge(spec)
 	out := Connections{}
 	if vpsEdge {
-		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (per-instance hostnames; nginx stream SNI passthrough). Trust Obelisk's auto-generated edge certificate presented by the database service. Postgres 17+ uses direct SSL for SNI routing. Obelisk never binds host ports 80 or 443."
+		out.Notes = "VPS edge: HTTP APIs on port " + AdminHTTPPortString() + " (per-instance hostnames). Native Redis/Postgres/MySQL/Mongo use TLS on port " + NativeEdgeTLSPort() + " (per-instance hostnames; nginx stream SNI passthrough). Trust Obelisk's auto-generated edge certificate presented by the database service. Postgres 17+: add sslnegotiation=direct to the URL. MySQL: open TLS to the edge host before the MySQL handshake (SNI); default drivers that upgrade after the server greeting will not work on :9443. Obelisk never binds host ports 80 or 443."
 	}
 
 	for _, inst := range spec.Instances {
@@ -96,8 +96,8 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			case "postgres":
 				if vpsEdge {
 					ic.Postgres = fmt.Sprintf(
-						"postgresql://%s:%s@%s:%s/%s?sslmode=require",
-						user, pass, edgeHost, NativeEdgeTLSPort(), db,
+						"postgresql://%s:%s@%s:%s/%s?%s",
+						user, pass, edgeHost, NativeEdgeTLSPort(), db, VPSPostgresURLQuery,
 					)
 				} else {
 					ic.Postgres = fmt.Sprintf("postgresql://%s:%s@%s:5432/%s", user, pass, host, db)
@@ -105,8 +105,8 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			case "mysql":
 				if vpsEdge {
 					ic.MySQL = fmt.Sprintf(
-						"mysql://%s:%s@tcp(%s:%s)/%s?tls=true",
-						user, pass, edgeHost, NativeEdgeTLSPort(), db,
+						"mysql://%s:%s@tcp(%s:%s)/%s?%s",
+						user, pass, edgeHost, NativeEdgeTLSPort(), db, VPSMySQLURLQuery,
 					)
 				} else {
 					ic.MySQL = fmt.Sprintf("mysql://%s:%s@%s:3306/%s", user, pass, host, db)
