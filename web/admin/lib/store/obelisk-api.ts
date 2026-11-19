@@ -14,6 +14,9 @@ import type {
   OverviewResponse,
   StatusResponse,
   InstanceDatabasesResponse,
+  InstanceBackupLineageResponse,
+  BackupCatalogResponse,
+  CloneBackupResponse,
   ProjectView,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
@@ -31,7 +34,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -244,13 +247,112 @@ export const obeliskApi = createApi({
     }),
     deleteInstance: builder.mutation<
       unknown,
+      { id: string; type: string; delete_backups?: boolean }
+    >({
+      query: ({ id, type, delete_backups }) => {
+        const params = new URLSearchParams({ type });
+        if (delete_backups) {
+          params.set("delete_backups", "true");
+        }
+        return {
+          url: `/instances/${encodeURIComponent(id)}?${params.toString()}`,
+          method: "DELETE",
+        };
+      },
+      invalidatesTags: ["Status", "Connections", "Overview", "BackupLineage", "BackupCatalog", "BackupConfig"],
+    }),
+    getInstanceBackupLineage: builder.query<
+      InstanceBackupLineageResponse,
+      { id: string; type: string }
+    >({
+      query: ({ id, type }) =>
+        `/instances/${encodeURIComponent(id)}/backups?type=${encodeURIComponent(type)}`,
+      providesTags: (_r, _e, arg) => [
+        { type: "BackupLineage", id: `${arg.type}/${arg.id}` },
+      ],
+    }),
+    runInstanceBackup: builder.mutation<
+      { status: string; backups?: string[]; message?: string },
       { id: string; type: string }
     >({
       query: ({ id, type }) => ({
-        url: `/instances/${encodeURIComponent(id)}?type=${encodeURIComponent(type)}`,
-        method: "DELETE",
+        url: `/instances/${encodeURIComponent(id)}/backup/run?type=${encodeURIComponent(type)}`,
+        method: "POST",
       }),
-      invalidatesTags: ["Status", "Connections", "Overview"],
+      invalidatesTags: (_r, _e, arg) => [
+        "BackupConfig",
+        "BackupCatalog",
+        "Status",
+        { type: "BackupLineage", id: `${arg.type}/${arg.id}` },
+      ],
+    }),
+    restoreInstanceActiveBackup: builder.mutation<
+      { status: string; backup_id?: string },
+      { id: string; type: string }
+    >({
+      query: ({ id, type }) => ({
+        url: `/instances/${encodeURIComponent(id)}/backup/restore-active?type=${encodeURIComponent(type)}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Status", { type: "BackupLineage" }],
+    }),
+    deleteInstanceBackup: builder.mutation<
+      { status: string; deleted?: string[] },
+      { id: string; type: string; backupId: string; confirm: string }
+    >({
+      query: ({ id, type, backupId, confirm }) => ({
+        url: `/instances/${encodeURIComponent(id)}/backups/${encodeURIComponent(backupId)}?type=${encodeURIComponent(type)}`,
+        method: "DELETE",
+        body: { confirm },
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        "BackupConfig",
+        "BackupCatalog",
+        { type: "BackupLineage", id: `${arg.type}/${arg.id}` },
+      ],
+    }),
+    deleteInstanceBackupForest: builder.mutation<
+      { status: string; deleted?: string[]; message?: string },
+      { id: string; type: string; confirm: string }
+    >({
+      query: ({ id, type, confirm }) => ({
+        url: `/instances/${encodeURIComponent(id)}/backups?type=${encodeURIComponent(type)}`,
+        method: "DELETE",
+        body: { confirm },
+      }),
+      invalidatesTags: (_r, _e, arg) => [
+        "BackupConfig",
+        "BackupCatalog",
+        { type: "BackupLineage", id: `${arg.type}/${arg.id}` },
+      ],
+    }),
+    cloneBackup: builder.mutation<
+      CloneBackupResponse,
+      {
+        source_type: string;
+        source_instance_id: string;
+        scope?: "snapshot" | "lineage";
+        backup_id?: string;
+        label?: string;
+      }
+    >({
+      query: (body) => ({
+        url: "/backups/clone",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Status", "Connections", "BackupCatalog", "BackupLineage", "Overview"],
+    }),
+    getBackupCatalog: builder.query<BackupCatalogResponse, void>({
+      query: () => "/backup/catalog",
+      providesTags: ["BackupCatalog"],
+    }),
+    rebuildBackupIndex: builder.mutation<{ status: string; nodes_added: number }, void>({
+      query: () => ({
+        url: "/backup/index/rebuild",
+        method: "POST",
+      }),
+      invalidatesTags: ["BackupLineage", "BackupCatalog", "BackupConfig"],
     }),
     getInstanceDatabases: builder.query<
       InstanceDatabasesResponse,
@@ -318,7 +420,7 @@ export const obeliskApi = createApi({
         url: "/backup/run",
         method: "POST",
       }),
-      invalidatesTags: ["Status", "BackupConfig"],
+      invalidatesTags: ["Status", "BackupConfig", "BackupLineage", "BackupCatalog"],
     }),
     getOpenRouterConfig: builder.query<OpenRouterConfigResponse, void>({
       query: () => "/openrouter/config",
@@ -573,6 +675,7 @@ export const obeliskApi = createApi({
 
 export const {
   useGetStatusQuery,
+  useLazyGetStatusQuery,
   useGetOverviewQuery,
   useGetActivityHistoryQuery,
   useGetConnectionsQuery,
@@ -591,6 +694,14 @@ export const {
   useRemoveInstanceDatabaseMutation,
   usePatchInstanceMutation,
   useDeleteInstanceMutation,
+  useGetInstanceBackupLineageQuery,
+  useRunInstanceBackupMutation,
+  useRestoreInstanceActiveBackupMutation,
+  useDeleteInstanceBackupMutation,
+  useDeleteInstanceBackupForestMutation,
+  useCloneBackupMutation,
+  useRebuildBackupIndexMutation,
+  useGetBackupCatalogQuery,
   usePatchBackupTargetMutation,
   useTestBackupRemoteMutation,
   useRunBackupMutation,

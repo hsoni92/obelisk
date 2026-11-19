@@ -1,11 +1,14 @@
 package adminapi
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/hsoni92/obelisk/internal/backup"
+	"github.com/hsoni92/obelisk/internal/backup/lineage"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/credentials"
@@ -297,12 +300,36 @@ func (s *Server) handleDeleteInstance(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.mu.Unlock()
-	s.recordAudit("Instance", "terminated", inst.Type+"/"+inst.ID)
+	deleteBackups := strings.EqualFold(r.URL.Query().Get("delete_backups"), "true")
+	instKey := inst.Type + "/" + inst.ID
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	if deleteBackups {
+		idx, loadErr := lineage.Load(cfg)
+		if loadErr == nil {
+			if nodes, forest, ok := lineage.ListNodes(idx, inst.Type, inst.ID); ok {
+				var keys []string
+				for _, n := range nodes {
+					keys = append(keys, n.ObjectKey, n.ManifestKey)
+				}
+				_ = forest
+				_ = backup.DeleteObjectsAllDestinations(ctx, cfg, spec, keys)
+			}
+		}
+		_ = lineage.RemoveForest(cfg, inst.Type, inst.ID)
+	} else {
+		_ = lineage.MarkOrphan(cfg, inst.Type, inst.ID)
+	}
+	s.recordAudit("Instance", "terminated", instKey)
 	controller.MarkReleaseDeleteIntent(inst.ReleaseName())
 	controller.ReconcileAsync(s.reconciler(cfg))
 	writeJSON(w, map[string]any{
-		"deleted": inst.Type + "/" + inst.ID,
-		"release": inst.ReleaseName(),
-		"accepted": true,
+		"deleted":          instKey,
+		"release":          inst.ReleaseName(),
+		"accepted":         true,
+		"backups_deleted":  deleteBackups,
+		"backups_orphaned": !deleteBackups,
 	})
 }

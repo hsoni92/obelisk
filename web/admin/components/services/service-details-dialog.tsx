@@ -15,6 +15,7 @@ import {
 import type { ServiceInstance } from "@/lib/api";
 import { relativeTime } from "@/lib/overview-series";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
+import { BackupLineagePanel } from "@/components/services/backup-lineage-panel";
 import { InstanceDatabasesPanel } from "@/components/services/instance-databases-panel";
 import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
 import * as React from "react";
@@ -67,18 +68,20 @@ type Props = {
   row: ServiceRow | null;
   onOpenChange: (open: boolean) => void;
   onConfigure: (inst: ServiceInstance) => void;
+  onOpenBackups?: (rowKey: string) => void;
 };
 
 export function ServiceDetailsDialog({
   row,
   onOpenChange,
   onConfigure,
+  onOpenBackups,
 }: Props) {
   const inst = row?.instance;
   const backup = inst?.deployment?.backup;
   return (
     <Dialog open={!!row} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-xl">
         {row && inst && (
           <div className="contents">
             <DialogHeader>
@@ -178,6 +181,19 @@ export function ServiceDetailsDialog({
                         value={backup.object_prefix}
                         mono
                       />
+                      <div className="py-3">
+                        <BackupLineagePanel
+                          inst={inst}
+                          enabled={backup.enabled}
+                          running={row.state === "running"}
+                          compact
+                          onOpenFull={
+                            onOpenBackups
+                              ? () => onOpenBackups(row.rowKey)
+                              : undefined
+                          }
+                        />
+                      </div>
                     </>
                   )}
                 </dl>

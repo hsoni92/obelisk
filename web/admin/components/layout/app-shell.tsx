@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import {
   Gauge,
   HardDriveDownload,
+  FolderKanban,
   LayoutDashboard,
   Menu,
   Search,
@@ -21,6 +22,7 @@ import { Button } from "@/components/ui/button";
 
 const NAV: { id: NavId; label: string; icon: LucideIcon }[] = [
   { id: "overview", label: "Overview", icon: Gauge },
+  { id: "projects", label: "Projects", icon: FolderKanban },
   { id: "services", label: "Services", icon: LayoutDashboard },
   { id: "dr", label: "Disaster Recovery", icon: HardDriveDownload },
   { id: "exposure", label: "Exposure", icon: Share2 },

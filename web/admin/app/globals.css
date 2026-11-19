@@ -17,6 +17,7 @@
   --color-feature: var(--feature);
   --color-feature-foreground: var(--feature-foreground);
   --color-feature-muted: var(--feature-muted);
+  --color-switch-on: var(--switch-on);
   --color-ink: var(--ink);
   --color-ink-foreground: var(--ink-foreground);
   --color-chart-1: var(--chart-1);
@@ -64,6 +65,8 @@
   --broadcast-hover: #c8e535;
   --broadcast-tint: #f2fac7;
   --broadcast-foreground: #10130a;
+  /* Switch on-state: deep lime-family green so a white knob stays visible */
+  --switch-on: #4f7d1a;
   /* Solid black pill (active tab / nav) */
   --ink: #0e0f0c;
   --ink-foreground: #ffffff;
@@ -120,6 +123,7 @@
   --card: #1a201d;
   --card-foreground: #f1f3ee;
   --broadcast-tint: #2b3314;
+  --switch-on: #5f8f22;
   --link-tint: #1d2c24;
   --success-tint: #27341a;
   --warning-tint: #3b2a1b;

@@ -2,8 +2,10 @@
 
 import { RestoreWizard } from "@/components/blueprint/restore-wizard";
 import { DRPanel } from "@/components/dr/dr-panel";
+import { DRServiceBackupsPanel } from "@/components/dr/dr-service-backups-panel";
 import { PageHeader } from "@/components/layout/page-header";
 import { Button } from "@/components/ui/button";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   rtkErrorMessage,
   rtkQueryLoadFailed,
@@ -72,35 +74,46 @@ export default function DRPage() {
     <>
       <PageHeader section="dr" />
 
-      <div className="space-y-4">
-        <RestoreWizard />
-        <DRPanel onBusy={setBusy} />
-        <div className="flex flex-wrap items-center gap-3">
-          <Button
-            onClick={() => void backupNow()}
-            disabled={!!busy || backupReady === false}
-            title={
-              backupReady === false
-                ? "Add a destination, save keys, and pass connection test first"
-                : undefined
-            }
-          >
-            Backup now
-          </Button>
-          {backupReady === false && (
-            <span className="text-metadata text-muted-foreground">
-              Use Test on a destination row (or Test all) before backup.
-            </span>
-          )}
-          {status?.reconcileMode === "off" && (
-            <span className="text-metadata text-muted-foreground">
-              Reconcile off: DB dumps need{" "}
-              <code className="font-mono text-[11px]">make dev</code> (k3d) or
-              local pg_dump with port-forward.
-            </span>
-          )}
-        </div>
-      </div>
+      <Tabs defaultValue="backups" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="backups">Service backups</TabsTrigger>
+          <TabsTrigger value="setup">Setup &amp; restore</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="backups" className="mt-4">
+          <DRServiceBackupsPanel />
+        </TabsContent>
+
+        <TabsContent value="setup" className="mt-4 space-y-4">
+          <RestoreWizard />
+          <DRPanel onBusy={setBusy} />
+          <div className="flex flex-wrap items-center gap-3">
+            <Button
+              onClick={() => void backupNow()}
+              disabled={!!busy || backupReady === false}
+              title={
+                backupReady === false
+                  ? "Add a destination, save keys, and pass connection test first"
+                  : undefined
+              }
+            >
+              Backup now
+            </Button>
+            {backupReady === false && (
+              <span className="text-metadata text-muted-foreground">
+                Use Test on a destination row (or Test all) before backup.
+              </span>
+            )}
+            {status?.reconcileMode === "off" && (
+              <span className="text-metadata text-muted-foreground">
+                Reconcile off: DB dumps need{" "}
+                <code className="font-mono text-[11px]">make dev</code> (k3d) or
+                local pg_dump with port-forward.
+              </span>
+            )}
+          </div>
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

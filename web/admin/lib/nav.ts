@@ -1,8 +1,15 @@
-export type NavId = "overview" | "services" | "dr" | "exposure" | "platform";
+export type NavId =
+  | "overview"
+  | "services"
+  | "projects"
+  | "dr"
+  | "exposure"
+  | "platform";
 
 export const NAV_ROUTES: Record<NavId, string> = {
   overview: "/overview",
   services: "/services",
+  projects: "/projects",
   dr: "/dr",
   exposure: "/exposure",
   platform: "/platform",
@@ -21,6 +28,11 @@ export const PAGE_TITLES: Record<
     title: "Services",
     subtitle:
       "Manage instances in one table — sort, filter, copy connection strings per row.",
+  },
+  projects: {
+    title: "Projects",
+    subtitle:
+      "Group data services and exposure gateways for connection discovery URLs.",
   },
   dr: {
     title: "Disaster Recovery",

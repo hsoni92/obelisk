@@ -91,6 +91,9 @@ func ValidateProjectInstanceRefs(spec Spec, p Project) error {
 		known[inst.Type+"/"+inst.ID] = true
 	}
 	for _, ref := range p.InstanceIDs {
+		if IsExposureMemberRef(ref) {
+			continue
+		}
 		if !known[ref] {
 			return fmt.Errorf("unknown instance %q", ref)
 		}

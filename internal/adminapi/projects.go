@@ -11,6 +11,8 @@ import (
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/credentials"
 	disc "github.com/hsoni92/obelisk/internal/discovery"
+	"github.com/hsoni92/obelisk/internal/mail"
+	"github.com/hsoni92/obelisk/internal/openrouter"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -235,6 +237,17 @@ func (s *Server) handleRotateDiscoveryToken(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, rotateDiscoveryTokenResponse{Token: tok})
 }
 
+func projectDiscoveryExtras(cfg string) obelisk.ProjectDiscoveryExtras {
+	var extras obelisk.ProjectDiscoveryExtras
+	if orc, ok, _ := openrouter.LoadCredentials(cfg); ok {
+		extras.OpenRouterGatewayToken = strings.TrimSpace(orc.GatewayToken)
+	}
+	if mc, ok, _ := mail.LoadCredentials(cfg); ok {
+		extras.MailGatewayToken = strings.TrimSpace(mc.GatewayToken)
+	}
+	return extras
+}
+
 func newDiscoveryToken() (string, error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
@@ -278,7 +291,8 @@ func (s *Server) handleDiscoverProject(w http.ResponseWriter, r *http.Request) {
 	if !s.statesCache.at.IsZero() {
 		observedAt = s.statesCache.at.UTC()
 	}
-	out := obelisk.BuildProjectDiscovery(resolved, *p, states, observedAt)
+	extras := projectDiscoveryExtras(cfg)
+	out := obelisk.BuildProjectDiscovery(resolved, *p, states, observedAt, extras)
 	s.recordAudit("Project", "discovery_access", p.Name)
 	writeJSON(w, out)
 }

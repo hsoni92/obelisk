@@ -48,9 +48,7 @@ import {
   SERVICES_SURFACE,
   servicesFilterConfig,
 } from "@/lib/filters";
-import { ProjectsPanel } from "@/components/services/projects-panel";
 import { buildServiceRows, serviceRowKey } from "@/lib/service-rows";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSurfaceFilters } from "@/lib/store/hooks";
 import { toast } from "@/lib/toast";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -74,6 +72,7 @@ function ServicesPageContent() {
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
   const [terminateConfirm, setTerminateConfirm] = useState(false);
   const [terminateBusy, setTerminateBusy] = useState(false);
+  const [deleteBackupsOnTerminate, setDeleteBackupsOnTerminate] = useState(false);
   const [configureTarget, setConfigureTarget] =
     useState<ServiceInstance | null>(null);
   const [diagOpen, setDiagOpen] = useState(false);
@@ -243,6 +242,7 @@ function ServicesPageContent() {
         await deleteInstance({
           id: row.instance.id,
           type: row.instance.type,
+          delete_backups: deleteBackupsOnTerminate,
         }).unwrap();
         ok += 1;
         setSelected((prev) => {
@@ -384,6 +384,18 @@ function ServicesPageContent() {
               be undone. Use <strong>Stop</strong> if you only want to scale
               down and keep data.
             </AlertDialogDescription>
+            <label className="mt-3 flex cursor-pointer items-start gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="mt-1"
+                checked={deleteBackupsOnTerminate}
+                onChange={(e) => setDeleteBackupsOnTerminate(e.target.checked)}
+              />
+              <span>
+                Also delete remote backups for these instances (default keeps
+                orphan lineage in DR storage).
+              </span>
+            </label>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel disabled={terminateBusy}>Cancel</AlertDialogCancel>
@@ -415,15 +427,7 @@ function ServicesPageContent() {
         action={<NewInstanceButton onCreate={addInstance} />}
       />
 
-      <Tabs defaultValue="instances" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="instances">Instances</TabsTrigger>
-          <TabsTrigger value="projects">Projects</TabsTrigger>
-        </TabsList>
-        <TabsContent value="projects" className="mt-4">
-          <ProjectsPanel />
-        </TabsContent>
-        <TabsContent value="instances" className="mt-4 space-y-4">
+      <div className="space-y-4">
         <ServicesFilters
           trailing={
             <ServicesBulkActionsMenu
@@ -456,8 +460,7 @@ function ServicesPageContent() {
           }}
           onConfigure={setConfigureTarget}
         />
-        </TabsContent>
-      </Tabs>
+      </div>
     </>
   );
 }

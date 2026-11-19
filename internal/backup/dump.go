@@ -77,6 +77,17 @@ func CollectDataDumps(ctx context.Context, spec obelisk.Spec, states map[string]
 	return out
 }
 
+// CollectDataDumpsForInstance is like CollectDataDumps but scoped to one instance.
+func CollectDataDumpsForInstance(ctx context.Context, spec obelisk.Spec, states map[string]string, serviceType, instanceID string) []DataDump {
+	var out []DataDump
+	for _, d := range CollectDataDumps(ctx, spec, states) {
+		if d.ServiceType == serviceType && d.InstanceID == instanceID {
+			out = append(out, d)
+		}
+	}
+	return out
+}
+
 func countEligibleDataInstances(spec obelisk.Spec, states map[string]string) int {
 	n := 0
 	for _, inst := range spec.Instances {

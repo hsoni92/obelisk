@@ -13,6 +13,72 @@ export type InstanceBackupView = {
   policy?: InstanceBackupPolicyView;
 };
 
+export type BackupLineageWitness = {
+  schedule: string;
+  replication_factor: number;
+  data_retention_days: number;
+};
+
+export type BackupLineageNode = {
+  id: string;
+  parent_id?: string;
+  created_at: string;
+  trigger: string;
+  object_key: string;
+  manifest_key: string;
+  size: number;
+  witness: BackupLineageWitness;
+  active: boolean;
+};
+
+export type InstanceBackupLineageResponse = {
+  service_type: string;
+  instance_id: string;
+  lineage_id?: string;
+  display_name?: string;
+  orphan?: boolean;
+  clone?: boolean;
+  clone_source_key?: string;
+  active_backup_id?: string;
+  source_backup_id?: string;
+  nodes: BackupLineageNode[];
+};
+
+export type CloneBackupResponse = {
+  status: string;
+  message?: string;
+  scope?: string;
+  source_key?: string;
+  service_type?: string;
+  instance_id?: string;
+  lineage_id?: string;
+  node_count?: number;
+  uploaded_destinations?: number;
+};
+
+export type BackupCatalogRow = {
+  service_type: string;
+  instance_id: string;
+  display_name?: string;
+  instance_live: boolean;
+  backup_enabled: boolean;
+  orphan: boolean;
+  state?: string;
+  backup_count: number;
+  active_backup_id?: string;
+  active_backup_at?: string;
+  active_backup_bytes?: number;
+  last_upload_at?: string;
+  lineage_id?: string;
+  clone?: boolean;
+  clone_source_key?: string;
+};
+
+export type BackupCatalogResponse = {
+  generated_at: string;
+  rows: BackupCatalogRow[];
+};
+
 export type InstanceDeploymentView = {
   release: string;
   namespace: string;

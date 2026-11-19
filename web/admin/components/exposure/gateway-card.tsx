@@ -27,7 +27,6 @@ import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
-  Check,
   FlaskConical,
   KeyRound,
   Link2,
@@ -111,119 +110,88 @@ export function GatewayCard(p: GatewayCardProps) {
       ? { label: "Live", variant: "success" as const }
       : { label: `Setup ${doneCount}/3`, variant: "warning" as const };
 
+  const nounCap = `${p.noun[0].toUpperCase()}${p.noun.slice(1)}s`;
+
   return (
-    <section aria-label={p.title} className="px-5 py-5">
-      {/* Section header: identity, status, master switch */}
-      <header className="flex items-center gap-3">
+    <section
+      aria-label={p.title}
+      className="flex flex-col rounded-xl border border-border/70 bg-card p-4 shadow-sm"
+    >
+      {/* Identity, status, master switch */}
+      <header className="flex items-start gap-3">
         <span
           className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-full",
+            "flex size-9 shrink-0 items-center justify-center rounded-lg",
             ready
               ? "bg-success-tint text-success"
-              : "bg-warning-tint text-warning",
+              : "bg-muted text-muted-foreground",
           )}
         >
           <p.icon className="size-4" aria-hidden />
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h2 className="text-section-title truncate">{p.title}</h2>
+            <h2 className="truncate text-sm font-semibold leading-5">
+              {p.title}
+            </h2>
             <Badge variant={status.variant}>{status.label}</Badge>
           </div>
-          <p className="truncate text-metadata text-muted-foreground">
+          <p className="line-clamp-1 text-metadata text-muted-foreground">
             {p.description}
           </p>
         </div>
-        <label className="flex items-center gap-2 text-xs font-medium text-muted-foreground">
-          {p.enabled ? "Enabled" : "Disabled"}
-          <Switch
-            aria-label={`Enable ${p.title}`}
-            checked={p.enabled}
-            disabled={pending === "toggle"}
-            onCheckedChange={(v) => void run("toggle", () => p.onToggle(v))}
-          />
-        </label>
+        <Switch
+          aria-label={`Enable ${p.title}`}
+          checked={p.enabled}
+          disabled={pending === "toggle"}
+          onCheckedChange={(v) => void run("toggle", () => p.onToggle(v))}
+        />
       </header>
 
       {/* Setup progress — disappears once live */}
       {p.enabled && !ready && (
-        <ol
-          aria-label="Setup progress"
-          className="mt-4 flex items-center rounded-lg bg-muted px-3 py-2"
-        >
-          {steps.map((s, i) => (
-            <li key={s.id} className="flex flex-1 items-center last:flex-none">
+        <div className="mt-3" role="group" aria-label="Setup progress">
+          <div className="flex gap-1">
+            {steps.map((s) => (
               <span
+                key={s.id}
                 className={cn(
-                  "flex items-center gap-1.5 text-xs font-medium",
+                  "h-1 flex-1 rounded-full",
                   s.done
-                    ? "text-success"
+                    ? "bg-success"
                     : s.id === nextStep
-                      ? "text-foreground"
-                      : "text-muted-foreground",
+                      ? "bg-broadcast"
+                      : "bg-border",
                 )}
-              >
-                <span
-                  className={cn(
-                    "flex size-4 items-center justify-center rounded-full text-[10px] font-bold",
-                    s.done
-                      ? "bg-success text-background"
-                      : s.id === nextStep
-                        ? "bg-broadcast text-broadcast-foreground"
-                        : "bg-border text-muted-foreground",
-                  )}
-                >
-                  {s.done ? <Check className="size-2.5" /> : i + 1}
-                </span>
-                {s.label}
-              </span>
-              {i < steps.length - 1 && (
-                <span
-                  className={cn(
-                    "mx-2 h-px flex-1",
-                    s.done ? "bg-success/40" : "bg-border",
-                  )}
-                />
-              )}
-            </li>
-          ))}
-        </ol>
+              />
+            ))}
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-foreground">
+            Next:{" "}
+            <span className="font-medium text-foreground">
+              {steps.find((s) => !s.done)?.label}
+            </span>
+          </p>
+        </div>
       )}
 
-      {/* Labelled rows share one grid: icon+label | content */}
-      <div className="mt-4 divide-y divide-border">
-        <Row icon={Link2} title="Endpoint" hint="Point clients here">
-          <div className="flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-3 py-1.5 font-mono text-xs">
+      <div className="mt-4 mb-4 space-y-4">
+        <Block icon={Link2} title="Endpoint">
+          <div className="flex items-center gap-1.5">
+            <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px]">
               {p.baseURL}
             </code>
             <CopyButton value={p.baseURL} label="Base URL" />
           </div>
-        </Row>
+        </Block>
 
-        <Row
+        <Block
           icon={KeyRound}
           title="Access token"
-          hint="Bearer auth for clients"
-        >
-          <div className="flex items-center gap-3">
-            <span
-              className={cn(
-                "flex items-center gap-1.5 text-[13px]",
-                p.tokenConfigured ? "text-foreground" : "text-muted-foreground",
-              )}
-            >
-              <span
-                className={cn(
-                  "size-1.5 rounded-full",
-                  p.tokenConfigured ? "bg-success" : "bg-border",
-                )}
-              />
-              {p.tokenConfigured ? "Configured" : "Not generated yet"}
-            </span>
+          action={
             <Button
               size="sm"
-              className="ml-auto"
+              className="h-6 px-2 text-[11px]"
               variant={nextStep === "token" ? "default" : "outline"}
               disabled={pending === "token"}
               onClick={() =>
@@ -234,14 +202,29 @@ export function GatewayCard(p: GatewayCardProps) {
             >
               {p.tokenConfigured ? "Rotate" : "Generate"}
             </Button>
-          </div>
+          }
+        >
+          <span
+            className={cn(
+              "flex items-center gap-1.5 text-[13px]",
+              p.tokenConfigured ? "text-foreground" : "text-muted-foreground",
+            )}
+          >
+            <span
+              className={cn(
+                "size-1.5 rounded-full",
+                p.tokenConfigured ? "bg-success" : "bg-border",
+              )}
+            />
+            {p.tokenConfigured ? "Configured" : "Not generated yet"}
+          </span>
           {p.tokenReveal && (
             <div
               role="status"
-              className="mt-3 rounded-lg bg-broadcast-tint p-3 ring-1 ring-broadcast/40"
+              className="mt-2 rounded-lg bg-broadcast-tint p-2.5 ring-1 ring-broadcast/40"
             >
               <div className="mb-1 flex items-center justify-between">
-                <p className="text-xs font-semibold text-foreground">
+                <p className="text-[11px] font-semibold text-foreground">
                   Copy it now — it won’t be shown again
                 </p>
                 <button
@@ -254,26 +237,38 @@ export function GatewayCard(p: GatewayCardProps) {
                 </button>
               </div>
               <div className="flex items-center gap-2">
-                <code className="min-w-0 flex-1 break-all font-mono text-xs">
+                <code className="min-w-0 flex-1 break-all font-mono text-[11px]">
                   {p.tokenReveal}
                 </code>
                 <CopyButton value={p.tokenReveal} label="Token" />
               </div>
             </div>
           )}
-        </Row>
+        </Block>
 
-        <Row
+        <Block
           icon={Users}
-          title={`${p.noun[0].toUpperCase()}${p.noun.slice(1)}s`}
-          hint={`${usable} of ${p.accounts.length} active`}
+          title={nounCap}
+          meta={`${usable} of ${p.accounts.length} active`}
+          action={
+            p.accounts.length > 0 ? (
+              <Button
+                size="sm"
+                className="h-6 px-2 text-[11px]"
+                variant={nextStep === "account" ? "default" : "outline"}
+                onClick={() => setAddOpen(true)}
+              >
+                <Plus className="size-3" /> Add
+              </Button>
+            ) : undefined
+          }
         >
           {p.accounts.length === 0 ? (
             <button
               type="button"
               onClick={() => setAddOpen(true)}
               className={cn(
-                "flex w-full items-center gap-3 rounded-lg border border-dashed px-3 py-3 text-left transition-colors hover:bg-muted",
+                "flex w-full items-center gap-2.5 rounded-lg border border-dashed px-3 py-2.5 text-left transition-colors hover:bg-muted",
                 nextStep === "account"
                   ? "border-broadcast/50"
                   : "border-border",
@@ -284,78 +279,69 @@ export function GatewayCard(p: GatewayCardProps) {
                 <span className="block text-[13px] font-medium">
                   Add your first {p.noun}
                 </span>
-                <span className="block text-metadata text-muted-foreground">
+                <span className="block text-[11px] text-muted-foreground">
                   Requests are balanced across enabled {p.noun}s
                 </span>
               </span>
             </button>
           ) : (
-            <div className="space-y-2">
-              <ul className="divide-y divide-border rounded-lg ring-1 ring-border">
-                {p.accounts.map((a) => (
-                  <li key={a.id} className="flex items-center gap-3 px-3 py-2">
-                    <span className="flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-[11px] font-bold uppercase text-muted-foreground">
-                      {a.label.slice(0, 2)}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-[13px] font-medium leading-4">
-                        {a.label}
+            <ul className="max-h-44 divide-y divide-border/60 overflow-y-auto rounded-lg bg-muted/30 ring-1 ring-border/60">
+              {p.accounts.map((a) => (
+                <li key={a.id} className="flex items-center gap-2.5 px-2.5 py-1.5">
+                  <span className="flex size-6 shrink-0 items-center justify-center rounded-md bg-background text-[10px] font-bold uppercase text-muted-foreground ring-1 ring-border/60">
+                    {a.label.slice(0, 2)}
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-[13px] font-medium leading-4">
+                      {a.label}
+                    </p>
+                    {a.subtitle && (
+                      <p className="truncate font-mono text-[10px] text-muted-foreground">
+                        {a.subtitle}
                       </p>
-                      {a.subtitle && (
-                        <p className="truncate font-mono text-[11px] text-muted-foreground">
-                          {a.subtitle}
-                        </p>
-                      )}
-                    </div>
-                    {a.warning && <Badge variant="warning">{a.warning}</Badge>}
-                    <Switch
-                      aria-label={`${a.enabled ? "Disable" : "Enable"} ${a.label}`}
-                      checked={a.enabled}
-                      onCheckedChange={(v) =>
-                        void run(`acc-${a.id}`, () =>
-                          p.onToggleAccount(a.id, v),
-                        )
-                      }
-                    />
-                    <button
-                      type="button"
-                      aria-label={`Remove ${a.label}`}
-                      title="Remove"
-                      onClick={() => setRemoveTarget(a)}
-                      className="rounded-full p-1 text-muted-foreground hover:bg-broadcast-tint hover:text-foreground"
-                    >
-                      <Trash2 className="size-3.5" />
-                    </button>
-                  </li>
-                ))}
-              </ul>
-              <Button
-                size="sm"
-                variant={nextStep === "account" ? "default" : "outline"}
-                onClick={() => setAddOpen(true)}
-              >
-                <Plus /> Add {p.noun}
-              </Button>
-            </div>
+                    )}
+                  </div>
+                  {a.warning && <Badge variant="warning">{a.warning}</Badge>}
+                  <Switch
+                    aria-label={`${a.enabled ? "Disable" : "Enable"} ${a.label}`}
+                    checked={a.enabled}
+                    onCheckedChange={(v) =>
+                      void run(`acc-${a.id}`, () => p.onToggleAccount(a.id, v))
+                    }
+                  />
+                  <button
+                    type="button"
+                    aria-label={`Remove ${a.label}`}
+                    title="Remove"
+                    onClick={() => setRemoveTarget(a)}
+                    className="rounded-md p-1 text-muted-foreground transition-colors hover:bg-destructive/10 hover:text-destructive"
+                  >
+                    <Trash2 className="size-3.5" />
+                  </button>
+                </li>
+              ))}
+            </ul>
           )}
-        </Row>
-
-        <Row icon={FlaskConical} title="Verify" hint="Send a live test request">
-          <div className="flex items-center gap-3">
-            <p className="min-w-0 flex-1 truncate text-[13px] text-muted-foreground">
-              {ready ? "Ready for traffic." : p.testDisabledReason}
-            </p>
-            <Button
-              size="sm"
-              variant={ready ? "default" : "outline"}
-              disabled={!ready || pending === "test"}
-              onClick={() => void run("test", p.onTest)}
-            >
-              {pending === "test" ? "Testing…" : p.testLabel}
-            </Button>
-          </div>
-        </Row>
+        </Block>
       </div>
+
+      <footer className="mt-auto flex items-center gap-3 border-t border-border/60 pt-3">
+        <FlaskConical
+          className="size-3.5 shrink-0 text-muted-foreground"
+          aria-hidden
+        />
+        <p className="min-w-0 flex-1 truncate text-[12px] text-muted-foreground">
+          {ready ? "Ready for traffic." : p.testDisabledReason}
+        </p>
+        <Button
+          size="sm"
+          variant={ready ? "default" : "outline"}
+          disabled={!ready || pending === "test"}
+          onClick={() => void run("test", p.onTest)}
+        >
+          {pending === "test" ? "Testing…" : p.testLabel}
+        </Button>
+      </footer>
 
       <AddAccountDialog
         open={addOpen}
@@ -417,33 +403,31 @@ export function GatewayCard(p: GatewayCardProps) {
   );
 }
 
-/** One labelled row: fixed icon+label column, flexible content column. */
-function Row({
+/** Compact labelled block: eyebrow title (+ meta / action) over content. */
+function Block({
   icon: Icon,
   title,
-  hint,
+  meta,
+  action,
   children,
 }: {
   icon: LucideIcon;
   title: string;
-  hint?: string;
+  meta?: string;
+  action?: React.ReactNode;
   children: React.ReactNode;
 }) {
   return (
-    <div className="grid gap-2 py-3.5 first:pt-0 last:pb-0 md:grid-cols-[11rem_1fr] md:gap-6">
-      <div className="flex items-start gap-2.5">
-        <Icon
-          className="mt-0.5 size-4 shrink-0 text-muted-foreground"
-          aria-hidden
-        />
-        <div>
-          <h3 className="text-[13px] font-semibold leading-4">{title}</h3>
-          {hint && (
-            <p className="mt-0.5 text-metadata text-muted-foreground">{hint}</p>
-          )}
-        </div>
+    <div className="space-y-1.5">
+      <div className="flex min-h-6 items-center gap-1.5">
+        <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
+        <h3 className="text-eyebrow text-muted-foreground">{title}</h3>
+        {meta && (
+          <span className="text-[11px] text-muted-foreground">· {meta}</span>
+        )}
+        {action && <span className="ml-auto">{action}</span>}
       </div>
-      <div className="min-w-0">{children}</div>
+      {children}
     </div>
   );
 }

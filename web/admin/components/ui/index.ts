@@ -3,6 +3,7 @@
  * Primitives: [Radix UI](https://www.radix-ui.com/primitives) via `radix-ui` (styled wrappers + tokens)
  */
 export { AccessibleIcon } from "./accessible-icon";
+export { Disclosure } from "./disclosure";
 export {
   Accordion,
   AccordionContent,

@@ -12,7 +12,7 @@ export default function ExposurePage() {
     <>
       <PageHeader section="exposure" />
 
-      <div className="divide-y divide-border rounded-xl bg-card shadow-rb-2">
+      <div className="grid gap-4 lg:grid-cols-2">
         <OpenRouterPanel onBusy={setBusy} />
         <MailPanel onBusy={setBusy} />
       </div>

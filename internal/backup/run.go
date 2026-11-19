@@ -6,6 +6,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hsoni92/obelisk/internal/backup/lineage"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -17,10 +18,26 @@ type RunOutcome struct {
 	DataObjects          []string
 	DataSkipped          []string
 	Errors               []string
+	RegisteredBackups    []string
 }
 
-// RunNow uploads a control-plane snapshot to each enabled destination with credentials.
+type runArtifact struct {
+	key          string
+	manifestKey  string
+	manifestBody []byte
+	inst         string
+	serviceType  string
+	instanceID   string
+	body         []byte
+	plannedNode  lineage.Node
+}
+
+// RunNow uploads data dumps for all eligible instances.
 func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
+	return r.runScoped(ctx, InstanceFilter{})
+}
+
+func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutcome, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -41,28 +58,74 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 		rf = 1
 	}
 
-	// Settings durability is the GitHub blueprint. S3 receives data/ only (no config/ tarball).
-	type artifact struct {
-		key  string
-		inst string // "<type>/<id>"
-		body []byte
+	var dumps []DataDump
+	if filter.active() {
+		dumps = CollectDataDumpsForInstance(ctx, spec, r.InstanceStates, filter.ServiceType, filter.InstanceID)
+	} else {
+		dumps = CollectDataDumps(ctx, spec, r.InstanceStates)
 	}
-	var artifacts []artifact
-	dumps := CollectDataDumps(ctx, spec, r.InstanceStates)
+
 	out := RunOutcome{RequiredReplication: rf}
+	var artifacts []runArtifact
+	machineID := spec.BackupBucketName()
+
 	for _, d := range dumps {
 		if d.Skipped {
 			out.DataSkipped = append(out.DataSkipped,
 				fmt.Sprintf("%s/%s: %s", d.ServiceType, d.InstanceID, d.SkipReason))
 			continue
 		}
-		if len(d.Body) > 0 {
-			out.DataObjects = append(out.DataObjects, d.ObjectKey)
-			artifacts = append(artifacts, artifact{key: d.ObjectKey, inst: d.ServiceType + "/" + d.InstanceID, body: d.Body})
+		if len(d.Body) == 0 {
+			continue
 		}
+		var inst obelisk.ServiceInstance
+		for _, candidate := range spec.Instances {
+			if candidate.Type == d.ServiceType && candidate.ID == d.InstanceID {
+				inst = candidate
+				break
+			}
+		}
+		witness := lineage.WitnessFromSpec(spec, inst)
+		planned, forest, err := lineage.PlanNode(cfg, lineage.RegisterInput{
+			ServiceType: d.ServiceType,
+			InstanceID:  d.InstanceID,
+			ObjectKey:   d.ObjectKey,
+			Size:        int64(len(d.Body)),
+			Trigger:     lineage.TriggerManual,
+			Witness:     witness,
+		})
+		if err != nil {
+			return out, err
+		}
+		manifest := lineage.NewManifest(planned, forest, machineID)
+		manifestBody, err := manifest.JSON()
+		if err != nil {
+			return out, err
+		}
+		out.DataObjects = append(out.DataObjects, d.ObjectKey)
+		artifacts = append(artifacts, runArtifact{
+			key:          d.ObjectKey,
+			manifestKey:  planned.ManifestKey,
+			manifestBody: manifestBody,
+			inst:         d.ServiceType + "/" + d.InstanceID,
+			serviceType:  d.ServiceType,
+			instanceID:   d.InstanceID,
+			body:         d.Body,
+			plannedNode:  planned,
+		})
 	}
 
 	wantData := countEligibleDataInstances(spec, r.InstanceStates)
+	if filter.active() {
+		wantData = 0
+		for _, inst := range spec.Instances {
+			if inst.Type == filter.ServiceType && inst.ID == filter.InstanceID &&
+				inst.Enabled && obelisk.InstanceDataBackupEnabled(inst) {
+				wantData = 1
+				break
+			}
+		}
+	}
 	if wantData > 0 && len(out.DataObjects) == 0 {
 		reason := strings.Join(out.DataSkipped, "; ")
 		if reason == "" {
@@ -106,6 +169,12 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 				destErr = err
 				break
 			}
+			if len(a.manifestBody) > 0 {
+				if err := PutObject(ctx, d.Endpoint, bucket, a.manifestKey, creds, a.manifestBody); err != nil {
+					destErr = err
+					break
+				}
+			}
 			backedUp[a.inst] = true
 		}
 		if destErr != nil {
@@ -119,13 +188,6 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 		}
 	}
 
-	keys := make([]string, 0, len(backedUp))
-	for k := range backedUp {
-		keys = append(keys, k)
-	}
-	_ = UpdateInstanceBackups(cfg, keys)
-	_ = UpdateLastRun(cfg)
-
 	if out.UploadedDestinations < rf {
 		return out, fmt.Errorf(
 			"replication not met (%d/%d uploads): %s",
@@ -134,5 +196,33 @@ func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
 			strings.Join(out.Errors, "; "),
 		)
 	}
+
+	for _, a := range artifacts {
+		if err := lineage.CommitNode(cfg, a.serviceType, a.instanceID, a.plannedNode); err != nil {
+			return out, err
+		}
+		out.RegisteredBackups = append(out.RegisteredBackups, a.plannedNode.ID)
+	}
+	if len(artifacts) > 0 {
+		retDays := policy.DataRetentionDays
+		if filter.active() {
+			for _, inst := range spec.Instances {
+				if inst.Type == filter.ServiceType && inst.ID == filter.InstanceID {
+					view, _ := obelisk.ResolvedInstanceBackupPolicy(inst, spec.Backup.Policy)
+					retDays = view.DataRetentionDays
+					break
+				}
+			}
+		}
+		_, _ = lineage.PruneRetention(cfg, retDays, false)
+	}
+
+	keys := make([]string, 0, len(backedUp))
+	for k := range backedUp {
+		keys = append(keys, k)
+	}
+	_ = UpdateInstanceBackups(cfg, keys)
+	_ = UpdateLastRun(cfg)
+
 	return out, nil
 }

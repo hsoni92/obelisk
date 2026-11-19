@@ -6,6 +6,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { ServiceDetailsDialog } from "@/components/services/service-details-dialog";
+import { ServiceBackupsDialog } from "@/components/services/service-backups-dialog";
 import {
   Tooltip,
   TooltipContent,
@@ -30,6 +31,7 @@ import {
   Box,
   Cuboid,
   Database,
+  DatabaseBackup,
   HardDrive,
   Layers,
   Search,
@@ -159,12 +161,24 @@ export function ServicesTable({
     const visible = new Set(rows.map((r) => r.rowKey));
     onSelectedChange((prev) => {
       const next = new Set([...prev].filter((k) => visible.has(k)));
-      return next.size === prev.size ? prev : next;
+      if (next.size === prev.size) {
+        let same = true;
+        for (const k of next) {
+          if (!prev.has(k)) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return next;
     });
   }, [rows, onSelectedChange]);
 
   const [detailsKey, setDetailsKey] = React.useState<string | null>(null);
+  const [backupsKey, setBackupsKey] = React.useState<string | null>(null);
   const detailsRow = rows.find((r) => r.rowKey === detailsKey) ?? null;
+  const backupsRow = rows.find((r) => r.rowKey === backupsKey) ?? null;
 
   const selectionLocked = selectionDisabled || busyKey !== null;
 
@@ -320,8 +334,30 @@ export function ServicesTable({
           const inst = row.original.instance;
           const label = inst.display_name || inst.id;
           const busy = busyKey === row.original.rowKey;
+          const backupCapable = inst.deployment?.backup?.supported;
           return (
-            <div className="flex justify-end">
+            <div className="flex justify-end gap-1">
+              {backupCapable ? (
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      type="button"
+                      variant="icon"
+                      size="icon"
+                      className="size-8 shrink-0 bg-card ring-1 ring-border shadow-none hover:bg-muted"
+                      disabled={busy}
+                      aria-label={`Backup history for ${label}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setBackupsKey(row.original.rowKey);
+                      }}
+                    >
+                      <DatabaseBackup className="size-4" aria-hidden />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>Backup history & lineage</TooltipContent>
+                </Tooltip>
+              ) : null}
               <Tooltip>
                 <TooltipTrigger asChild>
                   <Button
@@ -407,6 +443,11 @@ export function ServicesTable({
         row={detailsRow}
         onOpenChange={(o) => !o && setDetailsKey(null)}
         onConfigure={onConfigure}
+        onOpenBackups={(key) => setBackupsKey(key)}
+      />
+      <ServiceBackupsDialog
+        row={backupsRow}
+        onOpenChange={(o) => !o && setBackupsKey(null)}
       />
       <div
         ref={parentRef}

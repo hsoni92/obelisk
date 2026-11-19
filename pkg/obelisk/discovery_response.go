@@ -16,7 +16,13 @@ type ProjectDiscovery struct {
 }
 
 // BuildProjectDiscovery filters BuildConnections output to project membership.
-func BuildProjectDiscovery(spec Spec, p Project, states map[string]string, observedAt time.Time) ProjectDiscovery {
+func BuildProjectDiscovery(
+	spec Spec,
+	p Project,
+	states map[string]string,
+	observedAt time.Time,
+	extras ProjectDiscoveryExtras,
+) ProjectDiscovery {
 	full := BuildConnections(spec, states)
 	want := ProjectInstanceSet(p)
 	var inst []InstanceConnection
@@ -31,6 +37,14 @@ func BuildProjectDiscovery(spec Spec, p Project, states map[string]string, obser
 			}
 		}
 		inst = append(inst, ic)
+	}
+	for _, ref := range p.InstanceIDs {
+		if !want[ref] || !IsExposureMemberRef(ref) {
+			continue
+		}
+		if ic, ok := buildExposureConnection(ref, extras); ok {
+			inst = append(inst, ic)
+		}
 	}
 	var out ProjectDiscovery
 	out.SchemaVersion = 1

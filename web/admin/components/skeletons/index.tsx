@@ -122,19 +122,22 @@ export function OverviewSkeleton() {
 /** One gateway (OpenRouter / Mail) section on Exposure. */
 export function GatewayCardSkeleton() {
   return (
-    <SkeletonRegion label="Loading gateway" className="p-6">
+    <SkeletonRegion
+      label="Loading gateway"
+      className="rounded-xl border border-border/70 bg-card p-4"
+    >
       <div className="flex items-start gap-3" aria-hidden>
-        <Skeleton className="size-9 rounded-full" />
+        <Skeleton className="size-9 rounded-lg" />
         <div className="flex-1 space-y-2">
           <Skeleton className="h-4 w-40" />
-          <Skeleton className="h-3 w-72 max-w-full" />
+          <Skeleton className="h-3 w-56 max-w-full" />
         </div>
-        <Skeleton className="h-7 w-12 rounded-full" />
+        <Skeleton className="h-5 w-9 rounded-full" />
       </div>
-      <Skeleton className="mt-5 h-10 w-full rounded-full" aria-hidden />
-      <div className="mt-4 space-y-2" aria-hidden>
-        <Skeleton className="h-12 w-full rounded-xl" />
-        <Skeleton className="h-12 w-full rounded-xl" />
+      <div className="mt-4 space-y-3" aria-hidden>
+        <Skeleton className="h-8 w-full rounded-md" />
+        <Skeleton className="h-8 w-full rounded-md" />
+        <Skeleton className="h-16 w-full rounded-lg" />
       </div>
     </SkeletonRegion>
   );

@@ -267,6 +267,75 @@ func DownloadPrefix(ctx context.Context, endpoint, bucket, prefix string, creds 
 	return n, nil
 }
 
+// GetObject downloads an object body.
+func GetObject(ctx context.Context, endpoint, bucket, key string, creds RemoteCredentials) ([]byte, error) {
+	host, secure, err := parseEndpoint(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	cli, err := minio.New(host, &minio.Options{
+		Creds:  credentials.NewStaticV4(creds.AccessKeyID, creds.SecretAccessKey, ""),
+		Secure: secure,
+	})
+	if err != nil {
+		return nil, err
+	}
+	reader, err := cli.GetObject(ctx, bucket, key, minio.GetObjectOptions{})
+	if err != nil {
+		return nil, fmt.Errorf("get s3://%s/%s: %w", bucket, key, err)
+	}
+	defer reader.Close()
+	return io.ReadAll(reader)
+}
+
+// DeleteObject removes one object key (idempotent).
+func DeleteObject(ctx context.Context, endpoint, bucket, key string, creds RemoteCredentials) error {
+	host, secure, err := parseEndpoint(endpoint)
+	if err != nil {
+		return err
+	}
+	cli, err := minio.New(host, &minio.Options{
+		Creds:  credentials.NewStaticV4(creds.AccessKeyID, creds.SecretAccessKey, ""),
+		Secure: secure,
+	})
+	if err != nil {
+		return err
+	}
+	return cli.RemoveObject(ctx, bucket, key, minio.RemoveObjectOptions{})
+}
+
+// ListObjectKeys returns object keys under prefix up to maxKeys.
+func ListObjectKeys(ctx context.Context, endpoint, bucket, prefix string, creds RemoteCredentials, maxKeys int) ([]string, error) {
+	host, secure, err := parseEndpoint(endpoint)
+	if err != nil {
+		return nil, err
+	}
+	cli, err := minio.New(host, &minio.Options{
+		Creds:  credentials.NewStaticV4(creds.AccessKeyID, creds.SecretAccessKey, ""),
+		Secure: secure,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if maxKeys <= 0 {
+		maxKeys = 5000
+	}
+	var keys []string
+	for obj := range cli.ListObjects(ctx, bucket, minio.ListObjectsOptions{Prefix: prefix, Recursive: true}) {
+		if obj.Err != nil {
+			return keys, obj.Err
+		}
+		if obj.Key == "" || strings.HasSuffix(obj.Key, "/") {
+			continue
+		}
+		keys = append(keys, obj.Key)
+		if len(keys) >= maxKeys {
+			break
+		}
+	}
+	return keys, nil
+}
+
 func contentTypeForObjectKey(key string) string {
 	switch {
 	case strings.HasSuffix(key, ".sql"):
