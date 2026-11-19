@@ -1,6 +1,8 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { CardHeading } from "@/components/ui/card";
+import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
@@ -56,18 +58,23 @@ export function BackupPolicyCard({ config, busy, onSave }: Props) {
   }
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-section-title">Global backup policy</h2>
-        {config.replication_ready ? (
-          <Badge variant="success">RF {p.replication_factor} met</Badge>
-        ) : (
-          <Badge variant="warning">
-            RF {p.replication_factor}: {config.ready_destination_count}/
-            {config.enabled_destination_count} ready
-          </Badge>
-        )}
-      </div>
+    <div className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
+      <CardHeading
+        icon={ShieldCheck}
+        tone={config.replication_ready ? "green" : "amber"}
+        title="Global backup policy"
+        className="-mx-4 -mt-4"
+        badge={
+          config.replication_ready ? (
+            <Badge variant="success">RF {p.replication_factor} met</Badge>
+          ) : (
+            <Badge variant="warning">
+              RF {p.replication_factor}: {config.ready_destination_count}/
+              {config.enabled_destination_count} ready
+            </Badge>
+          )
+        }
+      />
       <p className="text-metadata text-muted-foreground">
         Machine bucket <span className="font-mono">{config.machine_id}</span> —
         data backups for{" "}

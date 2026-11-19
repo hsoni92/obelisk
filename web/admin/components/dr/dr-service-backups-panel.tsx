@@ -35,7 +35,8 @@ import { relativeTime } from "@/lib/overview-series";
 import { serviceRowKey, stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { RefreshCw } from "lucide-react";
+import { CardHeading } from "@/components/ui/card";
+import { DatabaseBackup, RefreshCw } from "lucide-react";
 import * as React from "react";
 
 /** Fixed track widths so header and body rows share one column layout. */
@@ -237,15 +238,14 @@ export function DRServiceBackupsPanel() {
         </AlertDialogContent>
       </AlertDialog>
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
-        <div className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-section-title">Service backups</h2>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              One row per data service. Use the actions menu on each row for
-              lineage, backup, or delete (including orphans).
-            </p>
-          </div>
+      <div className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
+        <CardHeading
+          icon={DatabaseBackup}
+          tone="blue"
+          title="Service backups"
+          description="One row per data service. Use the actions menu on each row for lineage, backup, or delete (including orphans)."
+          className="-mx-4 -mt-4"
+          actions={
           <Button
             type="button"
             variant="outline"
@@ -259,7 +259,8 @@ export function DRServiceBackupsPanel() {
             />
             Sync from storage
           </Button>
-        </div>
+          }
+        />
 
         <dl className="grid gap-3 sm:grid-cols-4">
           <Stat label="Services" value={String(stats.total)} />

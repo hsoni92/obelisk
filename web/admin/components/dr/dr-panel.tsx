@@ -33,7 +33,8 @@ import {
   useTestBackupDestinationMutation,
 } from "@/lib/api";
 import { toast } from "@/lib/toast";
-import { Plus } from "lucide-react";
+import { CardHeading } from "@/components/ui/card";
+import { Cloud, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
 export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
@@ -110,13 +111,15 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
         }}
       />
 
-      <div className="rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <h2 className="text-section-title">Off-site destinations</h2>
-            {statusBadge}
-          </div>
-          <div className="flex flex-wrap gap-2">
+      <div className="overflow-hidden rounded-xl border border-border bg-card p-4 shadow-rb-2 space-y-4">
+        <CardHeading
+          icon={Cloud}
+          tone="blue"
+          title="Off-site destinations"
+          badge={statusBadge}
+          className="-mx-4 -mt-4"
+          actions={
+            <>
             <Button
               variant="outline"
               size="sm"
@@ -143,8 +146,9 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
               <Plus className="size-4 mr-1" aria-hidden />
               Add destination
             </Button>
-          </div>
-        </div>
+            </>
+          }
+        />
         <DestinationsTable
           rows={config.destinations}
           busyKey={busyKey}

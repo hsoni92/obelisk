@@ -22,6 +22,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { CardHeading } from "@/components/ui/card";
 import { Field } from "@/components/ui/field";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
@@ -115,39 +116,25 @@ export function GatewayCard(p: GatewayCardProps) {
   return (
     <section
       aria-label={p.title}
-      className="flex flex-col rounded-xl border border-border/70 bg-card p-4 shadow-sm"
+      className="flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm"
     >
-      {/* Identity, status, master switch */}
-      <header className="flex items-start gap-3">
-        <span
-          className={cn(
-            "flex size-9 shrink-0 items-center justify-center rounded-lg",
-            ready
-              ? "bg-success-tint text-success"
-              : "bg-muted text-muted-foreground",
-          )}
-        >
-          <p.icon className="size-4" aria-hidden />
-        </span>
-        <div className="min-w-0 flex-1">
-          <div className="flex items-center gap-2">
-            <h2 className="truncate text-sm font-semibold leading-5">
-              {p.title}
-            </h2>
-            <Badge variant={status.variant}>{status.label}</Badge>
-          </div>
-          <p className="line-clamp-1 text-metadata text-muted-foreground">
-            {p.description}
-          </p>
-        </div>
-        <Switch
-          aria-label={`Enable ${p.title}`}
-          checked={p.enabled}
-          disabled={pending === "toggle"}
-          onCheckedChange={(v) => void run("toggle", () => p.onToggle(v))}
-        />
-      </header>
-
+      <CardHeading
+        icon={p.icon}
+        tone={!p.enabled ? "neutral" : ready ? "green" : "amber"}
+        title={p.title}
+        description={p.description}
+        badge={<Badge variant={status.variant}>{status.label}</Badge>}
+        actions={
+          <Switch
+            aria-label={`Enable ${p.title}`}
+            checked={p.enabled}
+            disabled={pending === "toggle"}
+            onCheckedChange={(v) => void run("toggle", () => p.onToggle(v))}
+          />
+        }
+        className="flex-nowrap"
+      />
+      <div className="flex flex-1 flex-col p-4">
       {/* Setup progress — disappears once live */}
       {p.enabled && !ready && (
         <div className="mt-3" role="group" aria-label="Setup progress">
@@ -175,7 +162,7 @@ export function GatewayCard(p: GatewayCardProps) {
         </div>
       )}
 
-      <div className="mt-4 mb-4 space-y-4">
+      <div className="mb-4 mt-4 space-y-4">
         <Block icon={Link2} title="Endpoint">
           <div className="flex items-center gap-1.5">
             <code className="min-w-0 flex-1 truncate rounded-md bg-muted px-2.5 py-1.5 font-mono text-[11px]">
@@ -342,6 +329,7 @@ export function GatewayCard(p: GatewayCardProps) {
           {pending === "test" ? "Testing…" : p.testLabel}
         </Button>
       </footer>
+      </div>
 
       <AddAccountDialog
         open={addOpen}

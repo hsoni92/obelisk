@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeading } from "@/components/ui/card";
 import {
   type ChartConfig,
   ChartContainer,
@@ -27,10 +27,12 @@ import { buildTimeline, relativeTime } from "@/lib/overview-series";
 import { cn } from "@/lib/utils";
 import {
   AlertTriangle,
+  ChartArea,
   CheckCircle2,
   Clock,
   DatabaseBackup,
   HardDrive,
+  PieChart as PieChartIcon,
   ShieldAlert,
   type LucideIcon,
 } from "lucide-react";
@@ -240,25 +242,25 @@ export function OverviewPanel({
 
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-3">
-        <Card className="p-4 lg:col-span-2">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <h2 className="text-section-title">Availability timeline</h2>
-              <p className="text-metadata text-muted-foreground">
-                Components by state over the{" "}
-                {RANGE_OPTIONS.find(
-                  (o) => o.value === String(hours),
-                )?.label.toLowerCase()}
-              </p>
-            </div>
-            <ChartLegend
-              items={Object.entries(timelineConfig).map(([k, c]) => ({
-                label: c.label as string,
-                color: c.color,
-                key: k,
-              }))}
-            />
-          </div>
+        <Card className="overflow-hidden lg:col-span-2">
+          <CardHeading
+            icon={ChartArea}
+            tone="blue"
+            title="Availability timeline"
+            description={`Components by state over the ${RANGE_OPTIONS.find(
+              (o) => o.value === String(hours),
+            )?.label.toLowerCase()}`}
+            actions={
+              <ChartLegend
+                items={Object.entries(timelineConfig).map(([k, c]) => ({
+                  label: c.label as string,
+                  color: c.color,
+                  key: k,
+                }))}
+              />
+            }
+          />
+          <div className="p-4 pt-1">
           <ChartContainer
             config={timelineConfig}
             className="mt-3 aspect-auto h-56 w-full"
@@ -344,13 +346,17 @@ export function OverviewPanel({
               />
             </AreaChart>
           </ChartContainer>
+          </div>
         </Card>
 
-        <Card className="flex flex-col p-4">
-          <h2 className="text-section-title">Component health</h2>
-          <p className="text-metadata text-muted-foreground">
-            Current distribution by state
-          </p>
+        <Card className="flex flex-col overflow-hidden">
+          <CardHeading
+            icon={PieChartIcon}
+            tone="green"
+            title="Component health"
+            description="Current distribution by state"
+          />
+          <div className="flex flex-1 flex-col p-4 pt-3">
           <div className="relative mx-auto mt-2 w-full max-w-[180px]">
             <ChartContainer
               config={stateConfig}
@@ -401,6 +407,7 @@ export function OverviewPanel({
               </li>
             ))}
           </ul>
+          </div>
         </Card>
       </div>
 

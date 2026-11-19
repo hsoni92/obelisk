@@ -36,6 +36,7 @@ import {
 import type { ProjectView } from "@/lib/types";
 import { toast } from "@/lib/toast";
 import { Disclosure } from "@/components/ui/disclosure";
+import { CardHeading } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -504,63 +505,60 @@ function ProjectCard({
   const hasDiscovery = p.discovery_enabled && !!p.discovery_url;
 
   return (
-    <article className="group flex flex-col gap-3 rounded-xl border border-border/70 bg-card p-4 shadow-sm transition-colors hover:border-primary/40">
-      <header className="flex items-start gap-3">
-        <span
-          className="grid size-9 shrink-0 place-items-center rounded-lg bg-primary/10 text-sm font-semibold uppercase text-primary"
-          aria-hidden
-        >
-          {p.name.trim().charAt(0) || "P"}
-        </span>
-        <button
-          type="button"
-          onClick={onEdit}
-          className="min-w-0 flex-1 rounded-md text-left outline-none focus-visible:ring-2 focus-visible:ring-ring"
-          title="Edit project"
-        >
-          <h3 className="truncate text-sm font-medium leading-tight">
+    <article className="group flex flex-col overflow-hidden rounded-xl border border-border/70 bg-card shadow-sm transition-colors hover:border-primary/40">
+      <CardHeading
+        icon={FolderKanban}
+        tone={hasDiscovery ? "lime" : "neutral"}
+        title={
+          <button
+            type="button"
+            onClick={onEdit}
+            className="truncate rounded-sm text-left outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            title="Edit project"
+          >
             {p.name}
-          </h3>
-          <p className="truncate font-mono text-[11px] text-muted-foreground">
-            {p.id}
-          </p>
-        </button>
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              type="button"
-              variant="icon"
-              size="icon"
-              className="size-7 shrink-0 shadow-none"
-              aria-label={`Actions for ${p.name}`}
-            >
-              <EllipsisVertical className="size-4" aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-44">
-            <DropdownMenuItem onSelect={onEdit}>
-              <Pencil className="size-4" aria-hidden />
-              Edit members
-            </DropdownMenuItem>
-            {hasDiscovery ? (
-              <DropdownMenuItem onSelect={onAccess}>
-                <KeyRound className="size-4" aria-hidden />
-                Client access
+          </button>
+        }
+        description={<span className="font-mono text-[11px]">{p.id}</span>}
+        className="flex-nowrap"
+        actions={
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button
+                type="button"
+                variant="icon"
+                size="icon"
+                className="size-7 shrink-0 shadow-none"
+                aria-label={`Actions for ${p.name}`}
+              >
+                <EllipsisVertical className="size-4" aria-hidden />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-44">
+              <DropdownMenuItem onSelect={onEdit}>
+                <Pencil className="size-4" aria-hidden />
+                Edit members
               </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuSeparator />
-            <DropdownMenuItem
-              disabled={busy}
-              className="text-destructive focus:text-destructive"
-              onSelect={onDelete}
-            >
-              <Trash2 className="size-4" aria-hidden />
-              Delete…
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-      </header>
-
+              {hasDiscovery ? (
+                <DropdownMenuItem onSelect={onAccess}>
+                  <KeyRound className="size-4" aria-hidden />
+                  Client access
+                </DropdownMenuItem>
+              ) : null}
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                disabled={busy}
+                className="text-destructive focus:text-destructive"
+                onSelect={onDelete}
+              >
+                <Trash2 className="size-4" aria-hidden />
+                Delete…
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        }
+      />
+      <div className="flex flex-1 flex-col gap-3 p-4">
       <div className="flex min-h-6 flex-wrap items-center gap-1.5">
         {members.length === 0 ? (
           <span className="text-xs text-muted-foreground">No members yet</span>
@@ -611,6 +609,7 @@ function ProjectCard({
           </Badge>
         )}
       </footer>
+      </div>
     </article>
   );
 }

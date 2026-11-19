@@ -25,7 +25,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import * as React from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeading } from "@/components/ui/card";
 import { type ChartConfig, ChartContainer } from "@/components/ui/chart";
 import { formatBytes } from "@/lib/format-bytes";
 import type { VitalsMeter, VitalsRow, VitalsSnapshot } from "@/lib/types";
@@ -43,23 +43,19 @@ export function ServiceVitals({ vitals }: { vitals?: VitalsSnapshot }) {
     : "…";
 
   return (
-    <Card className="p-5 sm:p-6">
-      <div className="flex flex-wrap items-start gap-3">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-broadcast-tint text-foreground">
-          <Activity className="size-[18px]" aria-hidden />
-        </span>
-        <div className="min-w-0">
-          <h2 className="text-section-title">Service vitals</h2>
-          <p className="text-metadata text-muted-foreground">
-            Live machine load, sampled about once a minute.
-          </p>
-        </div>
-        <VitalsMeta vitals={vitals} updated={updated} />
-      </div>
-
+    <Card className="overflow-hidden">
+      <CardHeading
+        icon={Activity}
+        tone="lime"
+        title="Service vitals"
+        description="Live machine load, sampled about once a minute."
+        actions={<VitalsMeta vitals={vitals} updated={updated} />}
+      />
+      <div className="p-5 pt-0 sm:p-6 sm:pt-0">
       <MachineTotals vitals={vitals} />
 
       <ServiceVitalsSummary vitals={vitals} />
+      </div>
     </Card>
   );
 }
@@ -72,7 +68,7 @@ function VitalsMeta({
   updated: string;
 }) {
   return (
-    <div className="ml-auto flex flex-wrap items-center gap-1.5">
+    <div className="flex flex-wrap items-center gap-1.5">
       <span className="text-metadata text-muted-foreground">
         Slot {updated}
       </span>

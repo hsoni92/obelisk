@@ -3,7 +3,7 @@
 import { BackupOverviewSkeleton } from "@/components/skeletons";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Card, CardHeading } from "@/components/ui/card";
 import type { BackupSummary, BackupTone } from "@/lib/backup-summary";
 import { formatBytes } from "@/lib/format-bytes";
 import { relativeTime } from "@/lib/overview-series";
@@ -40,25 +40,20 @@ export function BackupOverview({
 
   return (
     <Card className="overflow-hidden">
-      <div className="flex flex-wrap items-center justify-between gap-2 p-4 pb-3">
-        <div className="flex items-center gap-3">
-          <span className="flex size-8 items-center justify-center rounded-full bg-link-tint text-link">
-            <DatabaseBackup className="size-4" aria-hidden />
-          </span>
-          <div>
-            <h2 className="text-section-title">Backups</h2>
-            <p className="text-metadata text-muted-foreground">
-              {summary?.detail}
-            </p>
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {summary && <Badge variant={summary.tone}>{summary.label}</Badge>}
-          <Button size="sm" variant="outline" onClick={onOpenDR}>
-            Manage
-          </Button>
-        </div>
-      </div>
+      <CardHeading
+        icon={DatabaseBackup}
+        tone="blue"
+        title="Backups"
+        description={summary?.detail}
+        actions={
+          <>
+            {summary && <Badge variant={summary.tone}>{summary.label}</Badge>}
+            <Button size="sm" variant="outline" onClick={onOpenDR}>
+              Manage
+            </Button>
+          </>
+        }
+      />
 
       {p && summary && (
         <dl className="grid grid-cols-2 gap-px border-t border-border bg-border text-[13px] md:grid-cols-4">

@@ -1,6 +1,8 @@
 "use client";
 
 import { Badge } from "@/components/ui/badge";
+import { CardHeading } from "@/components/ui/card";
+import { ServerCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
@@ -124,18 +126,25 @@ export function BackupRemotePanel({
   const layout = target?.layout;
 
   return (
-    <div className="space-y-4 max-w-xl rounded-xl border border-border bg-card p-4 shadow-rb-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <h2 className="text-section-title">Remote backup</h2>
-        {target?.backup_ready ? (
-          <Badge variant="success">ready</Badge>
-        ) : (
-          <Badge variant="warning">setup required</Badge>
-        )}
-        {target?.implementation_status === "stub" && (
-          <Badge variant="outline">upload worker stub</Badge>
-        )}
-      </div>
+    <div className="space-y-4 max-w-xl overflow-hidden rounded-xl border border-border bg-card p-4 shadow-rb-2">
+      <CardHeading
+        icon={ServerCog}
+        tone={target?.backup_ready ? "green" : "amber"}
+        title="Remote backup"
+        className="-mx-4 -mt-4"
+        badge={
+          <>
+            {target?.backup_ready ? (
+              <Badge variant="success">ready</Badge>
+            ) : (
+              <Badge variant="warning">setup required</Badge>
+            )}
+            {target?.implementation_status === "stub" && (
+              <Badge variant="outline">upload worker stub</Badge>
+            )}
+          </>
+        }
+      />
 
       <div className="rounded-lg bg-muted/60 p-3 space-y-2">
         <p className="text-eyebrow text-muted-foreground">Machine identity</p>
