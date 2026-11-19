@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 	"gopkg.in/yaml.v3"
 )
 
 // ReconcileKong merges instance edge routes into the platform Kong declarative config
 // and applies it when it differs from the cluster ConfigMap.
-func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace string) error {
+func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace string, federated []peer.FederatedTarget) error {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
@@ -24,7 +25,7 @@ func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace s
 	if err != nil {
 		return fmt.Errorf("read kong base %s: %w", basePath, err)
 	}
-	rendered, err := mergeInstanceRoutes(base, spec)
+	rendered, err := mergeInstanceRoutes(base, spec, federated)
 	if err != nil {
 		return err
 	}
@@ -178,7 +179,7 @@ func boolPtrEqual(a, b *bool) bool {
 	return *a == *b
 }
 
-func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
+func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec, federated []peer.FederatedTarget) ([]byte, error) {
 	var doc kongDeclarative
 	if err := yaml.Unmarshal(baseYAML, &doc); err != nil {
 		return nil, fmt.Errorf("parse kong base: %w", err)
@@ -194,13 +195,21 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 		if !inst.Enabled {
 			continue
 		}
-		if !obelisk.VPSEdge(spec) {
+		if !obelisk.ConnectionEdgeEnabled(spec) {
 			continue
 		}
 		if svc, ok := kongHTTPServiceForInstance(inst); ok {
 			filtered = append(filtered, svc)
 		}
 		// Native TLS data services use obelisk-native-edge (nginx stream SNI), not Kong stream.
+	}
+	for _, ft := range federated {
+		if ft.HTTPPort <= 0 {
+			continue
+		}
+		if svc, ok := kongHTTPServiceForFederated(ft); ok {
+			filtered = append(filtered, svc)
+		}
 	}
 	doc.Services = filtered
 	// Native protocols use TLS passthrough; databases terminate TLS themselves (see edge TLS secret).
@@ -214,7 +223,22 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
 
 // mergeRustFSRoutes is an alias kept for tests.
 func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
-	return mergeInstanceRoutes(baseYAML, spec)
+	return mergeInstanceRoutes(baseYAML, spec, nil)
+}
+
+func kongHTTPServiceForFederated(ft peer.FederatedTarget) (kongService, bool) {
+	base, ok := kongHTTPServiceForInstance(ft.Inst)
+	if !ok {
+		return kongService{}, false
+	}
+	host := strings.TrimSpace(ft.UpstreamHost)
+	if host == "" || ft.HTTPPort <= 0 {
+		return kongService{}, false
+	}
+	base.URL = fmt.Sprintf("http://%s:%d", host, ft.HTTPPort)
+	base.Name = "fed-" + base.Name
+	base.Routes[0].Name = "fed-" + base.Routes[0].Name
+	return base, true
 }
 
 func indentPEM(pem string) string {

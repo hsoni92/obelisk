@@ -10,7 +10,20 @@ func TestValidate_VPSNoTailscale(t *testing.T) {
 	spec := obelisk.DefaultSpec("vps")
 	spec.Deployment.Tailscale.Enabled = true
 	if err := Validate(&spec); err == nil {
-		t.Fatal("expected error when tailscale on vps")
+		t.Fatal("expected error when tailscale on vps without gateway role")
+	}
+}
+
+func TestValidate_VPSGatewayRequiresTailscale(t *testing.T) {
+	spec := obelisk.DefaultSpec("vps")
+	spec.Deployment.Role = obelisk.DeploymentRoleGateway
+	spec.Deployment.Tailscale.Enabled = false
+	if err := Validate(&spec); err == nil {
+		t.Fatal("expected gateway without tailscale to fail")
+	}
+	spec.Deployment.Tailscale.Enabled = true
+	if err := Validate(&spec); err != nil {
+		t.Fatalf("expected gateway with tailscale valid: %v", err)
 	}
 }
 

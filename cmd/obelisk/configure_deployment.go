@@ -11,12 +11,14 @@ import (
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
 func cmdConfigureDeployment(args []string) {
 	fs := flag.NewFlagSet("configure deployment", flag.ExitOnError)
 	profile := fs.String("profile", "", "deployment profile: vps or local")
-	tailscale := fs.Bool("tailscale", false, "enable Tailscale (local profile only)")
+	role := fs.String("role", "", "federation role: local or gateway")
+	tailscale := fs.Bool("tailscale", false, "enable Tailscale (local profile or gateway role)")
 	show := fs.Bool("show", false, "print current deployment profile and exit")
 	cfg := fs.String("config", config.ResolvePath(), "config path")
 	helmRoot := fs.String("helm-root", config.ResolveHelmRoot(), "helm charts root")
@@ -36,7 +38,7 @@ func cmdConfigureDeployment(args []string) {
 		if *cfg != "" {
 			read = config.ActiveConfigPath(*cfg)
 		}
-		fmt.Printf("profile=%s tailscale=%v\n", spec.Deployment.Profile, spec.Deployment.Tailscale.Enabled)
+		fmt.Printf("profile=%s role=%s tailscale=%v\n", spec.Deployment.Profile, spec.Deployment.Role, spec.Deployment.Tailscale.Enabled)
 		fmt.Printf("config=%s\n", read)
 		return
 	}
@@ -50,12 +52,33 @@ func cmdConfigureDeployment(args []string) {
 	switch strings.ToLower(strings.TrimSpace(*profile)) {
 	case "vps":
 		spec.Deployment.Profile = "vps"
-		spec.Deployment.Tailscale.Enabled = false
+		if *role != "gateway" {
+			spec.Deployment.Tailscale.Enabled = false
+		}
 	case "local":
 		spec.Deployment.Profile = "local"
-		spec.Deployment.Tailscale.Enabled = *tailscale
+		if *role != "gateway" {
+			spec.Deployment.Tailscale.Enabled = *tailscale
+		}
 	default:
 		fmt.Fprintln(os.Stderr, "profile must be vps or local")
+		os.Exit(1)
+	}
+	if rv := strings.ToLower(strings.TrimSpace(*role)); rv != "" {
+		switch rv {
+		case "local", "gateway":
+			spec.Deployment.Role = rv
+		default:
+			fmt.Fprintln(os.Stderr, "role must be local or gateway")
+			os.Exit(1)
+		}
+	}
+	if spec.Deployment.Role == obelisk.DeploymentRoleGateway {
+		spec.Deployment.Tailscale.Enabled = true
+	}
+	obelisk.NormalizeDeployment(&spec)
+	if err := config.Validate(&spec); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 

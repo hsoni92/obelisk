@@ -138,6 +138,9 @@ export function OverviewPanel({
           <Badge variant="warning">reconcile off</Badge>
         )}
         {data?.profile && <Badge variant="info">{data.profile}</Badge>}
+        {data?.role === "gateway" && (
+          <Badge variant="warning">gateway</Badge>
+        )}
         {data?.tailscale && <Badge variant="info">tailscale</Badge>}
         {data?.machineId && (
           <span className="font-mono text-[11px] text-muted-foreground">

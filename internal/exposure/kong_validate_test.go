@@ -28,7 +28,7 @@ func TestKongMergedParsesWithKongImage(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	out, err := mergeInstanceRoutes(base, spec)
+	out, err := mergeInstanceRoutes(base, spec, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

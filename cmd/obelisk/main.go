@@ -6,6 +6,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
@@ -36,6 +37,8 @@ func main() {
 		cmdGitHub(os.Args[2:])
 	case "configure":
 		cmdConfigure(os.Args[2:])
+	case "gateway":
+		cmdGateway(os.Args[2:])
 	case "update":
 		cmdUpdate(os.Args[2:])
 	case "cleanup":
@@ -70,7 +73,10 @@ Commands:
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
   restore --chain [--api URL] [--config path] [--passphrase secret] [--adopt-machine-id | --keep-machine-id]
-  configure deployment --profile vps|local [--public-host HOST] [--reconcile]
+  gateway enable [--profile vps|local] [--public-host HOST]   set role=gateway and tailscale=true
+  gateway local [--no-reconcile]                              back to role=local (vps clears tailscale)
+  gateway status
+  configure deployment --profile vps|local [--role local|gateway] [--tailscale] [--public-host HOST] [--reconcile]
   configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
@@ -99,11 +105,15 @@ func cmdPreflight(args []string) {
 func cmdInitConfig(args []string) {
 	fs := flag.NewFlagSet("init-config", flag.ExitOnError)
 	profile := fs.String("profile", "vps", "deployment profile")
+	role := fs.String("role", obelisk.DeploymentRoleLocal, "deployment role: local or gateway")
 	path := fs.String("path", config.ResolvePath(), "config path")
-	tailscale := fs.Bool("tailscale", false, "enable tailscale (local only)")
+	tailscale := fs.Bool("tailscale", false, "enable tailscale (local or gateway)")
 	_ = fs.Parse(args)
 	spec := obelisk.DefaultSpec(*profile)
-	if *profile == "local" {
+	spec.Deployment.Role = strings.ToLower(strings.TrimSpace(*role))
+	if spec.Deployment.Role == obelisk.DeploymentRoleGateway {
+		spec.Deployment.Tailscale.Enabled = true
+	} else if *profile == "local" {
 		spec.Deployment.Tailscale.Enabled = *tailscale
 	}
 	if err := config.Save(*path, spec); err != nil {

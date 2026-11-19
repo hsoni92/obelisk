@@ -42,6 +42,7 @@ type overviewResponse struct {
 	GeneratedAt   time.Time           `json:"generated_at"`
 	ReconcileMode string              `json:"reconcileMode"`
 	Profile       string              `json:"profile"`
+	Role          string              `json:"role"`
 	Tailscale     bool                `json:"tailscale"`
 	MachineID     string              `json:"machineId"`
 	BackupReady   bool                `json:"backup_ready"`
@@ -50,6 +51,7 @@ type overviewResponse struct {
 	History       []history.Event     `json:"history"`
 	HistoryHours  float64             `json:"history_hours"`
 	Vitals        *vitals.Snapshot    `json:"vitals,omitempty"`
+	Warnings      []string            `json:"warnings,omitempty"`
 }
 
 func (s *Server) overviewStore() *history.Store {
@@ -147,10 +149,18 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	events, _ := store.Since(since)
 
 	bt := s.buildBackupTarget(cfg, spec)
+	var warnings []string
+	if obelisk.IsGateway(spec) {
+		warnings = append(warnings,
+			"Only one Obelisk per tailnet should use deployment.role gateway (OQ3).",
+			"Federated native TLS uses SNI passthrough to peers; clients use gateway hostnames (OQ1).",
+		)
+	}
 	resp := overviewResponse{
 		GeneratedAt:   time.Now().UTC(),
 		ReconcileMode: modeLabel(reconcileOff),
 		Profile:       spec.Deployment.Profile,
+		Role:          spec.Deployment.Role,
 		Tailscale:     spec.Deployment.Tailscale.Enabled,
 		MachineID:     spec.BackupBucketName(),
 		BackupReady:   bt.BackupReady,
@@ -158,6 +168,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 		Summary:       sum,
 		History:       events,
 		HistoryHours:  hours,
+		Warnings:      warnings,
 	}
 	if s.Vitals != nil {
 		resp.Vitals = vitals.SnapshotForSpec(s.Vitals, spec, states)

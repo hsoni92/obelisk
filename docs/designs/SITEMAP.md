@@ -20,3 +20,5 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [backup_lineage.md](./backup_lineage.md) | RFC | Backup lineage brainstorm published for team feedback |
 | [projects_discovery_concepts_brief.md](./projects_discovery_concepts_brief.md) | Ideation | Projects as connection discovery groups (Goldfish 2026-11-19) |
 | [projects_discovery.md](./projects_discovery.md) | Proposed | GET /discover/v1/projects/{id} with scoped bearer; Services UI Projects |
+| [peer_gateway.md](./peer_gateway.md) | Proposed | Gateway role: VPS fronts clients; locals advertise over tailnet; federated proxy |
+| [../concepts_brief.md](../concepts_brief.md) | Ideation | Peer gateway brainstorm brief (repo root) |

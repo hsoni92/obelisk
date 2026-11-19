@@ -15,11 +15,31 @@ type Spec struct {
 	MailGateway       MailGateway       `yaml:"mail_gateway,omitempty" json:"mail_gateway,omitempty"`
 	Blueprint         Blueprint         `yaml:"blueprint,omitempty" json:"blueprint,omitempty"`
 	Projects          []Project         `yaml:"projects"`
+	PeerGateway       PeerGateway       `yaml:"peer_gateway,omitempty" json:"peer_gateway,omitempty"`
+	Peers             []PeerAdmission   `yaml:"peers,omitempty" json:"peers,omitempty"`
 }
 
 type Deployment struct {
-	Profile   string          `yaml:"profile"` // vps | local
+	Profile   string          `yaml:"profile"`             // vps | local
+	Role      string          `yaml:"role,omitempty"`      // local | gateway (default local)
 	Tailscale TailscaleDeploy `yaml:"tailscale"`
+}
+
+// PeerGateway configures tailnet federation (gateway aggregates locals).
+type PeerGateway struct {
+	AdvertiseURL       string `yaml:"advertise_url,omitempty"`        // local: gateway advertise endpoint
+	AutoAdmit          *bool  `yaml:"auto_admit,omitempty"`           // gateway: default true when omitted (OQ2)
+	ExposeNativePublic *bool  `yaml:"expose_native_public,omitempty"` // gateway: default true (OQ4)
+	TLSMode            string `yaml:"tls_mode,omitempty"`             // v1: passthrough only (OQ1)
+}
+
+// PeerAdmission is a persisted peer row on the gateway.
+type PeerAdmission struct {
+	ID           string `yaml:"id" json:"id"`
+	MachineID    string `yaml:"machine_id,omitempty" json:"machine_id,omitempty"`
+	DisplayName  string `yaml:"display_name,omitempty" json:"display_name,omitempty"`
+	TailnetHost  string `yaml:"tailnet_host,omitempty" json:"tailnet_host,omitempty"`
+	Admitted     bool   `yaml:"admitted" json:"admitted"`
 }
 
 type TailscaleDeploy struct {
@@ -97,6 +117,7 @@ func DefaultSpec(profile string) Spec {
 		Kind:       "ObeliskCluster",
 		Deployment: Deployment{
 			Profile: profile,
+			Role:    DeploymentRoleLocal,
 			Tailscale: TailscaleDeploy{
 				Enabled: false,
 			},

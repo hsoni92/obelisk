@@ -45,7 +45,8 @@ export const PAGE_TITLES: Record<
   },
   platform: {
     title: "Platform",
-    subtitle: "Console settings and host desired state.",
+    subtitle:
+      "Tailscale, gateway role, appearance, and blueprint — always available here.",
   },
 };
 

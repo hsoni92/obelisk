@@ -15,6 +15,7 @@ OBELISK_ROOT="${OBELISK_ROOT:-/opt/obelisk}"
 CONFIG_PATH="${OBELISK_CONFIG:-/etc/obelisk/obelisk.yaml}"
 NAMESPACE="${OBELISK_NAMESPACE:-obelisk}"
 PROFILE="${OBELISK_PROFILE:-vps}"
+OBELISK_ROLE="${OBELISK_ROLE:-local}"
 ENABLE_TAILSCALE="${OBELISK_TAILSCALE:-false}"
 
 log() { printf '[obelisk] %s\n' "$*"; }
@@ -30,11 +31,14 @@ preflight() {
   if [[ "$PROFILE" != "vps" && "$PROFILE" != "local" ]]; then
     die "OBELISK_PROFILE must be vps or local"
   fi
-  if [[ "$PROFILE" == "vps" && "$ENABLE_TAILSCALE" == "true" ]]; then
-    die "Tailscale is not used on VPS profile"
+  if [[ "$PROFILE" == "vps" && "$ENABLE_TAILSCALE" == "true" && "$OBELISK_ROLE" != "gateway" ]]; then
+    die "Tailscale on VPS requires OBELISK_ROLE=gateway"
+  fi
+  if [[ "$OBELISK_ROLE" == "gateway" ]]; then
+    ENABLE_TAILSCALE="true"
   fi
   preflight_host_edge
-  log "preflight ok profile=$PROFILE tailscale=$ENABLE_TAILSCALE"
+  log "preflight ok profile=$PROFILE role=$OBELISK_ROLE tailscale=$ENABLE_TAILSCALE"
 }
 
 # preflight_host_edge warns when something already owns the host's web edge.
@@ -93,14 +97,26 @@ build_images() {
 }
 
 maybe_tailscale() {
-  if [[ "$PROFILE" != "local" || "$ENABLE_TAILSCALE" != "true" ]]; then
-    log "skipping tailscale (profile=$PROFILE)"
+  if [[ "$ENABLE_TAILSCALE" != "true" ]]; then
+    log "skipping tailscale (profile=$PROFILE role=$OBELISK_ROLE)"
     return
   fi
   if command -v tailscale >/dev/null; then
-    log "tailscale present — ensure 'tailscale up' completed"
+    if systemctl is-active --quiet tailscaled 2>/dev/null; then
+      log "tailscaled running — join the tailnet from Platform → Tailscale or: obelisk gateway enable"
+    else
+      log "tailscale CLI present — start tailscaled (systemctl enable --now tailscaled)"
+    fi
   else
-    log "install tailscale from https://tailscale.com/download then re-run"
+    if command -v apt-get >/dev/null 2>&1; then
+      curl -fsSL https://pkgs.tailscale.com/stable/debian/"$(. /etc/os-release && echo "$VERSION_CODENAME")".noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null
+      curl -fsSL https://pkgs.tailscale.com/stable/debian/"$(. /etc/os-release && echo "$VERSION_CODENAME")".tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list
+      apt-get update -qq && apt-get install -y tailscale
+      systemctl enable --now tailscaled || true
+      log "installed tailscale; join from admin UI Platform → Tailscale"
+    else
+      log "install tailscale from https://tailscale.com/download then re-run"
+    fi
   fi
 }
 
@@ -117,7 +133,7 @@ write_config() {
     return
   fi
   if [[ -x "$OBELISK_ROOT/obelisk" ]]; then
-  "$OBELISK_ROOT/obelisk" init-config --profile "$PROFILE" --path "$CONFIG_PATH" \
+  "$OBELISK_ROOT/obelisk" init-config --profile "$PROFILE" --role "$OBELISK_ROLE" --path "$CONFIG_PATH" \
     $([[ "$ENABLE_TAILSCALE" == "true" ]] && echo --tailscale)
   elif [[ -f "$OBELISK_ROOT/install/obelisk.yaml.example" ]]; then
     sed "s/profile: vps/profile: $PROFILE/" "$OBELISK_ROOT/install/obelisk.yaml.example" >"$CONFIG_PATH"

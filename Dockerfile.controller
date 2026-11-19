@@ -6,11 +6,15 @@ RUN go mod tidy && CGO_ENABLED=0 go build -o /out/obelisk-controller ./cmd/obeli
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates curl \
+	&& apt-get install -y --no-install-recommends ca-certificates curl gnupg \
 	&& curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
 	&& curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.30.7/bin/linux/amd64/kubectl" \
 	&& chmod +x /usr/local/bin/kubectl \
-	&& apt-get purge -y curl \
+	&& curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.noarmor.gpg | tee /usr/share/keyrings/tailscale-archive-keyring.gpg >/dev/null \
+	&& curl -fsSL https://pkgs.tailscale.com/stable/debian/bookworm.tailscale-keyring.list | tee /etc/apt/sources.list.d/tailscale.list \
+	&& apt-get update \
+	&& apt-get install -y --no-install-recommends tailscale \
+	&& apt-get purge -y curl gnupg \
 	&& apt-get autoremove -y \
 	&& rm -rf /var/lib/apt/lists/*
 COPY --from=build /out/obelisk-controller /usr/local/bin/obelisk-controller

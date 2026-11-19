@@ -14,6 +14,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/history"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
+	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/internal/restore"
 	"github.com/hsoni92/obelisk/internal/vitals"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
@@ -46,6 +47,9 @@ func (s *Server) reconciler(cfg string) controller.Reconciler {
 
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /api/v1/tailscale/status", s.handleTailscaleStatus)
+	mux.HandleFunc("POST /api/v1/tailscale/connect", s.handleTailscaleConnect)
+	mux.HandleFunc("PATCH /api/v1/deployment", s.handlePatchDeployment)
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/status", s.handleStatus)
 	mux.HandleFunc("GET /api/v1/overview", s.handleOverview)
@@ -56,6 +60,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PUT /api/v1/config", s.handlePutConfig)
 	mux.HandleFunc("POST /api/v1/services/{name}/enable", s.handleServiceEnable)
 	mux.HandleFunc("POST /api/v1/services/{name}/disable", s.handleServiceDisable)
+	mux.HandleFunc("POST /api/v1/peers/advertise", s.handlePeerAdvertise)
+	mux.HandleFunc("GET /api/v1/peers", s.handleListPeers)
+	mux.HandleFunc("POST /api/v1/peers/{id}/admit", s.handleAdmitPeer)
 	mux.HandleFunc("GET /api/v1/instances", s.handleListInstances)
 	mux.HandleFunc("POST /api/v1/instances", s.handleCreateInstance)
 	mux.HandleFunc("PATCH /api/v1/instances/{id}", s.handlePatchInstance)
@@ -143,6 +150,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"machineId":     spec.BackupBucketName(),
 		"profile":       spec.Deployment.Profile,
+		"role":          spec.Deployment.Role,
 		"tailscale":     spec.Deployment.Tailscale.Enabled,
 		"configPath":    cfg,
 		"reconcileMode": reconcileMode,
@@ -282,7 +290,13 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 	resolved := obelisk.SpecWithResolvedCredentials(spec, func(inst obelisk.ServiceInstance) obelisk.InstanceCredentials {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, inst)
 	})
-	writeJSON(w, obelisk.BuildConnections(resolved, states))
+	conns := obelisk.BuildConnections(resolved, states)
+	if obelisk.IsGateway(spec) {
+		if reg, err := peer.LoadRegistry(cfg); err == nil {
+			conns = peer.AppendFederatedConnections(spec, reg, conns)
+		}
+	}
+	writeJSON(w, conns)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

@@ -11,7 +11,20 @@ import (
 // port, native TCP on NativeEdgeTLSPort with TLS). Neither port is 80 or 443 so an
 // appliance never collides with a co-located web server.
 func VPSEdge(spec Spec) bool {
-	return strings.EqualFold(strings.TrimSpace(spec.Deployment.Profile), "vps")
+	return strings.EqualFold(strings.TrimSpace(spec.Deployment.Profile), "vps") || IsGateway(spec)
+}
+
+// FederatedInstanceID namespaces a peer-owned instance on the gateway edge.
+func FederatedInstanceID(peerID, instanceID string) string {
+	peerID = strings.TrimSpace(peerID)
+	instanceID = strings.TrimSpace(instanceID)
+	if peerID == "" {
+		return instanceID
+	}
+	if instanceID == "" {
+		return peerID
+	}
+	return peerID + "-" + instanceID
 }
 
 // PublicEdgeBaseDomain is the DNS suffix for instance hostnames (sslip.io when PUBLIC_HOST is an IP).

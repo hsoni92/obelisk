@@ -12,6 +12,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/credentials"
+	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -26,6 +27,8 @@ type instanceView struct {
 	State      string                 `json:"state"`
 	ReasonCode string                 `json:"reason_code,omitempty"`
 	Reason     string                 `json:"reason,omitempty"`
+	Origin     string                 `json:"origin,omitempty"` // local | federated
+	PeerID     string                 `json:"peer_id,omitempty"`
 	Deployment instanceDeploymentView `json:"deployment"`
 }
 
@@ -97,7 +100,27 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	states := rec.ObserveServiceStates(r.Context(), spec)
 	var list []instanceView
 	for _, inst := range spec.Instances {
-		list = append(list, enrichInstanceView(inst, states[inst.StateKey()], spec))
+		v := enrichInstanceView(inst, states[inst.StateKey()], spec)
+		v.Origin = "local"
+		list = append(list, v)
+	}
+	if obelisk.IsGateway(spec) {
+		if reg, err := peer.LoadRegistry(cfg); err == nil {
+			for _, ft := range reg.FederatedTargets(spec, 0) {
+				st := "running"
+				reason := ""
+				if !ft.Reachable {
+					st = "degraded"
+					reason = "peer_unreachable"
+				}
+				v := enrichInstanceView(ft.Inst, st, spec)
+				v.Origin = "federated"
+				v.PeerID = ft.PeerID
+				v.ReasonCode = reason
+				v.Reason = reason
+				list = append(list, v)
+			}
+		}
 	}
 	writeJSON(w, list)
 }

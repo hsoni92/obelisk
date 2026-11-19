@@ -40,6 +40,8 @@ spec:
             {{- end }}
             - name: OBELISK_CREDENTIALS_DIR
               value: /var/lib/obelisk/credentials
+            - name: OBELISK_TAILSCALE_SOCKET
+              value: /var/run/tailscale/tailscaled.sock
             - name: OBELISK_GITHUB_CLIENT_ID
               valueFrom:
                 secretKeyRef:
@@ -74,6 +76,9 @@ spec:
             - name: obelisk-helm-root
               mountPath: /opt/obelisk
               readOnly: true
+            - name: tailscale-socket
+              mountPath: /var/run/tailscale
+              readOnly: true
       volumes:
         - name: obelisk-config
           hostPath:
@@ -87,6 +92,10 @@ spec:
           hostPath:
             path: {{ .Values.obelisk.helmRootHostPath | default "/opt/obelisk" }}
             type: Directory
+        - name: tailscale-socket
+          hostPath:
+            path: /var/run/tailscale
+            type: DirectoryOrCreate
 ---
 apiVersion: v1
 kind: Service

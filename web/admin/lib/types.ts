@@ -91,6 +91,8 @@ export type ServiceInstance = {
   display_name?: string;
   enabled: boolean;
   state?: string;
+  origin?: "local" | "federated";
+  peer_id?: string;
   deployment?: InstanceDeploymentView;
   backup?: {
     enabled?: boolean;
@@ -126,8 +128,30 @@ export type ProjectView = {
   discovery_url?: string;
 };
 
+export type TailscaleLiveStatus = {
+  installed?: boolean;
+  connected?: boolean;
+  backend_ok?: boolean;
+  backend_state?: string;
+  auth_url?: string;
+  tailnet?: string;
+  dns_name?: string;
+  ips?: string[];
+  socket_path?: string;
+  error?: string;
+};
+
+export type TailscaleStatusResponse = {
+  status: TailscaleLiveStatus;
+  desired_enabled?: boolean;
+  deployment_role?: string;
+  deployment_profile?: string;
+  error?: string;
+};
+
 export type StatusResponse = {
   profile?: string;
+  role?: string;
   tailscale?: boolean;
   reconcileMode?: "off" | "cluster";
   serviceStates?: Record<string, string>;
@@ -451,6 +475,7 @@ export type OverviewResponse = {
   generated_at: string;
   reconcileMode: string;
   profile?: string;
+  role?: string;
   tailscale?: boolean;
   machineId?: string;
   backup_ready?: boolean;
@@ -465,4 +490,5 @@ export type OverviewResponse = {
   history: OverviewHistoryEvent[];
   history_hours: number;
   vitals?: VitalsSnapshot;
+  warnings?: string[];
 };

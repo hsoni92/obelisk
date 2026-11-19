@@ -154,7 +154,8 @@ func (s *Scheduler) runScan(ctx context.Context) {
 	}
 	wg.Wait()
 
-	if err := exposure.Reconcile(ctx, spec, s.rec.HelmRoot, s.rec.Namespace); err != nil {
+	fed, _ := FederatedTargetsForConfig(s.rec.ConfigPath, spec)
+	if err := exposure.Reconcile(ctx, spec, s.rec.HelmRoot, s.rec.Namespace, fed); err != nil {
 		s.exposureErr = err.Error()
 		s.exposureErrTime = time.Now()
 		slog.Warn("exposure reconcile", "err", err)

@@ -16,6 +16,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
+	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/internal/restore"
 	"github.com/hsoni92/obelisk/internal/vitals"
 )
@@ -85,6 +86,7 @@ func main() {
 	engine := controller.NewEngine(rec)
 	controller.SetGlobalEngine(engine)
 	engine.Start(ctx, *reconcileEvery)
+	go peer.StartAdvertiser(ctx, cfgFile, *reconcileEvery)
 
 	go func() {
 		log.Printf("admin API listening on %s (config %s, helm-root %s)", *addr, cfgFile, *helmRoot)

@@ -13,7 +13,7 @@ func TestRenderNativeEdgeNginx_RedisSNI(t *testing.T) {
 	spec.Instances = []obelisk.ServiceInstance{{
 		ID: "pqr", Type: "redis", Enabled: true,
 	}}
-	out := RenderNativeEdgeNginx(spec, "obelisk")
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
 	if !strings.Contains(out, "ssl_preread on;") {
 		t.Fatalf("missing ssl_preread:\n%s", out)
 	}
@@ -28,7 +28,7 @@ func TestRenderNativeEdgeNginx_SkipsDisabled(t *testing.T) {
 	spec.Instances = []obelisk.ServiceInstance{{
 		ID: "off", Type: "redis", Enabled: false,
 	}}
-	out := RenderNativeEdgeNginx(spec, "obelisk")
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
 	if strings.Contains(out, "redis-off.") {
 		t.Fatalf("disabled instance in map:\n%s", out)
 	}

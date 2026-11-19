@@ -31,6 +31,9 @@ type InstanceConnection struct {
 	QdrantGRPC  string `json:"qdrant_grpc,omitempty"`
 	SearXNGHTTP string `json:"searxng_http,omitempty"`
 	Databases   []DatabaseConnection `json:"databases,omitempty"`
+	Origin      string               `json:"origin,omitempty"`      // local | federated
+	PeerID      string               `json:"peer_id,omitempty"`
+	Reachable   *bool                `json:"reachable,omitempty"`
 }
 
 // PublicHost returns the hostname clients should use for native protocols.

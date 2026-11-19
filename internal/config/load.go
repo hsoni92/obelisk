@@ -129,6 +129,8 @@ func normalize(spec *obelisk.Spec) {
 	obelisk.NormalizeInstances(spec)
 	obelisk.NormalizeBackup(spec)
 	obelisk.NormalizeBlueprint(spec)
+	obelisk.NormalizeDeployment(spec)
+	obelisk.NormalizePeerGateway(spec)
 	spec.Projects = obelisk.NormalizeProjects(spec.Projects)
 }
 
@@ -154,8 +156,17 @@ func Validate(spec *obelisk.Spec) error {
 	default:
 		return fmt.Errorf("deployment.profile must be vps or local")
 	}
-	if spec.Deployment.Profile == "vps" && spec.Deployment.Tailscale.Enabled {
-		return fmt.Errorf("tailscale cannot be enabled when deployment.profile is vps")
+	if spec.Deployment.Profile == "vps" && spec.Deployment.Tailscale.Enabled && !obelisk.IsGateway(*spec) {
+		return fmt.Errorf("tailscale cannot be enabled when deployment.profile is vps (use deployment.role: gateway for mesh backhaul)")
+	}
+	if obelisk.IsGateway(*spec) && !spec.Deployment.Tailscale.Enabled {
+		return fmt.Errorf("deployment.role gateway requires tailscale.enabled")
+	}
+	if obelisk.IsGateway(*spec) {
+		mode := obelisk.PeerGatewayTLSMode(*spec)
+		if mode != obelisk.PeerGatewayTLSPassthrough {
+			return fmt.Errorf("peer_gateway.tls_mode must be %q in v1", obelisk.PeerGatewayTLSPassthrough)
+		}
 	}
 	if spec.Deployment.Profile == "local" && spec.Exposure.Funnel.RustFSS3.Enabled && !spec.Deployment.Tailscale.Enabled {
 		return fmt.Errorf("funnel requires tailscale.enabled on local profile")

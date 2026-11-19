@@ -17,6 +17,6 @@ Typical workflow:
 3. `/egm-review` — independent review of the draft (uses fresh subagents)
 4. Implement against the approved spec in `docs/designs/`
 
-**Product note:** Tailscale is **optional** (local profile only, when internet reachability is needed). **VPS deployments do not require Tailscale.**
+**Product note:** Tailscale is **optional** on `deployment.role: local` when internet reachability is needed. Standalone `profile: vps` still skips Tailscale. **`deployment.role: gateway`** requires Tailscale for mesh backhaul to local peers.
 
 For an existing codebase, use `/egm-bootstrap`. Use `/egm-drift-report docs/designs/` to compare docs and code.

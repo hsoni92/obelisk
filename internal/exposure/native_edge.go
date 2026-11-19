@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -15,11 +16,11 @@ const nativeEdgeConfigMap = "native-edge-config"
 const nativeEdgeDeployment = "obelisk-native-edge"
 
 // RenderNativeEdgeNginx emits an nginx stream config that routes on TLS SNI (L4 passthrough).
-func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string) string {
+func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string, federated []peer.FederatedTarget) string {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
-	if !obelisk.VPSEdge(spec) {
+	if !obelisk.ConnectionEdgeEnabled(spec) {
 		return defaultNativeEdgePlaceholder()
 	}
 	var b strings.Builder
@@ -43,13 +44,26 @@ func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string) string {
 			fmt.Fprintf(&b, "        %s %s;\n", host, backend)
 		}
 	}
+	for _, ft := range federated {
+		if ft.NativePort <= 0 {
+			continue
+		}
+		host := strings.TrimSpace(ft.UpstreamHost)
+		if host == "" {
+			continue
+		}
+		backend := fmt.Sprintf("%s:%d", host, ft.NativePort)
+		for _, h := range obelisk.KongEdgeHosts(ft.Inst) {
+			fmt.Fprintf(&b, "        %s %s;\n", h, backend)
+		}
+	}
 	b.WriteString("    }\n")
 	b.WriteString("    server {\n")
 	b.WriteString("        listen 8443;\n")
 	b.WriteString("        listen [::]:8443;\n")
 	b.WriteString("        ssl_preread on;\n")
 	b.WriteString("        proxy_pass $native_backend;\n")
-	b.WriteString("        proxy_connect_timeout 15s;\n")
+	b.WriteString("        proxy_connect_timeout 5s;\n")
 	b.WriteString("    }\n")
 	b.WriteString("}\n")
 	return b.String()
@@ -66,14 +80,14 @@ stream {
 }
 
 // ReconcileNativeEdge updates the nginx stream proxy for native TLS data services.
-func ReconcileNativeEdge(ctx context.Context, spec obelisk.Spec, namespace string) error {
+func ReconcileNativeEdge(ctx context.Context, spec obelisk.Spec, namespace string, federated []peer.FederatedTarget) error {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
-	if !obelisk.VPSEdge(spec) || !NeedsNativeEdgeTLS(spec) {
+	if !obelisk.ConnectionEdgeEnabled(spec) || (!NeedsNativeEdgeTLS(spec) && len(federated) == 0) {
 		return nil
 	}
-	body := []byte(RenderNativeEdgeNginx(spec, namespace))
+	body := []byte(RenderNativeEdgeNginx(spec, namespace, federated))
 	current, err := nativeEdgeConfigFromCluster(ctx, namespace)
 	if err != nil {
 		return err

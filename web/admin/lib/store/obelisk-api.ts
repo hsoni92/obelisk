@@ -18,6 +18,7 @@ import type {
   BackupCatalogResponse,
   CloneBackupResponse,
   ProjectView,
+  TailscaleStatusResponse,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { obeliskApiBaseUrl } from "./api-base";
@@ -34,7 +35,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects", "Tailscale", "Deployment"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -548,6 +549,32 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Mail"],
     }),
+    getTailscaleStatus: builder.query<TailscaleStatusResponse, void>({
+      query: () => "/tailscale/status",
+      providesTags: ["Tailscale", "Deployment"],
+    }),
+    connectTailscale: builder.mutation<
+      { ok: boolean; status: TailscaleStatusResponse["status"] },
+      { auth_key: string; enable_in_config?: boolean; gateway_role?: boolean }
+    >({
+      query: (body) => ({
+        url: "/tailscale/connect",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview"],
+    }),
+    patchDeployment: builder.mutation<
+      { profile: string; role: string; tailscale: boolean },
+      { role?: string; tailscale_enabled?: boolean }
+    >({
+      query: (body) => ({
+        url: "/deployment",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview"],
+    }),
     getBlueprintStatus: builder.query<BlueprintStatus, void>({
       query: () => "/blueprint/status",
       providesTags: ["Blueprint"],
@@ -734,7 +761,12 @@ export const {
   usePatchProjectMutation,
   useDeleteProjectMutation,
   useRotateProjectDiscoveryTokenMutation,
+  useGetTailscaleStatusQuery,
+  useConnectTailscaleMutation,
+  usePatchDeploymentMutation,
 } = obeliskApi;
+
+export const tailscalePollOptions = { pollingInterval: 8000 } as const;
 
 /** Default polling for live cluster status. */
 export const statusPollOptions = { pollingInterval: POLL_MS } as const;

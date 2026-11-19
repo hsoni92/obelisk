@@ -1,0 +1,51 @@
+package peer
+
+import (
+	"time"
+
+	"github.com/hsoni92/obelisk/pkg/obelisk"
+)
+
+// AdvertiseRequest is sent by a local appliance to the gateway.
+type AdvertiseRequest struct {
+	PeerID          string               `json:"peer_id"`
+	MachineID       string               `json:"machine_id"`
+	TailnetHost     string               `json:"tailnet_host"`
+	DeploymentRole  string               `json:"deployment_role,omitempty"`
+	Instances       []AdvertisedInstance `json:"instances"`
+}
+
+type AdvertisedInstance struct {
+	Type    string `json:"type"`
+	ID      string `json:"id"`
+	Enabled bool   `json:"enabled"`
+}
+
+// AdvertiseResponse may return a newly issued peer token.
+type AdvertiseResponse struct {
+	Accepted bool   `json:"accepted"`
+	Token    string `json:"token,omitempty"`
+	Message  string `json:"message,omitempty"`
+}
+
+// FederatedTarget is an exposure upstream for a peer-owned instance.
+type FederatedTarget struct {
+	PeerID       string
+	Reachable    bool
+	Inst         obelisk.ServiceInstance
+	UpstreamHost string
+	NativePort   int
+	HTTPPort     int
+}
+
+// PeerRecord is runtime state for one local peer on the gateway.
+type PeerRecord struct {
+	ID           string                        `json:"id"`
+	MachineID    string                        `json:"machine_id,omitempty"`
+	TailnetHost  string                        `json:"tailnet_host,omitempty"`
+	Admitted     bool                          `json:"admitted"`
+	TokenHash    string                        `json:"token_hash,omitempty"`
+	LastSeen     time.Time                     `json:"last_seen"`
+	Reachable    bool                          `json:"reachable"`
+	Instances    map[string]AdvertisedInstance `json:"instances,omitempty"`
+}
