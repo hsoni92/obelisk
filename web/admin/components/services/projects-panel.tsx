@@ -201,7 +201,7 @@ export function ProjectsPanel() {
                     <div className="flex flex-wrap gap-2">
                       <Button
                         type="button"
-                        variant="secondary"
+                        variant="default"
                         size="sm"
                         disabled={busy}
                         onClick={() => rotate(p.id)}
