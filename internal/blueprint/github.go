@@ -143,22 +143,76 @@ func (g *GitHub) Fetch(ctx context.Context, repository, ref string) (map[string]
 		}
 		return nil, err
 	}
-	out := map[string][]byte{}
-	for _, path := range []string{FileManifest, FilePublic, FileSecrets} {
-		b, err := g.getFileAtRef(ctx, repository, commitSHA, path)
-		if err != nil {
-			var se *StatusError
-			if errors.As(err, &se) && se.Code == http.StatusNotFound {
-				if path == FileManifest {
-					return nil, ErrEmptyRepo
-				}
+	return g.fetchBundleAtCommit(ctx, repository, commitSHA)
+}
+
+// fetchBundleAtCommit loads bundle blobs from the git tree (not the Contents API).
+// Contents can differ from git objects for the same commit; import must match git push.
+func (g *GitHub) fetchBundleAtCommit(ctx context.Context, repository, commitSHA string) (map[string][]byte, error) {
+	owner, name := splitRepo(repository)
+	var commit struct {
+		Tree struct {
+			SHA string `json:"sha"`
+		} `json:"tree"`
+	}
+	uCommit := fmt.Sprintf("%s/repos/%s/%s/git/commits/%s", g.api(), url.PathEscape(owner), url.PathEscape(name), commitSHA)
+	if err := g.do(ctx, http.MethodGet, uCommit, nil, &commit); err != nil {
+		return nil, err
+	}
+	if commit.Tree.SHA == "" {
+		return nil, fmt.Errorf("github commit %s has no tree", commitSHA[:min(8, len(commitSHA))])
+	}
+	var tree struct {
+		Tree []struct {
+			Path string `json:"path"`
+			Type string `json:"type"`
+			SHA  string `json:"sha"`
+		} `json:"tree"`
+	}
+	uTree := fmt.Sprintf("%s/repos/%s/%s/git/trees/%s", g.api(), url.PathEscape(owner), url.PathEscape(name), commit.Tree.SHA)
+	if err := g.do(ctx, http.MethodGet, uTree, nil, &tree); err != nil {
+		return nil, err
+	}
+	blobs := map[string]string{}
+	for _, ent := range tree.Tree {
+		if ent.Type != "blob" {
+			continue
+		}
+		blobs[ent.Path] = ent.SHA
+	}
+	required := []string{FileManifest, FilePublic, FileSecrets}
+	out := make(map[string][]byte, len(required))
+	for _, path := range required {
+		blobSHA, ok := blobs[path]
+		if !ok || blobSHA == "" {
+			if path == FileManifest {
 				return nil, ErrEmptyRepo
 			}
+			return nil, ErrEmptyRepo
+		}
+		b, err := g.getGitBlob(ctx, owner, name, blobSHA)
+		if err != nil {
 			return nil, err
 		}
 		out[path] = b
 	}
 	return out, nil
+}
+
+func (g *GitHub) getGitBlob(ctx context.Context, owner, repo, blobSHA string) ([]byte, error) {
+	u := fmt.Sprintf("%s/repos/%s/%s/git/blobs/%s", g.api(), url.PathEscape(owner), url.PathEscape(repo), blobSHA)
+	var blob struct {
+		Content  string `json:"content"`
+		Encoding string `json:"encoding"`
+	}
+	if err := g.do(ctx, http.MethodGet, u, nil, &blob); err != nil {
+		return nil, err
+	}
+	if blob.Encoding != "base64" {
+		return nil, fmt.Errorf("github blob encoding %q", blob.Encoding)
+	}
+	cleaned := strings.ReplaceAll(blob.Content, "\n", "")
+	return base64.StdEncoding.DecodeString(cleaned)
 }
 
 func (g *GitHub) resolveCommitSHA(ctx context.Context, repository, ref string) (string, error) {
@@ -281,20 +335,6 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 		}
 	}
 	return created.SHA, nil
-}
-
-func (g *GitHub) getFileAtRef(ctx context.Context, repository, ref, path string) ([]byte, error) {
-	owner, name := splitRepo(repository)
-	u := fmt.Sprintf("%s/repos/%s/%s/contents/%s?ref=%s", g.api(), url.PathEscape(owner), url.PathEscape(name), path, url.QueryEscape(ref))
-	var file struct {
-		Encoding string `json:"encoding"`
-		Content  string `json:"content"`
-	}
-	if err := g.do(ctx, http.MethodGet, u, nil, &file); err != nil {
-		return nil, err
-	}
-	cleaned := strings.ReplaceAll(file.Content, "\n", "")
-	return base64.StdEncoding.DecodeString(cleaned)
 }
 
 func (g *GitHub) resolveName(ctx context.Context, repository string) (full, login string, err error) {

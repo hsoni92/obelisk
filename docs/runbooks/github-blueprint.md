@@ -84,7 +84,7 @@ Later saves sync about 5 seconds after the controller is unlocked. If GitHub is 
 
 **“Wrong passphrase” but you are sure it is correct:** The controller distinguishes **wrong passphrase** from **inconsistent bundle** (manifest and `secrets.enc` from different commits, or corrupted ciphertext). If import says the bundle is **inconsistent**, unlock on the source appliance and **Push now** once (push verifies decrypt after upload). Do not hand-edit `manifest.json`, `secrets.enc`, or `obelisk.public.yaml` on GitHub.
 
-**“Inconsistent bundle” on import after a controller upgrade:** Older builds could (1) read mixed files from GitHub during concurrent push, or (2) fail a legacy checksum after decrypt even when the passphrase and ciphertext were valid. Deploy the latest controller (`obelisk update` on the VPS), then import again with **adopt**. New pushes fingerprint the exact `obelisk.public.yaml` + `secrets.enc` bytes.
+**“Inconsistent bundle” on import after a controller upgrade:** Older builds could (1) read mixed files from GitHub during concurrent push, (2) use the Contents API instead of the git tree (decrypt fails although `git clone` looks fine), or (3) fail a legacy checksum after decrypt. Current controllers load `manifest.json`, `obelisk.public.yaml`, and `secrets.enc` from the **same commit tree** via the Git Data API. Deploy the latest build, import again with **adopt**; if it still fails, unlock on the source appliance and **Push now** once.
 
 ## After reboot
 

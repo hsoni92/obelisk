@@ -339,18 +339,43 @@ func TestImportRejectsEmptyPassphraseWhenKeyDiffers(t *testing.T) {
 func fakeGitHubContentsServer(t *testing.T, files map[string][]byte) *httptest.Server {
 	t.Helper()
 	const commitSHA = "aaaa0000bbbb1111cccc2222dddd3333eeee4444"
+	const treeSHA = "bbbb1111cccc2222dddd3333eeee4444ffff5555"
+	blobSHA := map[string]string{
+		FileManifest: "c0ffee01",
+		FilePublic:   "c0ffee02",
+		FileSecrets:  "c0ffee03",
+	}
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/ref/heads/") {
 			_ = json.NewEncoder(w).Encode(map[string]any{"object": map[string]string{"sha": commitSHA}})
 			return
 		}
-		for name, content := range files {
-			if strings.HasSuffix(r.URL.Path, "/contents/"+name) {
-				_ = json.NewEncoder(w).Encode(map[string]string{
-					"encoding": "base64",
-					"content":  base64.StdEncoding.EncodeToString(content),
-				})
-				return
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/commits/"+commitSHA) {
+			_ = json.NewEncoder(w).Encode(map[string]any{"tree": map[string]string{"sha": treeSHA}})
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/trees/"+treeSHA) {
+			var ents []map[string]string
+			for path, sha := range blobSHA {
+				ents = append(ents, map[string]string{"path": path, "type": "blob", "sha": sha})
+			}
+			_ = json.NewEncoder(w).Encode(map[string]any{"tree": ents})
+			return
+		}
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/blobs/") {
+			for path, sha := range blobSHA {
+				if strings.HasSuffix(r.URL.Path, "/"+sha) {
+					content, ok := files[path]
+					if !ok {
+						http.NotFound(w, r)
+						return
+					}
+					_ = json.NewEncoder(w).Encode(map[string]string{
+						"encoding": "base64",
+						"content":  base64.StdEncoding.EncodeToString(content),
+					})
+					return
+				}
 			}
 		}
 		http.NotFound(w, r)
