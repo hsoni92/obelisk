@@ -30,6 +30,7 @@ type Server struct {
 	Blueprint             *blueprint.Runtime
 	Restore               *restore.Orchestrator
 	mu                    sync.Mutex
+	statesCache           statesCache
 	historyOnce           sync.Once
 	historyStore          *history.Store
 	Vitals                *vitals.Store
@@ -73,8 +74,12 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/backup/destinations/test-all", s.handleTestAllBackupDestinations)
 	mux.HandleFunc("POST /api/v1/backup/test", s.handleBackupTest)
 	mux.HandleFunc("POST /api/v1/backup/run", s.handleBackupRun)
+	mux.HandleFunc("GET /discover/v1/projects/{id}", s.handleDiscoverProject)
 	mux.HandleFunc("GET /api/v1/projects", s.handleListProjects)
 	mux.HandleFunc("POST /api/v1/projects", s.handleCreateProject)
+	mux.HandleFunc("PATCH /api/v1/projects/{id}", s.handlePatchProject)
+	mux.HandleFunc("DELETE /api/v1/projects/{id}", s.handleDeleteProject)
+	mux.HandleFunc("POST /api/v1/projects/{id}/rotate-discovery-token", s.handleRotateDiscoveryToken)
 	mux.HandleFunc("GET /api/v1/openrouter/config", s.handleGetOpenRouterConfig)
 	mux.HandleFunc("PATCH /api/v1/openrouter/config", s.handlePatchOpenRouterConfig)
 	mux.HandleFunc("POST /api/v1/openrouter/accounts", s.handlePostOpenRouterAccount)
@@ -270,36 +275,6 @@ func (s *Server) handleConnections(w http.ResponseWriter, r *http.Request) {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, inst)
 	})
 	writeJSON(w, obelisk.BuildConnections(resolved, states))
-}
-
-func (s *Server) handleListProjects(w http.ResponseWriter, _ *http.Request) {
-	spec, err := config.Load(s.ConfigPath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	writeJSON(w, spec.Projects)
-}
-
-func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
-	var p obelisk.Project
-	if err := json.NewDecoder(r.Body).Decode(&p); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	spec, err := config.Load(s.ConfigPath)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	spec.Projects = append(spec.Projects, p)
-	if err := config.Save(s.ConfigPath, spec); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	writeJSON(w, p)
 }
 
 func writeJSON(w http.ResponseWriter, v any) {

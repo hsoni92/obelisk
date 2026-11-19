@@ -129,6 +129,7 @@ func normalize(spec *obelisk.Spec) {
 	obelisk.NormalizeInstances(spec)
 	obelisk.NormalizeBackup(spec)
 	obelisk.NormalizeBlueprint(spec)
+	spec.Projects = obelisk.NormalizeProjects(spec.Projects)
 }
 
 var (

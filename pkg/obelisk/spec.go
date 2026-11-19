@@ -77,10 +77,15 @@ type FunnelRoute struct {
 	Enabled bool `yaml:"enabled"`
 }
 
+// Project groups service instances for connection discovery (GET /discover/v1/projects/{id}).
 type Project struct {
-	Name       string `yaml:"name"`
-	PostgresDB string `yaml:"postgres_db"`
-	RedisDB    int    `yaml:"redis_db"`
+	ID               string   `yaml:"id" json:"id"`
+	Name             string   `yaml:"name" json:"name"`
+	InstanceIDs      []string `yaml:"instance_ids,omitempty" json:"instance_ids,omitempty"`
+	DiscoveryEnabled bool     `yaml:"discovery_enabled,omitempty" json:"discovery_enabled,omitempty"`
+	// Deprecated: ignored after migration; was never wired to the UI.
+	PostgresDB string `yaml:"postgres_db,omitempty" json:"-"`
+	RedisDB    int    `yaml:"redis_db,omitempty" json:"-"`
 }
 
 func DefaultSpec(profile string) Spec {

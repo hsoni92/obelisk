@@ -7,6 +7,16 @@ services:
       - name: admin-api
         paths: ["/api"]
         strip_path: false
+      - name: project-discovery
+        paths: ["/discover"]
+        strip_path: false
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 30
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 1
   - name: admin-ui
     url: http://obelisk-admin-ui:3000
     routes:

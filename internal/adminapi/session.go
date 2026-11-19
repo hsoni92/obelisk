@@ -3,6 +3,7 @@ package adminapi
 import (
 	"context"
 	"net/http"
+	"strings"
 )
 
 type githubLoginKey struct{}
@@ -25,6 +26,9 @@ func (s *Server) requireGitHub(next http.Handler) http.Handler {
 }
 
 func isPublic(r *http.Request) bool {
+	if r.Method == http.MethodGet && strings.HasPrefix(r.URL.Path, "/discover/v1/projects/") {
+		return true
+	}
 	switch r.URL.Path {
 	case "/api/v1/health":
 		return r.Method == http.MethodGet

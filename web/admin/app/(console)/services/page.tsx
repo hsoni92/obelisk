@@ -48,7 +48,9 @@ import {
   SERVICES_SURFACE,
   servicesFilterConfig,
 } from "@/lib/filters";
+import { ProjectsPanel } from "@/components/services/projects-panel";
 import { buildServiceRows, serviceRowKey } from "@/lib/service-rows";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSurfaceFilters } from "@/lib/store/hooks";
 import { toast } from "@/lib/toast";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -413,7 +415,15 @@ function ServicesPageContent() {
         action={<NewInstanceButton onCreate={addInstance} />}
       />
 
-      <div className="space-y-4">
+      <Tabs defaultValue="instances" className="space-y-4">
+        <TabsList>
+          <TabsTrigger value="instances">Instances</TabsTrigger>
+          <TabsTrigger value="projects">Projects</TabsTrigger>
+        </TabsList>
+        <TabsContent value="projects" className="mt-4">
+          <ProjectsPanel />
+        </TabsContent>
+        <TabsContent value="instances" className="mt-4 space-y-4">
         <ServicesFilters
           trailing={
             <ServicesBulkActionsMenu
@@ -446,7 +456,8 @@ function ServicesPageContent() {
           }}
           onConfigure={setConfigureTarget}
         />
-      </div>
+        </TabsContent>
+      </Tabs>
     </>
   );
 }

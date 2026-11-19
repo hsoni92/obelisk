@@ -51,6 +51,15 @@ export type InstanceDatabasesResponse = {
   connections: { name: string; url: string }[];
 };
 
+export type ProjectView = {
+  id: string;
+  name: string;
+  instance_ids?: string[];
+  discovery_enabled: boolean;
+  discovery_configured: boolean;
+  discovery_url?: string;
+};
+
 export type StatusResponse = {
   profile?: string;
   tailscale?: boolean;

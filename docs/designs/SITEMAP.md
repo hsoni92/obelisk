@@ -18,3 +18,5 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [precommit_ci_guardrails_concepts_brief.md](./precommit_ci_guardrails_concepts_brief.md) | Ideation | Public-repo CI + optional pre-commit (lint, gitleaks, deps) |
 | [backup_lineage_concepts_brief.md](./backup_lineage_concepts_brief.md) | Ideation | First-class backups: per-service lineage, orphans, deploy-from-backup |
 | [backup_lineage.md](./backup_lineage.md) | RFC | Backup lineage brainstorm published for team feedback |
+| [projects_discovery_concepts_brief.md](./projects_discovery_concepts_brief.md) | Ideation | Projects as connection discovery groups (Goldfish 2026-11-19) |
+| [projects_discovery.md](./projects_discovery.md) | Proposed | GET /discover/v1/projects/{id} with scoped bearer; Services UI Projects |

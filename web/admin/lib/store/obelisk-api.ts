@@ -14,6 +14,7 @@ import type {
   OverviewResponse,
   StatusResponse,
   InstanceDatabasesResponse,
+  ProjectView,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { obeliskApiBaseUrl } from "./api-base";
@@ -30,7 +31,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -151,6 +152,56 @@ export const obeliskApi = createApi({
         method: "POST",
       }),
       invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    getProjects: builder.query<ProjectView[], void>({
+      query: () => "/projects",
+      providesTags: ["Projects"],
+    }),
+    createProject: builder.mutation<
+      ProjectView,
+      { name: string; instance_ids?: string[]; discovery_enabled?: boolean }
+    >({
+      query: (body) => ({
+        url: "/projects",
+        method: "POST",
+        body,
+      }),
+      invalidatesTags: ["Projects"],
+    }),
+    patchProject: builder.mutation<
+      ProjectView,
+      {
+        id: string;
+        body: {
+          name?: string;
+          instance_ids?: string[];
+          discovery_enabled?: boolean;
+        };
+      }
+    >({
+      query: ({ id, body }) => ({
+        url: `/projects/${encodeURIComponent(id)}`,
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Projects"],
+    }),
+    deleteProject: builder.mutation<{ deleted: string }, string>({
+      query: (id) => ({
+        url: `/projects/${encodeURIComponent(id)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Projects"],
+    }),
+    rotateProjectDiscoveryToken: builder.mutation<
+      { token: string },
+      string
+    >({
+      query: (id) => ({
+        url: `/projects/${encodeURIComponent(id)}/rotate-discovery-token`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Projects"],
     }),
     createInstance: builder.mutation<
       CreateInstanceResponse,
@@ -567,6 +618,11 @@ export const {
   usePushBlueprintMutation,
   useStartRestoreChainMutation,
   useGetRestoreChainQuery,
+  useGetProjectsQuery,
+  useCreateProjectMutation,
+  usePatchProjectMutation,
+  useDeleteProjectMutation,
+  useRotateProjectDiscoveryTokenMutation,
 } = obeliskApi;
 
 /** Default polling for live cluster status. */

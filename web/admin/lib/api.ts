@@ -72,4 +72,9 @@ export {
   usePushBlueprintMutation,
   useStartRestoreChainMutation,
   useGetRestoreChainQuery,
+  useGetProjectsQuery,
+  useCreateProjectMutation,
+  usePatchProjectMutation,
+  useDeleteProjectMutation,
+  useRotateProjectDiscoveryTokenMutation,
 } from "@/lib/store/obelisk-api";
