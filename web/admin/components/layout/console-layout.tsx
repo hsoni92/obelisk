@@ -10,6 +10,9 @@ import { SERVICES_SURFACE } from "@/lib/filters";
 import { navIdFromPathname } from "@/lib/nav";
 import { useSurfaceFilters } from "@/lib/store/hooks";
 import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
+
+const SEARCH_DEBOUNCE_MS = 300;
 
 export function ConsoleLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -25,6 +28,34 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
   const active = navIdFromPathname(pathname) ?? "overview";
   const { filters: serviceFilters, setQuery: setServiceQuery } =
     useSurfaceFilters(SERVICES_SURFACE);
+  const [searchDraft, setSearchDraft] = useState(serviceFilters.query);
+
+  useEffect(() => {
+    if (active === "services") {
+      setSearchDraft(serviceFilters.query);
+    }
+  }, [active, serviceFilters.query]);
+
+  useEffect(() => {
+    if (active !== "services") return;
+    const handle = window.setTimeout(() => {
+      const value = searchDraft;
+      if (value === serviceFilters.query) return;
+      setServiceQuery(value);
+      const path = "/services";
+      const url = value.trim()
+        ? `${path}?q=${encodeURIComponent(value)}`
+        : path;
+      router.replace(url, { scroll: false });
+    }, SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(handle);
+  }, [
+    active,
+    router,
+    searchDraft,
+    serviceFilters.query,
+    setServiceQuery,
+  ]);
 
   const { data: status } = useGetStatusQuery(undefined, statusPollOptions);
 
@@ -38,22 +69,13 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
   );
 
   const onSearchChange =
-    active === "services"
-      ? (value: string) => {
-          setServiceQuery(value);
-          const path = "/services";
-          const url = value.trim()
-            ? `${path}?q=${encodeURIComponent(value)}`
-            : path;
-          router.replace(url, { scroll: false });
-        }
-      : undefined;
+    active === "services" ? (value: string) => setSearchDraft(value) : undefined;
 
   return (
     <AppShell
       active={active}
       meta={meta}
-      searchQuery={active === "services" ? serviceFilters.query : ""}
+      searchQuery={active === "services" ? searchDraft : ""}
       onSearchChange={onSearchChange}
     >
       <UnlockBanner />
