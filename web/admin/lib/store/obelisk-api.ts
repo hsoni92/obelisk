@@ -4,6 +4,7 @@ import type {
   BlueprintAuthorizeResponse,
   BlueprintStatus,
   ConnectionsResponse,
+  DiagnosticsRunResponse,
   CreateInstanceResponse,
   MailConfigResponse,
   OpenRouterConfigResponse,
@@ -56,6 +57,16 @@ export const obeliskApi = createApi({
     getConnections: builder.query<ConnectionsResponse, void>({
       query: () => "/connections",
       providesTags: ["Connections"],
+    }),
+    runDiagnostics: builder.mutation<
+      DiagnosticsRunResponse,
+      { instances: { type: string; id: string }[] }
+    >({
+      query: (body) => ({
+        url: "/diagnostics/run",
+        method: "POST",
+        body,
+      }),
     }),
     getBackupTarget: builder.query<BackupTargetResponse, void>({
       query: () => "/backup/target",
@@ -514,6 +525,7 @@ export const {
   useGetOverviewQuery,
   useGetActivityHistoryQuery,
   useGetConnectionsQuery,
+  useRunDiagnosticsMutation,
   useGetBackupTargetQuery,
   useGetBackupConfigQuery,
   usePatchBackupPolicyMutation,

@@ -12,7 +12,7 @@ import {
 import { toast } from "@/lib/toast";
 import { startStopTarget, type ServiceRow } from "@/lib/service-rows";
 import type { ServiceInstance } from "@/lib/api";
-import { ChevronDown, Play, Square } from "lucide-react";
+import { Activity, ChevronDown, Play, Square, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 
 export type RowPending = { from: string; to: "start" | "stop" };
@@ -36,7 +36,6 @@ export async function runServicesBulkAction(
   selected: Set<string>,
   action: "start" | "stop",
   onToggle: (inst: ServiceInstance, enabled: boolean) => Promise<boolean>,
-  markPending: (key: string, pending: RowPending) => void,
   onClearSelection: () => void,
 ): Promise<void> {
   const chosen = rows.filter((r) => selected.has(r.rowKey));
@@ -53,7 +52,6 @@ export async function runServicesBulkAction(
   let ok = 0;
   let fail = 0;
   for (const row of eligible) {
-    markPending(row.rowKey, { from: row.state, to: action });
     const success = await onToggle(row.instance, action === "start");
     if (success) ok += 1;
     else fail += 1;
@@ -75,10 +73,13 @@ type ServicesBulkActionsMenuProps = {
   selectedCount: number;
   startCount: number;
   stopCount: number;
+  diagnoseCount?: number;
   disabled?: boolean;
   busy?: boolean;
   onStart: () => void;
   onStop: () => void;
+  onTerminate?: () => void;
+  onDiagnose?: () => void;
   onClear: () => void;
 };
 
@@ -90,7 +91,10 @@ export function ServicesBulkActionsMenu({
   busy = false,
   onStart,
   onStop,
+  onTerminate,
+  onDiagnose,
   onClear,
+  diagnoseCount = 0,
 }: ServicesBulkActionsMenuProps) {
   const locked = disabled || busy;
 
@@ -138,6 +142,30 @@ export function ServicesBulkActionsMenu({
           <Square className="size-3.5" aria-hidden />
           Stop{stopCount > 0 ? ` (${stopCount})` : ""}
         </DropdownMenuItem>
+        {onDiagnose ? (
+          <DropdownMenuItem
+            disabled={locked || diagnoseCount === 0}
+            onSelect={() => onDiagnose()}
+          >
+            <Activity className="size-3.5" aria-hidden />
+            Test connections
+            {diagnoseCount > 0 ? ` (${diagnoseCount})` : ""}
+          </DropdownMenuItem>
+        ) : null}
+        {onTerminate ? (
+          <>
+            <DropdownMenuSeparator />
+            <DropdownMenuItem
+              disabled={locked || selectedCount === 0}
+              className="text-destructive focus:text-destructive"
+              onSelect={() => onTerminate()}
+            >
+              <Trash2 className="size-3.5" aria-hidden />
+              Terminate
+              {selectedCount > 0 ? ` (${selectedCount})` : ""}
+            </DropdownMenuItem>
+          </>
+        ) : null}
         <DropdownMenuSeparator />
         <DropdownMenuItem
           disabled={locked || selectedCount === 0}

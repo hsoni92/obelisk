@@ -18,6 +18,8 @@ export type {
   ServiceInstance,
   OverviewResponse,
   StatusResponse,
+  DiagnosticsRunResponse,
+  DiagnosticInstanceResult,
 } from "@/lib/types";
 
 export {
@@ -39,6 +41,7 @@ export {
   useTestBackupDestinationMutation,
   useTestAllBackupDestinationsMutation,
   useGetConnectionsQuery,
+  useRunDiagnosticsMutation,
   useGetStatusQuery,
   usePatchBackupTargetMutation,
   usePatchInstanceMutation,

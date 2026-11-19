@@ -3,12 +3,22 @@
 import { PageHeader } from "@/components/layout/page-header";
 import { NewInstanceButton } from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
+import { DiagnosticsResultsDialog } from "@/components/services/diagnostics-results-dialog";
 import {
   runServicesBulkAction,
   ServicesBulkActionsMenu,
   useBulkActionCounts,
-  type RowPending,
 } from "@/components/services/services-bulk-actions";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import {
   ServicesTable,
   ServicesTableSkeleton,
@@ -27,10 +37,12 @@ import {
   useGetOverviewQuery,
   overviewPollOptions,
   useGetStatusQuery,
+  useRunDiagnosticsMutation,
   useDeleteInstanceMutation,
   usePatchInstanceMutation,
   type ServiceInstance,
 } from "@/lib/api";
+import type { DiagnosticInstanceResult } from "@/lib/types";
 import {
   applyFilters,
   SERVICES_SURFACE,
@@ -58,9 +70,14 @@ function ServicesPageContent() {
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
-  const [bulkPending, setBulkPending] = useState<Record<string, RowPending>>({});
+  const [terminateConfirm, setTerminateConfirm] = useState(false);
+  const [terminateBusy, setTerminateBusy] = useState(false);
   const [configureTarget, setConfigureTarget] =
     useState<ServiceInstance | null>(null);
+  const [diagOpen, setDiagOpen] = useState(false);
+  const [diagRunning, setDiagRunning] = useState(false);
+  const [diagResults, setDiagResults] =
+    useState<DiagnosticInstanceResult[] | null>(null);
   const {
     filters: serviceFilters,
     activeCount: serviceFilterCount,
@@ -119,6 +136,7 @@ function ServicesPageContent() {
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
   const [deleteInstance] = useDeleteInstanceMutation();
+  const [runDiagnostics] = useRunDiagnosticsMutation();
 
   useEffect(() => {
     if (
@@ -174,22 +192,19 @@ function ServicesPageContent() {
   }, [allTableRows, serviceFilters, statusHints]);
 
   const bulkCounts = useBulkActionCounts(tableRows, selected);
+  const diagnoseCount = useMemo(() => {
+    let n = 0;
+    for (const row of tableRows) {
+      if (!selected.has(row.rowKey)) continue;
+      if (row.instance.enabled) n += 1;
+    }
+    return n;
+  }, [tableRows, selected]);
 
-  useEffect(() => {
-    setBulkPending((prev) => {
-      let changed = false;
-      const next: Record<string, RowPending> = {};
-      for (const [key, wait] of Object.entries(prev)) {
-        const row = tableRows.find((r) => r.rowKey === key);
-        if (row && row.state === wait.from) {
-          next[key] = wait;
-        } else {
-          changed = true;
-        }
-      }
-      return changed ? next : prev;
-    });
-  }, [tableRows]);
+  const selectedRows = useMemo(
+    () => tableRows.filter((r) => selected.has(r.rowKey)),
+    [tableRows, selected],
+  );
 
   async function runBulk(action: "start" | "stop") {
     setBulkBusy(true);
@@ -199,10 +214,100 @@ function ServicesPageContent() {
         selected,
         action,
         setEnabled,
-        (key, pending) => setBulkPending((p) => ({ ...p, [key]: pending })),
         () => setSelected(new Set()),
       );
     } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function runBulkTerminate() {
+    if (selectedRows.length === 0) {
+      toast.warning("Nothing to terminate", "Select one or more services first.");
+      return;
+    }
+    setTerminateConfirm(true);
+  }
+
+  async function confirmBulkTerminate() {
+    setTerminateBusy(true);
+    setBulkBusy(true);
+    let ok = 0;
+    let fail = 0;
+    for (const row of selectedRows) {
+      const key = row.rowKey;
+      setBusy(key);
+      try {
+        await deleteInstance({
+          id: row.instance.id,
+          type: row.instance.type,
+        }).unwrap();
+        ok += 1;
+        setSelected((prev) => {
+          const next = new Set(prev);
+          next.delete(key);
+          return next;
+        });
+      } catch (e) {
+        fail += 1;
+        toast.error(
+          `Terminate failed (${row.instance.type}/${row.instance.id})`,
+          rtkErrorMessage(e),
+        );
+      } finally {
+        setBusy(null);
+      }
+    }
+    setTerminateBusy(false);
+    setBulkBusy(false);
+    setTerminateConfirm(false);
+    if (ok > 0 && fail === 0) {
+      toast.success(
+        "Instances terminated",
+        `${ok} removed from the cluster (Helm releases and PVCs).`,
+      );
+      setSelected(new Set());
+    } else if (ok > 0 && fail > 0) {
+      toast.warning("Partially terminated", `${ok} removed, ${fail} failed.`);
+    }
+  }
+
+  async function runConnectionDiagnostics() {
+    const instances = tableRows
+      .filter((r) => selected.has(r.rowKey) && r.instance.enabled)
+      .map((r) => ({ type: r.instance.type, id: r.instance.id }));
+    if (instances.length === 0) {
+      toast.warning(
+        "Nothing to test",
+        "Select enabled services that expose connection URLs.",
+      );
+      return;
+    }
+    setDiagOpen(true);
+    setDiagResults(null);
+    setDiagRunning(true);
+    setBulkBusy(true);
+    try {
+      const res = await runDiagnostics({ instances }).unwrap();
+      setDiagResults(res.results);
+      const failed = res.results.filter((r) => !r.ok && !r.skipped).length;
+      const passed = res.results.filter((r) => r.ok && !r.skipped).length;
+      if (failed === 0 && passed > 0) {
+        toast.success(
+          "Connections OK",
+          `${passed} endpoint${passed === 1 ? "" : "s"} reachable.`,
+        );
+      } else if (failed > 0) {
+        toast.warning(
+          "Some checks failed",
+          `${failed} of ${res.results.length} could not use the published URL.`,
+        );
+      }
+    } catch (e) {
+      toast.error("Diagnostics failed", rtkErrorMessage(e));
+      setDiagOpen(false);
+    } finally {
+      setDiagRunning(false);
       setBulkBusy(false);
     }
   }
@@ -236,29 +341,6 @@ function ServicesPageContent() {
     }
   }
 
-  async function terminateInstance(inst: ServiceInstance): Promise<boolean> {
-    const key = serviceRowKey(inst);
-    setBusy(key);
-    try {
-      await deleteInstance({ id: inst.id, type: inst.type }).unwrap();
-      toast.success(
-        "Instance terminated",
-        `${inst.type}/${inst.id} removed from the cluster (Helm release and PVCs).`,
-      );
-      setSelected((prev) => {
-        const next = new Set(prev);
-        next.delete(key);
-        return next;
-      });
-      return true;
-    } catch (e) {
-      toast.error("Terminate failed", rtkErrorMessage(e));
-      return false;
-    } finally {
-      setBusy(null);
-    }
-  }
-
   async function saveConfiguration(id: string, patch: ConfigureInstanceSave) {
     const inst = allTableRows.find((r) => r.instance.id === id)?.instance;
     setBusy(inst ? serviceRowKey(inst) : id);
@@ -277,6 +359,46 @@ function ServicesPageContent() {
 
   return (
     <>
+      <DiagnosticsResultsDialog
+        open={diagOpen}
+        onOpenChange={setDiagOpen}
+        results={diagResults}
+        running={diagRunning}
+      />
+
+      <AlertDialog
+        open={terminateConfirm}
+        onOpenChange={(o) => !terminateBusy && setTerminateConfirm(o)}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>
+              Terminate {selectedRows.length} instance
+              {selectedRows.length === 1 ? "" : "s"}?
+            </AlertDialogTitle>
+            <AlertDialogDescription>
+              This removes each instance from the appliance config, uninstalls
+              its Helm release, and deletes local volume data (PVCs). It cannot
+              be undone. Use <strong>Stop</strong> if you only want to scale
+              down and keep data.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={terminateBusy}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={terminateBusy || selectedRows.length === 0}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={(e) => {
+                e.preventDefault();
+                void confirmBulkTerminate();
+              }}
+            >
+              {terminateBusy ? "Terminating…" : "Terminate permanently"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {configureTarget && (
         <ConfigureInstanceDialog
           instance={configureTarget}
@@ -298,10 +420,13 @@ function ServicesPageContent() {
               selectedCount={selected.size}
               startCount={bulkCounts.start}
               stopCount={bulkCounts.stop}
+              diagnoseCount={diagnoseCount}
               busy={bulkBusy}
               disabled={busy !== null}
               onStart={() => void runBulk("start")}
               onStop={() => void runBulk("stop")}
+              onDiagnose={() => void runConnectionDiagnostics()}
+              onTerminate={() => void runBulkTerminate()}
               onClear={() => setSelected(new Set())}
             />
           }
@@ -315,14 +440,11 @@ function ServicesPageContent() {
           selected={selected}
           onSelectedChange={setSelected}
           selectionDisabled={bulkBusy}
-          bulkPending={bulkPending}
           onClearFilters={() => {
             resetServiceFilters();
             router.replace("/services", { scroll: false });
           }}
-          onToggle={setEnabled}
           onConfigure={setConfigureTarget}
-          onTerminate={(inst) => terminateInstance(inst)}
         />
       </div>
     </>

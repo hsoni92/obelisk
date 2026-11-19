@@ -1,27 +1,18 @@
 "use client";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { Skeleton, SkeletonRegion } from "@/components/ui/skeleton";
 import { ServiceDetailsDialog } from "@/components/services/service-details-dialog";
-import type { RowPending } from "@/components/services/services-bulk-actions";
 import {
-  startStopTarget,
-  stateBadgeVariant,
-  type ServiceRow,
-} from "@/lib/service-rows";
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
 import { relativeTime } from "@/lib/overview-series";
 import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
@@ -43,6 +34,7 @@ import {
   Layers,
   Search,
   Server,
+  SlidersHorizontal,
 } from "lucide-react";
 import * as React from "react";
 
@@ -57,7 +49,7 @@ const TYPE_ICONS = {
 } as const;
 
 const GRID =
-  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_minmax(200px,auto)] items-center gap-2";
+  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_44px] items-center gap-2";
 
 const ROW_HEIGHT = 56;
 
@@ -74,11 +66,7 @@ type ServicesTableProps = {
   selected: Set<string>;
   onSelectedChange: React.Dispatch<React.SetStateAction<Set<string>>>;
   selectionDisabled?: boolean;
-  bulkPending?: Record<string, RowPending>;
-  /** Start (`true`) or stop (`false`) an instance. Resolves false if the request failed. */
-  onToggle: (inst: ServiceInstance, enabled: boolean) => Promise<boolean>;
   onConfigure: (inst: ServiceInstance) => void;
-  onTerminate: (inst: ServiceInstance) => Promise<boolean>;
   onClearFilters?: () => void;
 };
 
@@ -139,9 +127,8 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
           <Skeleton className="h-4 w-14" />
           <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="h-4 w-40 max-w-full" />
-          <div className="flex justify-end gap-1.5">
-            <Skeleton className="h-8 w-[104px] rounded-full" />
-            <Skeleton className="h-8 w-[96px] rounded-full" />
+          <div className="flex justify-end">
+            <Skeleton className="size-8 rounded-full" />
           </div>
         </div>
       ))}
@@ -161,18 +148,12 @@ export function ServicesTable({
   selected,
   onSelectedChange,
   selectionDisabled = false,
-  bulkPending,
-  onToggle,
   onConfigure,
-  onTerminate,
   onClearFilters,
 }: ServicesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "name", desc: false },
   ]);
-  const [terminateTarget, setTerminateTarget] =
-    React.useState<ServiceInstance | null>(null);
-  const [terminateBusy, setTerminateBusy] = React.useState(false);
 
   React.useEffect(() => {
     const visible = new Set(rows.map((r) => r.rowKey));
@@ -181,40 +162,6 @@ export function ServicesTable({
       return next.size === prev.size ? prev : next;
     });
   }, [rows, onSelectedChange]);
-
-  // Rows whose start/stop was just clicked. Kept disabled from the click until
-  // the service actually leaves the state it was in (or the request fails), so
-  // a slow status poll can never re-enable the button for a double click.
-  const [pending, setPending] = React.useState<
-    Record<string, { from: string; to: "start" | "stop" }>
-  >({});
-  const stalePending = Object.keys(pending).filter(
-    (k) => rows.find((r) => r.rowKey === k)?.state !== pending[k].from,
-  );
-  if (stalePending.length > 0) {
-    setPending((p) => {
-      const next = { ...p };
-      for (const k of stalePending) delete next[k];
-      return next;
-    });
-  }
-
-  const toggle = React.useCallback(
-    (inst: ServiceInstance, from: string, to: "start" | "stop") => {
-      const key = `${inst.type}-${inst.id}`;
-      setPending((p) => ({ ...p, [key]: { from, to } }));
-      void onToggle(inst, to === "start").then((ok) => {
-        if (!ok) {
-          setPending((p) => {
-            const next = { ...p };
-            delete next[key];
-            return next;
-          });
-        }
-      });
-    },
-    [onToggle],
-  );
 
   const [detailsKey, setDetailsKey] = React.useState<string | null>(null);
   const detailsRow = rows.find((r) => r.rowKey === detailsKey) ?? null;
@@ -371,66 +318,35 @@ export function ServicesTable({
         enableSorting: false,
         cell: ({ row }) => {
           const inst = row.original.instance;
-          const state = row.original.state;
+          const label = inst.display_name || inst.id;
           const busy = busyKey === row.original.rowKey;
-          const wait =
-            pending[row.original.rowKey] ?? bulkPending?.[row.original.rowKey];
-          // stopped -> Start; running/degraded -> Stop; anything in flight is disabled.
-          const target = startStopTarget(state);
-          const label = wait
-            ? wait.to === "start"
-              ? "Starting…"
-              : "Stopping…"
-            : state === "starting"
-              ? "Starting…"
-              : state === "stopping"
-                ? "Stopping…"
-                : target === "stop"
-                  ? "Stop"
-                  : "Start";
           return (
-            <div className="flex flex-nowrap justify-end gap-1.5">
-              <Button
-                size="sm"
-                variant={target === "stop" ? "outline" : "default"}
-                className="w-[104px]"
-                disabled={busy || !!wait || target === null}
-                onClick={() => target && toggle(inst, state, target)}
-              >
-                {label}
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-[96px]"
-                onClick={() => onConfigure(inst)}
-              >
-                Configure
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                className="w-[96px] text-destructive border-destructive/40 hover:bg-destructive-tint"
-                disabled={busy || !!wait}
-                onClick={() => setTerminateTarget(inst)}
-              >
-                Terminate
-              </Button>
+            <div className="flex justify-end">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="outline"
+                    className="size-8 shrink-0"
+                    disabled={busy}
+                    aria-label={`Configure ${label}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onConfigure(inst);
+                    }}
+                  >
+                    <SlidersHorizontal className="size-4" aria-hidden />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>Configure</TooltipContent>
+              </Tooltip>
             </div>
           );
         },
       },
     ],
-    [
-      bulkPending,
-      busyKey,
-      onConfigure,
-      onSelectedChange,
-      pending,
-      selected,
-      selectionLocked,
-      toggle,
-    ],
+    [busyKey, onConfigure, onSelectedChange, selected, selectionLocked],
   );
 
   const table = useReactTable({
@@ -484,51 +400,14 @@ export function ServicesTable({
     );
   }
 
-  const terminateLabel = terminateTarget
-    ? `${terminateTarget.type}/${terminateTarget.display_name || terminateTarget.id}`
-    : "";
-
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="flex min-h-0 flex-col overflow-clip rounded-2xl bg-card shadow-rb-2">
       <ServiceDetailsDialog
         row={detailsRow}
         onOpenChange={(o) => !o && setDetailsKey(null)}
         onConfigure={onConfigure}
       />
-      <AlertDialog
-        open={!!terminateTarget}
-        onOpenChange={(o) => !o && !terminateBusy && setTerminateTarget(null)}
-      >
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Terminate {terminateLabel}?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This removes the instance from the appliance config, uninstalls its
-              Helm release, and deletes local volume data (PVCs). It cannot be
-              undone. Use <strong>Stop</strong> if you only want to scale down
-              and keep data.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel disabled={terminateBusy}>Cancel</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={terminateBusy || !terminateTarget}
-              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
-              onClick={(e) => {
-                e.preventDefault();
-                if (!terminateTarget) return;
-                setTerminateBusy(true);
-                void onTerminate(terminateTarget).then((ok) => {
-                  setTerminateBusy(false);
-                  if (ok) setTerminateTarget(null);
-                });
-              }}
-            >
-              {terminateBusy ? "Terminating…" : "Terminate permanently"}
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
       <div
         ref={parentRef}
         className="max-h-[min(640px,calc(100vh-18rem))] overflow-auto"
@@ -658,6 +537,7 @@ export function ServicesTable({
           : `${tableRows.length} of ${totalCount} instances`}
       </div>
     </div>
+    </TooltipProvider>
   );
 }
 

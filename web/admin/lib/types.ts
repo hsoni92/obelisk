@@ -138,6 +138,31 @@ export type BackupTargetResponse = {
   implementation_status: string;
 };
 
+export type DiagnosticCheck = {
+  name: string;
+  ok: boolean;
+  detail?: string;
+};
+
+export type DiagnosticInstanceResult = {
+  type: string;
+  id: string;
+  display_name?: string;
+  cluster_state: string;
+  ok: boolean;
+  skipped?: boolean;
+  skipped_reason?: string;
+  duration_ms: number;
+  summary: string;
+  public_host?: string;
+  checks?: DiagnosticCheck[];
+};
+
+export type DiagnosticsRunResponse = {
+  started_at: string;
+  results: DiagnosticInstanceResult[];
+};
+
 export type ConnectionsResponse = {
   instances?: {
     id: string;
