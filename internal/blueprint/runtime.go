@@ -299,47 +299,59 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 	if branch == "" {
 		branch = "main"
 	}
-	files, err := rt.Git.Fetch(ctx, repo, branch)
-	if err != nil {
-		return err
-	}
-	var manifest Manifest
-	if err := json.Unmarshal(files[FileManifest], &manifest); err != nil {
-		return fmt.Errorf("parse manifest: %w", err)
-	}
 	var (
-		kdf KDFParams
-		key []byte
+		kdf  KDFParams
+		key  []byte
+		bundle Bundle
 	)
-	if passphrase != "" {
-		kdf, err = KDFFromManifest(manifest)
+	var importErr error
+	for attempt := 0; attempt < 2; attempt++ {
+		files, err := rt.Git.Fetch(ctx, repo, branch)
 		if err != nil {
 			return err
 		}
-		key, err = DeriveKey(passphrase, kdf)
-		if err != nil {
-			return err
+		var manifest Manifest
+		if err := json.Unmarshal(files[FileManifest], &manifest); err != nil {
+			return fmt.Errorf("parse manifest: %w", err)
 		}
-		if manifest.KeyID != "" && KeyID(key) != manifest.KeyID {
-			return ErrWrongPassphrase
+		if passphrase != "" {
+			kdf, err = KDFFromManifest(manifest)
+			if err != nil {
+				return err
+			}
+			key, err = DeriveKey(passphrase, kdf)
+			if err != nil {
+				return err
+			}
+			if manifest.KeyID != "" && KeyID(key) != manifest.KeyID {
+				return ErrWrongPassphrase
+			}
+		} else {
+			sKey, sKeyID, sKDF, ok := rt.Session.Snapshot()
+			if !ok {
+				return ErrLocked
+			}
+			if manifest.KeyID != "" && sKeyID != manifest.KeyID {
+				return fmt.Errorf("passphrase is required to unlock remote blueprint: %w", ErrWrongPassphrase)
+			}
+			key = sKey
+			kdf, err = KDFFromManifest(manifest)
+			if err != nil {
+				kdf = sKDF
+			}
 		}
-	} else {
-		sKey, sKeyID, sKDF, ok := rt.Session.Snapshot()
-		if !ok {
-			return ErrLocked
+		bundle, importErr = Unpack(files, key)
+		if importErr == nil {
+			break
 		}
-		if manifest.KeyID != "" && sKeyID != manifest.KeyID {
-			return fmt.Errorf("passphrase is required to unlock remote blueprint: %w", ErrWrongPassphrase)
+		if !errors.Is(importErr, ErrBundleCorrupt) && !errors.Is(importErr, ErrTamper) {
+			return importErr
 		}
-		key = sKey
-		kdf, err = KDFFromManifest(manifest)
-		if err != nil {
-			kdf = sKDF
+		if attempt == 0 {
+			rt.InvalidateProbe()
+			continue
 		}
-	}
-	bundle, err := Unpack(files, key)
-	if err != nil {
-		return err
+		return importErr
 	}
 	localID := strings.TrimSpace(current.Machine.ID)
 	remoteID := strings.TrimSpace(bundle.Manifest.MachineID)

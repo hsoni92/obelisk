@@ -114,7 +114,8 @@ func Pack(spec obelisk.Spec, secrets Secrets, key []byte, kdf KDFParams, generat
 	}, nil
 }
 
-// Unpack decrypts a bundle. keyID mismatch is ErrWrongPassphrase; AEAD failure is ErrTamper.
+// Unpack decrypts a bundle. Wrong key id → ErrWrongPassphrase. Key id matches but
+// AEAD fails → ErrBundleCorrupt (files from different commits or hand-edited manifest).
 func Unpack(files map[string][]byte, key []byte) (Bundle, error) {
 	rawManifest := files[FileManifest]
 	publicYAML := files[FilePublic]
@@ -138,6 +139,9 @@ func Unpack(files map[string][]byte, key []byte) (Bundle, error) {
 	}
 	plain, err := Decrypt(key, nonce, ct, aad(manifest))
 	if err != nil {
+		if manifest.KeyID != "" && KeyID(key) == manifest.KeyID {
+			return Bundle{}, ErrBundleCorrupt
+		}
 		return Bundle{}, ErrWrongPassphrase
 	}
 	var secrets Secrets

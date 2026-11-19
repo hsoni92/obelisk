@@ -128,14 +128,24 @@ func (g *GitHub) LookupRepo(ctx context.Context, repository, branch string) (pre
 	return true, files[FileManifest], nil
 }
 
-// Fetch reads the three bundle files. A missing manifest is ErrEmptyRepo.
-func (g *GitHub) Fetch(ctx context.Context, repository, branch string) (map[string][]byte, error) {
-	if branch == "" {
-		branch = "main"
+// Fetch reads the three bundle files from a single commit. ref may be a branch
+// name or a 40-character commit SHA. Resolving a branch uses one git ref lookup,
+// then all contents reads use that commit so concurrent pushes cannot mix generations.
+func (g *GitHub) Fetch(ctx context.Context, repository, ref string) (map[string][]byte, error) {
+	if ref == "" {
+		ref = "main"
+	}
+	commitSHA, err := g.resolveCommitSHA(ctx, repository, ref)
+	if err != nil {
+		var se *StatusError
+		if errors.As(err, &se) && se.Code == http.StatusNotFound {
+			return nil, ErrEmptyRepo
+		}
+		return nil, err
 	}
 	out := map[string][]byte{}
 	for _, path := range []string{FileManifest, FilePublic, FileSecrets} {
-		b, err := g.getFile(ctx, repository, branch, path)
+		b, err := g.getFileAtRef(ctx, repository, commitSHA, path)
 		if err != nil {
 			var se *StatusError
 			if errors.As(err, &se) && se.Code == http.StatusNotFound {
@@ -149,6 +159,39 @@ func (g *GitHub) Fetch(ctx context.Context, repository, branch string) (map[stri
 		out[path] = b
 	}
 	return out, nil
+}
+
+func (g *GitHub) resolveCommitSHA(ctx context.Context, repository, ref string) (string, error) {
+	ref = strings.TrimSpace(ref)
+	if isCommitSHA(ref) {
+		return ref, nil
+	}
+	owner, name := splitRepo(repository)
+	u := fmt.Sprintf("%s/repos/%s/%s/git/ref/heads/%s", g.api(), url.PathEscape(owner), url.PathEscape(name), url.PathEscape(ref))
+	var out struct {
+		Object struct {
+			SHA string `json:"sha"`
+		} `json:"object"`
+	}
+	if err := g.do(ctx, http.MethodGet, u, nil, &out); err != nil {
+		return "", err
+	}
+	if out.Object.SHA == "" {
+		return "", fmt.Errorf("github ref %q has no commit", ref)
+	}
+	return out.Object.SHA, nil
+}
+
+func isCommitSHA(s string) bool {
+	if len(s) != 40 {
+		return false
+	}
+	for _, c := range s {
+		if (c < '0' || c > '9') && (c < 'a' || c > 'f') && (c < 'A' || c > 'F') {
+			return false
+		}
+	}
+	return true
 }
 
 // Push writes all bundle files as a single commit on branch.
@@ -240,9 +283,9 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 	return created.SHA, nil
 }
 
-func (g *GitHub) getFile(ctx context.Context, repository, branch, path string) ([]byte, error) {
+func (g *GitHub) getFileAtRef(ctx context.Context, repository, ref, path string) ([]byte, error) {
 	owner, name := splitRepo(repository)
-	u := fmt.Sprintf("%s/repos/%s/%s/contents/%s?ref=%s", g.api(), url.PathEscape(owner), url.PathEscape(name), path, url.QueryEscape(branch))
+	u := fmt.Sprintf("%s/repos/%s/%s/contents/%s?ref=%s", g.api(), url.PathEscape(owner), url.PathEscape(name), path, url.QueryEscape(ref))
 	var file struct {
 		Encoding string `json:"encoding"`
 		Content  string `json:"content"`

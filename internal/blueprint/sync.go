@@ -264,9 +264,24 @@ func (s *Syncer) push(ctx context.Context, force bool) error {
 		_ = s.fail(err)
 		return err
 	}
+	if _, err := Unpack(bundle.Files, key); err != nil {
+		_ = s.fail(err)
+		return fmt.Errorf("blueprint pack self-check: %w", err)
+	}
 	message := fmt.Sprintf("blueprint generation %d machine %s", gen, spec.Machine.ID)
 	sha, err := s.Remote.Push(ctx, spec.Blueprint.GitHub.Repository, branch, message, bundle.Files)
 	if err != nil {
+		_ = s.fail(err)
+		return err
+	}
+	verifyFiles, err := s.Remote.Fetch(ctx, spec.Blueprint.GitHub.Repository, sha)
+	if err != nil {
+		err = fmt.Errorf("blueprint pushed at %s but verify fetch failed: %w", sha, err)
+		_ = s.fail(err)
+		return err
+	}
+	if _, err := Unpack(verifyFiles, key); err != nil {
+		err = fmt.Errorf("blueprint pushed at %s but verify decrypt failed: %w", sha, err)
 		_ = s.fail(err)
 		return err
 	}

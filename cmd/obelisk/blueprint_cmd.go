@@ -128,5 +128,9 @@ func envAPI() string {
 	if v := os.Getenv("OBELISK_API"); v != "" {
 		return v
 	}
-	return "http://127.0.0.1:8080"
+	port := os.Getenv("OBELISK_HTTP_PORT")
+	if port == "" {
+		port = "8080"
+	}
+	return "http://127.0.0.1:" + port
 }

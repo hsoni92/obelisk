@@ -338,7 +338,12 @@ func TestImportRejectsEmptyPassphraseWhenKeyDiffers(t *testing.T) {
 
 func fakeGitHubContentsServer(t *testing.T, files map[string][]byte) *httptest.Server {
 	t.Helper()
+	const commitSHA = "aaaa0000bbbb1111cccc2222dddd3333eeee4444"
 	return httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/ref/heads/") {
+			_ = json.NewEncoder(w).Encode(map[string]any{"object": map[string]string{"sha": commitSHA}})
+			return
+		}
 		for name, content := range files {
 			if strings.HasSuffix(r.URL.Path, "/contents/"+name) {
 				_ = json.NewEncoder(w).Encode(map[string]string{

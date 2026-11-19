@@ -82,6 +82,8 @@ Later saves sync about 5 seconds after the controller is unlocked. If GitHub is 
 
 **Sync failed or “import required” with generation 0:** That import warning is wrong until the first successful push is recorded on disk (`generation` 0, no `last_commit_sha`). Unlock (or re-enter your passphrase), restart `make dev` on a current build, then **Push now** — the appliance overwrites stray commits on GitHub from failed attempts. For `github http 404`, ensure the controller was rebuilt after the `/git/refs` fix.
 
+**“Wrong passphrase” but you are sure it is correct:** The controller distinguishes **wrong passphrase** from **inconsistent bundle** (manifest and `secrets.enc` from different commits, or corrupted ciphertext). If import says the bundle is **inconsistent**, unlock on the source appliance and **Push now** once (push verifies decrypt after upload). Do not hand-edit `manifest.json`, `secrets.enc`, or `obelisk.public.yaml` on GitHub.
+
 ## After reboot
 
 OAuth tokens remain. The in-memory key does not. The UI shows **push paused** until unlock. If this browser still has the passphrase, unlock runs automatically.
