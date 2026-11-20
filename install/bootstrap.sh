@@ -105,7 +105,7 @@ maybe_tailscale() {
     if systemctl is-active --quiet tailscaled 2>/dev/null; then
       log "tailscaled running — join the tailnet from Platform → Tailscale or: obelisk gateway enable"
     else
-      log "tailscale CLI present — start tailscaled (systemctl enable --now tailscaled)"
+      log "tailscale CLI present — start tailscaled (systemctl enable --now tailscaled) or: sudo obelisk tailscale install"
     fi
   else
     if command -v apt-get >/dev/null 2>&1; then
@@ -115,7 +115,7 @@ maybe_tailscale() {
       systemctl enable --now tailscaled || true
       log "installed tailscale; join from admin UI Platform → Tailscale"
     else
-      log "install tailscale from https://tailscale.com/download then re-run"
+      log "install tailscale: sudo obelisk tailscale install   or https://tailscale.com/download"
     fi
   fi
 }

@@ -39,6 +39,8 @@ func main() {
 		cmdConfigure(os.Args[2:])
 	case "gateway":
 		cmdGateway(os.Args[2:])
+	case "tailscale":
+		cmdTailscale(os.Args[2:])
 	case "update":
 		cmdUpdate(os.Args[2:])
 	case "cleanup":
@@ -76,6 +78,8 @@ Commands:
   gateway enable [--profile vps|local] [--public-host HOST]   set role=gateway and tailscale=true
   gateway local [--no-reconcile]                              back to role=local (vps clears tailscale)
   gateway status
+  tailscale install|ensure [--dry-run]                      install/start tailscaled on Linux or macOS (host)
+  tailscale status [--json]
   configure deployment --profile vps|local [--role local|gateway] [--tailscale] [--public-host HOST] [--reconcile]
   configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)

@@ -80,7 +80,7 @@ func cmdGatewayEnable(args []string) {
 	wrote := config.WriteConfigPath(*cfg)
 	fmt.Printf("gateway enabled: profile=%s role=%s tailscale=true (wrote %s)\n",
 		spec.Deployment.Profile, spec.Deployment.Role, wrote)
-	fmt.Println("ensure Tailscale is installed and run: sudo tailscale up")
+	fmt.Println("on the host run: sudo obelisk tailscale install   then join from Platform → Tailscale or: tailscale up")
 
 	if ph := strings.TrimSpace(*publicHost); ph != "" {
 		if err := setControllerPublicHost(ph, *namespace); err != nil {
