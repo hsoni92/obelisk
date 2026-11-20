@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -16,7 +17,11 @@ func RestoreInstanceData(ctx context.Context, inst obelisk.ServiceInstance, dump
 		return fmt.Errorf("backup payload is empty")
 	}
 	if K8sDataBackupEnabled() {
-		return restoreInstanceK8s(ctx, inst, dump)
+		spec, err := config.Load(config.EnsureReadablePath(""))
+		if err != nil {
+			return err
+		}
+		return restoreInstanceK8s(ctx, spec, inst, dump)
 	}
 	switch inst.Type {
 	case "postgres", "mysql", "mongodb":

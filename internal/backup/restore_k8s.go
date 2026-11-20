@@ -10,11 +10,12 @@ import (
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
-func restoreInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance, dump []byte) error {
+func restoreInstanceK8s(ctx context.Context, spec obelisk.Spec, inst obelisk.ServiceInstance, dump []byte) error {
 	release := inst.ReleaseName()
 	pod := release + "-0"
 	ns := obeliskNamespace()
 	user, pass, db := obelisk.ResolvedDBCreds(inst)
+	mongoEdgeTLS := MongoEdgeTLSEnabled(ctx, spec)
 	switch inst.Type {
 	case "postgres":
 		inner := fmt.Sprintf(`PGPASSWORD=%q psql -U %q -d %q -v ON_ERROR_STOP=1 -f -`, pass, user, db)
@@ -31,8 +32,8 @@ func restoreInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance, dump 
 		return kubectlStdin(ctx, bytes.NewReader(dump), "exec", "-i", "-n", ns, pod, "-c", "mysql", "--", "sh", "-ec", inner)
 	case "mongodb":
 		inner := fmt.Sprintf(
-			`mongorestore --archive --drop --username=%q --password=%q --authenticationDatabase=admin`,
-			user, pass,
+			`mongorestore --archive --drop --username=%q --password=%q --authenticationDatabase=admin%s`,
+			user, pass, mongoRestoreK8sTLSFlags(mongoEdgeTLS),
 		)
 		return kubectlStdin(ctx, bytes.NewReader(dump), "exec", "-i", "-n", ns, pod, "-c", "mongodb", "--", "sh", "-ec", inner)
 	case "rustfs":

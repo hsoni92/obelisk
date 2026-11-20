@@ -45,7 +45,7 @@ func CollectDataDumps(ctx context.Context, spec obelisk.Spec, states map[string]
 		var body []byte
 		var err error
 		if useK8s {
-			body, err = dumpInstanceK8s(ctx, inst)
+			body, err = dumpInstanceK8s(ctx, spec, inst)
 		} else if inst.Type == "postgres" || inst.Type == "mysql" || inst.Type == "mongodb" {
 			body, err = dumpInstanceLocal(ctx, inst)
 		} else {
@@ -118,11 +118,12 @@ func dataExt(typ string) string {
 	}
 }
 
-func dumpInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance) ([]byte, error) {
+func dumpInstanceK8s(ctx context.Context, spec obelisk.Spec, inst obelisk.ServiceInstance) ([]byte, error) {
 	release := inst.ReleaseName()
 	pod := release + "-0"
 	ns := obeliskNamespace()
 	user, pass, db := obelisk.ResolvedDBCreds(inst)
+	mongoEdgeTLS := MongoEdgeTLSEnabled(ctx, spec)
 	switch inst.Type {
 	case "postgres":
 		return postgresDumpK8s(ctx, ns, pod, user, pass, db)
@@ -131,8 +132,8 @@ func dumpInstanceK8s(ctx context.Context, inst obelisk.ServiceInstance) ([]byte,
 		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "mysql", "--", "sh", "-ec", inner)
 	case "mongodb":
 		inner := fmt.Sprintf(
-			`mongodump --archive --username=%q --password=%q --authenticationDatabase=admin`,
-			user, pass,
+			`mongodump --archive --username=%q --password=%q --authenticationDatabase=admin%s`,
+			user, pass, mongoDumpK8sTLSFlags(mongoEdgeTLS),
 		)
 		return kubectlOutput(ctx, "exec", "-n", ns, pod, "-c", "mongodb", "--", "sh", "-ec", inner)
 	case "rustfs":
