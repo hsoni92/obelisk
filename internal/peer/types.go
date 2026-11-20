@@ -8,11 +8,13 @@ import (
 
 // AdvertiseRequest is sent by a local appliance to the gateway.
 type AdvertiseRequest struct {
-	PeerID          string               `json:"peer_id"`
-	MachineID       string               `json:"machine_id"`
-	TailnetHost     string               `json:"tailnet_host"`
-	DeploymentRole  string               `json:"deployment_role,omitempty"`
-	Instances       []AdvertisedInstance `json:"instances"`
+	PeerID             string               `json:"peer_id"`
+	MachineID          string               `json:"machine_id"`
+	TailnetHost        string               `json:"tailnet_host"`
+	DeploymentRole     string               `json:"deployment_role,omitempty"`
+	NativeBackhaulPort int                  `json:"native_backhaul_port,omitempty"`
+	HTTPBackhaulPort   int                  `json:"http_backhaul_port,omitempty"`
+	Instances          []AdvertisedInstance `json:"instances"`
 }
 
 type AdvertisedInstance struct {
@@ -26,9 +28,10 @@ type AdvertisedInstance struct {
 
 // AdvertiseResponse may return a newly issued peer token.
 type AdvertiseResponse struct {
-	Accepted bool   `json:"accepted"`
-	Token    string `json:"token,omitempty"`
-	Message  string `json:"message,omitempty"`
+	Accepted       bool   `json:"accepted"`
+	Token          string `json:"token,omitempty"`
+	Message        string `json:"message,omitempty"`
+	EdgeBaseDomain string `json:"edge_base_domain,omitempty"`
 }
 
 // FederatedTarget is an exposure upstream for a peer-owned instance.
@@ -45,8 +48,10 @@ type FederatedTarget struct {
 type PeerRecord struct {
 	ID           string                        `json:"id"`
 	MachineID    string                        `json:"machine_id,omitempty"`
-	TailnetHost  string                        `json:"tailnet_host,omitempty"`
-	Admitted     bool                          `json:"admitted"`
+	TailnetHost          string                        `json:"tailnet_host,omitempty"`
+	NativeBackhaulPort   int                           `json:"native_backhaul_port,omitempty"`
+	HTTPBackhaulPort     int                           `json:"http_backhaul_port,omitempty"`
+	Admitted             bool                          `json:"admitted"`
 	TokenHash    string                        `json:"token_hash,omitempty"`
 	LastSeen     time.Time                     `json:"last_seen"`
 	Reachable    bool                          `json:"reachable"`

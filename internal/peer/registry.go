@@ -128,6 +128,12 @@ func (r *Registry) ApplyAdvertisement(req AdvertiseRequest, bearer string, autoA
 
 	rec.MachineID = strings.TrimSpace(req.MachineID)
 	rec.TailnetHost = strings.TrimSpace(req.TailnetHost)
+	if req.NativeBackhaulPort > 0 {
+		rec.NativeBackhaulPort = req.NativeBackhaulPort
+	}
+	if req.HTTPBackhaulPort > 0 {
+		rec.HTTPBackhaulPort = req.HTTPBackhaulPort
+	}
 	rec.LastSeen = time.Now().UTC()
 	rec.Reachable = true
 	if rec.Instances == nil {
@@ -207,19 +213,32 @@ func (r *Registry) FederatedTargets(spec obelisk.Spec, staleAfter time.Duration)
 				Credentials: ad.Credentials,
 				Databases:   append([]string(nil), ad.Databases...),
 			}
-			nt, ntok := obelisk.NativeEdgeTypes[ad.Type]
-			ht, htok := obelisk.HTTPEdgeTypes[ad.Type]
+			_, ntok := obelisk.NativeEdgeTypes[ad.Type]
+			_, htok := obelisk.HTTPEdgeTypes[ad.Type]
 			if !ntok && !htok {
 				continue
 			}
-			out = append(out, FederatedTarget{
+			nativePort := rec.NativeBackhaulPort
+			if nativePort <= 0 {
+				nativePort = obelisk.NativeEdgeTLSPortNumber()
+			}
+			httpPort := rec.HTTPBackhaulPort
+			if httpPort <= 0 {
+				httpPort = obelisk.AdminHTTPPort()
+			}
+			ft := FederatedTarget{
 				PeerID:       peerID,
 				Reachable:    reachable,
 				Inst:         inst,
 				UpstreamHost: host,
-				NativePort:   nt,
-				HTTPPort:     ht,
-			})
+			}
+			if ntok {
+				ft.NativePort = nativePort
+			}
+			if htok {
+				ft.HTTPPort = httpPort
+			}
+			out = append(out, ft)
 		}
 	}
 	return out

@@ -133,7 +133,7 @@ func TestMergeInstanceRoutes_NoNativeTCPInKong(t *testing.T) {
 	out, err := mergeInstanceRoutes([]byte(`_format_version: "3.0"
 _transform: true
 services: []
-`), spec, nil)
+`), spec, nil, nil)
 	if err != nil {
 		t.Fatal(err)
 	}

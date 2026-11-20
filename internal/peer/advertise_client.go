@@ -45,10 +45,12 @@ func BuildAdvertiseRequest(ctx context.Context, spec obelisk.Spec) AdvertiseRequ
 		ns = "obelisk"
 	}
 	req := AdvertiseRequest{
-		PeerID:         peerID,
-		MachineID:      strings.TrimSpace(spec.Machine.ID),
-		TailnetHost:    ResolveTailnetHost(),
-		DeploymentRole: strings.TrimSpace(spec.Deployment.Role),
+		PeerID:             peerID,
+		MachineID:          strings.TrimSpace(spec.Machine.ID),
+		TailnetHost:        ResolveTailnetHost(),
+		DeploymentRole:     strings.TrimSpace(spec.Deployment.Role),
+		NativeBackhaulPort: obelisk.NativeEdgeTLSPortNumber(),
+		HTTPBackhaulPort:   obelisk.AdminHTTPPort(),
 	}
 	for _, inst := range spec.Instances {
 		if !inst.Enabled {
@@ -134,11 +136,16 @@ func postAdvertiseOnce(ctx context.Context, configPath string, spec obelisk.Spec
 		return err
 	}
 	var ar AdvertiseResponse
-	if json.Unmarshal(body, &ar) == nil && ar.Token != "" {
-		if werr := WriteLocalToken(configPath, ar.Token); werr != nil {
-			err := fmt.Errorf("save peer token: %w", werr)
-			RecordAdvertiseAttempt(err)
-			return err
+	if json.Unmarshal(body, &ar) == nil {
+		if ar.Token != "" {
+			if werr := WriteLocalToken(configPath, ar.Token); werr != nil {
+				err := fmt.Errorf("save peer token: %w", werr)
+				RecordAdvertiseAttempt(err)
+				return err
+			}
+		}
+		if strings.TrimSpace(ar.EdgeBaseDomain) != "" {
+			_ = WriteGatewayEdgeDomain(configPath, ar.EdgeBaseDomain)
 		}
 	}
 	RecordAdvertiseAttempt(nil)

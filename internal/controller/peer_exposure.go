@@ -25,7 +25,7 @@ func (r *Reconciler) ReconcileExposurePeers(ctx context.Context, configPath stri
 		return err
 	}
 	fed := exposureFederated(spec, reg.FederatedTargets(spec, 0))
-	return exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed)
+	return exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed, configPath)
 }
 
 // FederatedTargetsForConfig loads peer registry targets for exposure reconcile.

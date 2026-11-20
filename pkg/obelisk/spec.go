@@ -27,10 +27,11 @@ type Deployment struct {
 
 // PeerGateway configures tailnet federation (gateway aggregates locals).
 type PeerGateway struct {
-	AdvertiseURL       string `yaml:"advertise_url,omitempty"`        // local: gateway advertise endpoint
-	AutoAdmit          *bool  `yaml:"auto_admit,omitempty"`           // gateway: default true when omitted (OQ2)
-	ExposeNativePublic *bool  `yaml:"expose_native_public,omitempty"` // gateway: default true (OQ4)
-	TLSMode            string `yaml:"tls_mode,omitempty"`             // v1: passthrough only (OQ1)
+	AdvertiseURL       string `yaml:"advertise_url,omitempty"`         // local: gateway advertise endpoint
+	GatewayEdgeHost    string `yaml:"gateway_edge_host,omitempty"`     // local: gateway public host / edge zone (usually learned from advertise)
+	AutoAdmit          *bool  `yaml:"auto_admit,omitempty"`            // gateway: default true when omitted (OQ2)
+	ExposeNativePublic *bool  `yaml:"expose_native_public,omitempty"`  // gateway: default true (OQ4)
+	TLSMode            string `yaml:"tls_mode,omitempty"`              // v1: passthrough only (OQ1)
 }
 
 // PeerAdmission is a persisted peer row on the gateway.

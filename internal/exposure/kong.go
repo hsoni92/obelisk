@@ -16,7 +16,7 @@ import (
 
 // ReconcileKong merges instance edge routes into the platform Kong declarative config
 // and applies it when it differs from the cluster ConfigMap.
-func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace string, federated []peer.FederatedTarget) error {
+func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace string, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) error {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
@@ -25,7 +25,7 @@ func ReconcileKong(ctx context.Context, spec obelisk.Spec, helmRoot, namespace s
 	if err != nil {
 		return fmt.Errorf("read kong base %s: %w", basePath, err)
 	}
-	rendered, err := mergeInstanceRoutes(base, spec, federated)
+	rendered, err := mergeInstanceRoutes(base, spec, federated, backhaul)
 	if err != nil {
 		return err
 	}
@@ -179,7 +179,7 @@ func boolPtrEqual(a, b *bool) bool {
 	return *a == *b
 }
 
-func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec, federated []peer.FederatedTarget) ([]byte, error) {
+func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) ([]byte, error) {
 	var doc kongDeclarative
 	if err := yaml.Unmarshal(baseYAML, &doc); err != nil {
 		return nil, fmt.Errorf("parse kong base: %w", err)
@@ -203,6 +203,16 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec, federated []peer.Fe
 		}
 		// Native TLS data services use obelisk-native-edge (nginx stream SNI), not Kong stream.
 	}
+	if backhaul != nil && backhaul.GatewayEdgeDomain != "" {
+		for _, inst := range spec.Instances {
+			if !inst.Enabled {
+				continue
+			}
+			if svc, ok := kongHTTPServiceForPeerBackhaul(inst, backhaul); ok {
+				filtered = append(filtered, svc)
+			}
+		}
+	}
 	for _, ft := range federated {
 		if ft.HTTPPort <= 0 {
 			continue
@@ -223,7 +233,22 @@ func mergeInstanceRoutes(baseYAML []byte, spec obelisk.Spec, federated []peer.Fe
 
 // mergeRustFSRoutes is an alias kept for tests.
 func mergeRustFSRoutes(baseYAML []byte, spec obelisk.Spec) ([]byte, error) {
-	return mergeInstanceRoutes(baseYAML, spec, nil)
+	return mergeInstanceRoutes(baseYAML, spec, nil, nil)
+}
+
+func kongHTTPServiceForPeerBackhaul(inst obelisk.ServiceInstance, backhaul *peer.BackhaulInfo) (kongService, bool) {
+	svc, ok := kongHTTPServiceForInstance(inst)
+	if !ok || backhaul == nil {
+		return kongService{}, false
+	}
+	hosts := obelisk.FederatedKongEdgeHosts(backhaul.PeerID, inst, backhaul.GatewayEdgeDomain)
+	if len(hosts) == 0 {
+		return kongService{}, false
+	}
+	svc.Routes[0].Hosts = hosts
+	svc.Name = "backhaul-" + svc.Name
+	svc.Routes[0].Name = "backhaul-" + svc.Routes[0].Name
+	return svc, true
 }
 
 func kongHTTPServiceForFederated(ft peer.FederatedTarget) (kongService, bool) {

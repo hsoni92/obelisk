@@ -13,7 +13,7 @@ func TestRenderNativeEdgeNginx_RedisSNI(t *testing.T) {
 	spec.Instances = []obelisk.ServiceInstance{{
 		ID: "pqr", Type: "redis", Enabled: true,
 	}}
-	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil, nil)
 	if !strings.Contains(out, "ssl_preread on;") {
 		t.Fatalf("missing ssl_preread:\n%s", out)
 	}
@@ -29,7 +29,7 @@ func TestRenderNativeEdgeNginx_MapHashBucketSize(t *testing.T) {
 		{ID: "valiant-pelican", Type: "postgres", Enabled: true},
 		{ID: "sunny-skunk", Type: "redis", Enabled: true},
 	}
-	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil, nil)
 	if !strings.Contains(out, "map_hash_bucket_size 128;") {
 		t.Fatalf("missing map_hash_bucket_size for long sslip.io SNIs:\n%s", out)
 	}
@@ -41,7 +41,7 @@ func TestRenderNativeEdgeNginx_SkipsDisabled(t *testing.T) {
 	spec.Instances = []obelisk.ServiceInstance{{
 		ID: "off", Type: "redis", Enabled: false,
 	}}
-	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil, nil)
 	if strings.Contains(out, "redis-off.") {
 		t.Fatalf("disabled instance in map:\n%s", out)
 	}

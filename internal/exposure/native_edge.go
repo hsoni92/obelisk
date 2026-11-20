@@ -16,11 +16,11 @@ const nativeEdgeConfigMap = "native-edge-config"
 const nativeEdgeDeployment = "obelisk-native-edge"
 
 // RenderNativeEdgeNginx emits an nginx stream config that routes on TLS SNI (L4 passthrough).
-func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string, federated []peer.FederatedTarget) string {
+func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) string {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
-	if !obelisk.ConnectionEdgeEnabled(spec) {
+	if !nativeEdgeConfigNeeded(spec, federated, backhaul) {
 		return defaultNativeEdgePlaceholder()
 	}
 	var b strings.Builder
@@ -32,17 +32,34 @@ func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string, federated []peer
 	b.WriteString("    resolver kube-dns.kube-system.svc.cluster.local valid=10s ipv6=off;\n")
 	b.WriteString("    map $ssl_preread_server_name $native_backend {\n")
 	b.WriteString("        default \"\";\n")
-	for _, inst := range spec.Instances {
-		if !inst.Enabled {
-			continue
+	if obelisk.ConnectionEdgeEnabled(spec) {
+		for _, inst := range spec.Instances {
+			if !inst.Enabled {
+				continue
+			}
+			port, ok := obelisk.NativeEdgeTypes[inst.Type]
+			if !ok {
+				continue
+			}
+			backend := fmt.Sprintf("%s.%s.svc.cluster.local:%d", inst.ReleaseName(), namespace, port)
+			for _, host := range obelisk.KongEdgeHosts(inst) {
+				fmt.Fprintf(&b, "        %s %s;\n", host, backend)
+			}
 		}
-		port, ok := obelisk.NativeEdgeTypes[inst.Type]
-		if !ok {
-			continue
-		}
-		backend := fmt.Sprintf("%s.%s.svc.cluster.local:%d", inst.ReleaseName(), namespace, port)
-		for _, host := range obelisk.KongEdgeHosts(inst) {
-			fmt.Fprintf(&b, "        %s %s;\n", host, backend)
+	}
+	if backhaul != nil && backhaul.GatewayEdgeDomain != "" {
+		for _, inst := range spec.Instances {
+			if !inst.Enabled {
+				continue
+			}
+			port, ok := obelisk.NativeEdgeTypes[inst.Type]
+			if !ok {
+				continue
+			}
+			backend := fmt.Sprintf("%s.%s.svc.cluster.local:%d", inst.ReleaseName(), namespace, port)
+			for _, host := range obelisk.FederatedKongEdgeHosts(backhaul.PeerID, inst, backhaul.GatewayEdgeDomain) {
+				fmt.Fprintf(&b, "        %s %s;\n", host, backend)
+			}
 		}
 	}
 	for _, ft := range federated {
@@ -80,15 +97,32 @@ stream {
 `) + "\n"
 }
 
+func nativeEdgeConfigNeeded(spec obelisk.Spec, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) bool {
+	if len(federated) > 0 && obelisk.ConnectionEdgeEnabled(spec) {
+		return true
+	}
+	if obelisk.ConnectionEdgeEnabled(spec) && NeedsNativeEdgeTLS(spec) {
+		return true
+	}
+	if backhaul != nil && backhaul.GatewayEdgeDomain != "" && NeedsNativeEdgeTLS(spec) {
+		return true
+	}
+	return false
+}
+
+func nativeEdgeWorkNeeded(spec obelisk.Spec, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) bool {
+	return nativeEdgeConfigNeeded(spec, federated, backhaul)
+}
+
 // ReconcileNativeEdge updates the nginx stream proxy for native TLS data services.
-func ReconcileNativeEdge(ctx context.Context, spec obelisk.Spec, namespace string, federated []peer.FederatedTarget) error {
+func ReconcileNativeEdge(ctx context.Context, spec obelisk.Spec, namespace string, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) error {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
-	if !obelisk.ConnectionEdgeEnabled(spec) || (!NeedsNativeEdgeTLS(spec) && len(federated) == 0) {
+	if !nativeEdgeWorkNeeded(spec, federated, backhaul) {
 		return nil
 	}
-	body := []byte(RenderNativeEdgeNginx(spec, namespace, federated))
+	body := []byte(RenderNativeEdgeNginx(spec, namespace, federated, backhaul))
 	current, err := nativeEdgeConfigFromCluster(ctx, namespace)
 	if err != nil {
 		return err

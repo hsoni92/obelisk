@@ -18,10 +18,15 @@ const edgeDomainAnnotation = "obelisk.io/edge-base-domain"
 // ReconcileEdgeTLSSecret stores the wildcard edge certificate in the cluster for
 // native data services (Postgres/Redis/…) to terminate TLS behind Kong passthrough.
 func ReconcileEdgeTLSSecret(ctx context.Context, namespace string) error {
+	return ReconcileEdgeTLSSecretDomain(ctx, namespace, obelisk.PublicEdgeBaseDomain())
+}
+
+// ReconcileEdgeTLSSecretDomain issues or rotates certs for baseDomain (gateway zone on federated peers).
+func ReconcileEdgeTLSSecretDomain(ctx context.Context, namespace, baseDomain string) error {
 	if namespace == "" {
 		namespace = "obelisk"
 	}
-	base := obelisk.PublicEdgeBaseDomain()
+	base := strings.TrimSpace(baseDomain)
 	if base == "" {
 		return fmt.Errorf("edge base domain required")
 	}

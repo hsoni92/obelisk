@@ -51,6 +51,7 @@ func (s *Server) handlePeerAdvertise(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if resp.Accepted {
+		resp.EdgeBaseDomain = obelisk.PublicEdgeBaseDomain()
 		rec := s.reconciler(cfg)
 		_ = rec.ReconcileExposurePeers(r.Context(), cfg)
 	}

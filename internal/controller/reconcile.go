@@ -50,7 +50,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 			report.ServiceStates[key] = "pending"
 		}
 		fed, _ := r.federatedTargets(spec)
-		if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed); err != nil {
+		if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed, r.ConfigPath); err != nil {
 			report.Messages = append(report.Messages, "exposure: "+err.Error())
 		}
 		return report, nil
@@ -137,7 +137,7 @@ func (r *Reconciler) Reconcile(ctx context.Context) (Report, error) {
 		}
 	}
 	fed, _ := r.federatedTargets(spec)
-	if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed); err != nil {
+	if err := exposure.Reconcile(ctx, spec, r.HelmRoot, r.Namespace, fed, r.ConfigPath); err != nil {
 		report.Messages = append(report.Messages, "exposure: "+err.Error())
 		if reconcileErr == nil {
 			reconcileErr = err
