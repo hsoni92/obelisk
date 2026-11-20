@@ -182,9 +182,9 @@ export function FederationPeersPanel({
                   ) : null}
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
-                    className="text-destructive hover:text-destructive"
+                    className="text-destructive border-destructive/30 hover:bg-destructive/10"
                     disabled={deletePeerState.isLoading}
                     onClick={() => setPeerToRemove(peer.id)}
                   >
