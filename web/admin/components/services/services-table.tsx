@@ -220,6 +220,7 @@ export function ServicesTable({
           const Icon =
             TYPE_ICONS[inst.type as keyof typeof TYPE_ICONS] ?? Database;
           const label = inst.display_name || inst.id;
+          const federated = inst.origin === "federated";
           return (
             <div className="flex min-w-0 items-center gap-2.5">
               <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-broadcast-tint text-foreground">
@@ -231,12 +232,21 @@ export function ServicesTable({
                 title="View details"
                 className="min-w-0 rounded-md text-left hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
               >
-                <span className="block truncate text-sm font-medium capitalize">
-                  {label}
+                <span className="flex min-w-0 items-center gap-1.5">
+                  <span className="block truncate text-sm font-medium capitalize">
+                    {label}
+                  </span>
+                  {federated ? (
+                    <Badge variant="info" className="shrink-0 text-[10px] px-1.5 py-0">
+                      remote
+                    </Badge>
+                  ) : null}
                 </span>
-                {inst.display_name ? (
+                {inst.display_name || federated ? (
                   <span className="block truncate font-mono text-[11px] text-muted-foreground">
-                    {inst.id}
+                    {federated && inst.peer_id
+                      ? `${inst.peer_id} · ${inst.id}`
+                      : inst.id}
                   </span>
                 ) : null}
               </button>

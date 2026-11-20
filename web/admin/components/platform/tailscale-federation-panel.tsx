@@ -13,6 +13,8 @@ import {
   useGetTailscaleStatusQuery,
   usePatchDeploymentMutation,
 } from "@/lib/store/obelisk-api";
+import { FederationPeersPanel } from "@/components/platform/federation-peers-panel";
+import { GatewayAdvertiseUrlCopy } from "@/components/platform/gateway-advertise-url-copy";
 import { ExternalLink, Network } from "lucide-react";
 import * as React from "react";
 
@@ -210,6 +212,24 @@ export function TailscaleFederationPanel() {
             aria-label="Gateway role"
           />
         </div>
+
+        {isGateway ? (
+          <>
+            <div className="px-6 pb-2">
+              <GatewayAdvertiseUrlCopy
+                endpoint={data?.gateway_advertise_endpoint}
+              />
+            </div>
+            <FederationPeersPanel isGateway />
+          </>
+        ) : profile === "local" ? (
+          <FederationPeersPanel isGateway={false} />
+        ) : (
+          <p className="px-6 pb-6 text-sm text-muted-foreground">
+            Enable <span className="font-medium">Gateway appliance</span> on this
+            VPS to list remote peers and show home services as federated rows.
+          </p>
+        )}
       </Card>
     </section>
   );

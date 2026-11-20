@@ -26,12 +26,18 @@ func (s *Server) handleTailscaleStatus(w http.ResponseWriter, r *http.Request) {
 	cfg := config.EnsureReadablePath(s.ConfigPath)
 	spec, err := config.Load(cfg)
 	if err == nil {
-		writeJSON(w, map[string]any{
+		resp := map[string]any{
 			"status":             st,
 			"desired_enabled":    spec.Deployment.Tailscale.Enabled,
 			"deployment_role":    spec.Deployment.Role,
 			"deployment_profile": spec.Deployment.Profile,
-		})
+		}
+		if obelisk.IsGateway(spec) {
+			if ep := gatewayAdvertiseEndpoint(spec); ep != "" {
+				resp["gateway_advertise_endpoint"] = ep
+			}
+		}
+		writeJSON(w, resp)
 		return
 	}
 	writeJSON(w, map[string]any{"status": st, "error": err.Error()})

@@ -155,7 +155,43 @@ export type TailscaleStatusResponse = {
   desired_enabled?: boolean;
   deployment_role?: string;
   deployment_profile?: string;
+  /** Present when deployment_role is gateway — locals POST catalog here. */
+  gateway_advertise_endpoint?: string;
   error?: string;
+};
+
+export type FederationPeerRecord = {
+  id: string;
+  machine_id?: string;
+  tailnet_host?: string;
+  admitted: boolean;
+  last_seen?: string;
+  reachable?: boolean;
+  instances?: Record<
+    string,
+    { type: string; id: string; enabled: boolean }
+  >;
+};
+
+export type FederationAdvertiseStatus = {
+  ok: boolean;
+  last_ok_at?: string;
+  last_attempt_at?: string;
+  last_error?: string;
+};
+
+export type FederationResponse = {
+  role: string;
+  profile: string;
+  tailscale_enabled: boolean;
+  is_gateway: boolean;
+  advertise_url?: string;
+  tailnet_host?: string;
+  auto_admit?: boolean;
+  gateway_advertise_endpoint?: string;
+  peers?: FederationPeerRecord[];
+  advertise_status?: FederationAdvertiseStatus;
+  advertise_configured?: boolean;
 };
 
 export type StatusResponse = {

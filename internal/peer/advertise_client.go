@@ -12,8 +12,23 @@ import (
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/tailscale"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
+
+// ResolveTailnetHost is the dial address peers publish for mesh proxying.
+// OBELISK_TAILNET_HOST wins; otherwise tailscaled status (Tailscale IP or MagicDNS).
+func ResolveTailnetHost() string {
+	if h := strings.TrimSpace(os.Getenv("OBELISK_TAILNET_HOST")); h != "" {
+		return h
+	}
+	st := tailscale.GetStatus(context.Background())
+	if len(st.IPs) > 0 {
+		return strings.TrimSpace(st.IPs[0])
+	}
+	dns := strings.TrimSuffix(strings.TrimSpace(st.DNSName), ".")
+	return dns
+}
 
 // BuildAdvertiseRequest constructs a catalog snapshot from local spec.
 func BuildAdvertiseRequest(spec obelisk.Spec) AdvertiseRequest {
@@ -24,11 +39,10 @@ func BuildAdvertiseRequest(spec obelisk.Spec) AdvertiseRequest {
 	if peerID == "" {
 		peerID = "local"
 	}
-	host := strings.TrimSpace(os.Getenv("OBELISK_TAILNET_HOST"))
 	req := AdvertiseRequest{
 		PeerID:         peerID,
 		MachineID:      strings.TrimSpace(spec.Machine.ID),
-		TailnetHost:    host,
+		TailnetHost:    ResolveTailnetHost(),
 		DeploymentRole: strings.TrimSpace(spec.Deployment.Role),
 	}
 	for _, inst := range spec.Instances {
@@ -55,14 +69,18 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 	}
 	reqBody := BuildAdvertiseRequest(spec)
 	if reqBody.TailnetHost == "" {
-		return fmt.Errorf("OBELISK_TAILNET_HOST not set; cannot advertise")
+		err := fmt.Errorf("tailnet host unknown (join Tailscale or set OBELISK_TAILNET_HOST)")
+		RecordAdvertiseAttempt(err)
+		return err
 	}
 	data, err := json.Marshal(reqBody)
 	if err != nil {
+		RecordAdvertiseAttempt(err)
 		return err
 	}
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(data))
 	if err != nil {
+		RecordAdvertiseAttempt(err)
 		return err
 	}
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -72,17 +90,21 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 	client := &http.Client{Timeout: 30 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
+		RecordAdvertiseAttempt(err)
 		return err
 	}
 	defer resp.Body.Close()
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("advertise %s: %s", resp.Status, strings.TrimSpace(string(body)))
+		err := fmt.Errorf("advertise %s: %s", resp.Status, strings.TrimSpace(string(body)))
+		RecordAdvertiseAttempt(err)
+		return err
 	}
 	var ar AdvertiseResponse
 	if json.Unmarshal(body, &ar) == nil && ar.Token != "" {
 		_ = WriteLocalToken(configPath, ar.Token)
 	}
+	RecordAdvertiseAttempt(nil)
 	return nil
 }
 
@@ -104,10 +126,7 @@ func StartAdvertiser(ctx context.Context, configPath string, interval time.Durat
 		}
 		cctx, cancel := context.WithTimeout(ctx, 25*time.Second)
 		defer cancel()
-		if err := PostAdvertise(cctx, cfg, spec); err != nil {
-			// logged by caller if desired
-			_ = err
-		}
+		_ = PostAdvertise(cctx, cfg, spec)
 	}
 	run()
 	for {

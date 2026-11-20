@@ -19,6 +19,7 @@ import type {
   CloneBackupResponse,
   ProjectView,
   TailscaleStatusResponse,
+  FederationResponse,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { obeliskApiBaseUrl } from "./api-base";
@@ -35,7 +36,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects", "Tailscale", "Deployment"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects", "Tailscale", "Deployment", "Federation", "Instances"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -562,7 +563,7 @@ export const obeliskApi = createApi({
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview"],
+      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview", "Federation"],
     }),
     patchDeployment: builder.mutation<
       { profile: string; role: string; tailscale: boolean },
@@ -573,7 +574,32 @@ export const obeliskApi = createApi({
         method: "PATCH",
         body,
       }),
-      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview"],
+      invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview", "Federation"],
+    }),
+    getFederation: builder.query<FederationResponse, void>({
+      query: () => "/federation",
+      providesTags: ["Federation"],
+    }),
+    patchFederation: builder.mutation<
+      { ok: boolean; advertise_url: string },
+      { advertise_url: string }
+    >({
+      query: (body) => ({
+        url: "/federation",
+        method: "PATCH",
+        body,
+      }),
+      invalidatesTags: ["Federation", "Instances", "Status", "Connections", "Overview"],
+    }),
+    federationAdvertiseNow: builder.mutation<
+      { ok: boolean; advertise_status: FederationResponse["advertise_status"] },
+      void
+    >({
+      query: () => ({
+        url: "/federation/advertise",
+        method: "POST",
+      }),
+      invalidatesTags: ["Federation", "Instances", "Status", "Connections", "Overview"],
     }),
     getBlueprintStatus: builder.query<BlueprintStatus, void>({
       query: () => "/blueprint/status",
@@ -794,9 +820,13 @@ export const {
   useGetTailscaleStatusQuery,
   useConnectTailscaleMutation,
   usePatchDeploymentMutation,
+  useGetFederationQuery,
+  usePatchFederationMutation,
+  useFederationAdvertiseNowMutation,
 } = obeliskApi;
 
 export const tailscalePollOptions = { pollingInterval: 8000 } as const;
+export const federationPollOptions = { pollingInterval: 8000 } as const;
 
 /** Default polling for live cluster status. */
 export const statusPollOptions = { pollingInterval: POLL_MS } as const;
