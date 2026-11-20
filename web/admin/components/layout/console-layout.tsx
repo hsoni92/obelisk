@@ -1,7 +1,7 @@
 "use client";
 
 import { BlueprintGate } from "@/components/blueprint/gate";
-import { UnlockBanner } from "@/components/blueprint/unlock-banner";
+import { AlertsPanel } from "@/components/layout/alerts-panel";
 import { RecentActivityDrawer } from "@/components/activity/recent-activity-drawer";
 import { AppShell } from "@/components/layout/app-shell";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,7 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
 
   const meta = (
     <>
+      <AlertsPanel />
       <RecentActivityDrawer />
       {status?.reconcileMode === "off" && (
         <Badge variant="warning">reconcile off</Badge>
@@ -76,7 +77,6 @@ function ConsoleBody({ children }: { children: React.ReactNode }) {
       searchQuery={active === "services" ? searchDraft : ""}
       onSearchChange={onSearchChange}
     >
-      <UnlockBanner />
       {children}
     </AppShell>
   );
