@@ -1,7 +1,10 @@
 "use client";
 
 import { PageHeader } from "@/components/layout/page-header";
-import { NewInstanceButton } from "@/components/services/create-instance-dialog";
+import {
+  NewInstanceButton,
+  type CreateInstanceInput,
+} from "@/components/services/create-instance-dialog";
 import { ServicesFilters } from "@/components/services/services-filters";
 import { DiagnosticsResultsDialog } from "@/components/services/diagnostics-results-dialog";
 import {
@@ -307,10 +310,11 @@ function ServicesPageContent() {
     }
   }
 
-  async function addInstance(type: (typeof TYPES)[number], name: string) {
+  async function addInstance(input: CreateInstanceInput) {
     const res = await createInstance({
-      type,
-      display_name: name,
+      type: input.type,
+      display_name: input.name,
+      from_backup: input.fromBackup,
     }).unwrap();
     return res;
   }

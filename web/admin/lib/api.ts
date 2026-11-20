@@ -6,6 +6,7 @@ export type {
   BackupDestinationView,
   BackupTargetResponse,
   ConnectionsResponse,
+  CreateInstanceFromBackupResult,
   CreateInstanceResponse,
   InstanceDatabasesResponse,
   MailAccountView,

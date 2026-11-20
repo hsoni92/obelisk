@@ -59,12 +59,20 @@ func PrepareCloneInstance(
 	sourceType, sourceInstanceID, backupID, newID, displayName string,
 ) (obelisk.ServiceInstance, lineage.Node, error) {
 	sourceType = strings.ToLower(strings.TrimSpace(sourceType))
-	if sourceType != "postgres" {
-		return obelisk.ServiceInstance{}, lineage.Node{}, fmt.Errorf("clone is only implemented for postgres in v1")
+	if !obelisk.ServiceTypeSupportsBackup(sourceType) {
+		return obelisk.ServiceInstance{}, lineage.Node{}, fmt.Errorf("type %q does not support data backup", sourceType)
 	}
 	idx, err := lineage.Load(configPath)
 	if err != nil {
 		return obelisk.ServiceInstance{}, lineage.Node{}, err
+	}
+	backupID = strings.TrimSpace(backupID)
+	if backupID == "" {
+		_, forest, ok := lineage.ListNodes(idx, sourceType, sourceInstanceID)
+		if !ok || strings.TrimSpace(forest.ActiveBackupID) == "" {
+			return obelisk.ServiceInstance{}, lineage.Node{}, fmt.Errorf("no active backup on source instance")
+		}
+		backupID = forest.ActiveBackupID
 	}
 	node, _, ok := lineage.NodeByID(idx, sourceType, sourceInstanceID, backupID)
 	if !ok {
@@ -115,7 +123,7 @@ func CompleteCloneRestore(
 		_ = lineage.SetForestProvenance(configPath, inst.Type, inst.ID, sourceBackupID)
 		return out, fmt.Errorf("instance created; restore pending: %w", err)
 	}
-	if err := RestorePostgresSQL(ctx, inst, dump); err != nil {
+	if err := RestoreInstanceData(ctx, inst, dump); err != nil {
 		out.RestoreError = err.Error()
 		_ = lineage.SetForestProvenance(configPath, inst.Type, inst.ID, sourceBackupID)
 		return out, fmt.Errorf("instance created; restore failed: %w", err)

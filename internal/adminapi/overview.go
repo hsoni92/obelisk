@@ -92,7 +92,7 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 	sum := overviewSummary{}
 
 	// Platform release
-	platform := s.observeRelease(r, rec, OverviewComponent{
+	platform := observePlatform(r, rec, OverviewComponent{
 		Key:     "platform/obelisk-platform",
 		Kind:    "platform",
 		Name:    "Platform",
@@ -216,6 +216,71 @@ func modeLabel(reconcileOff bool) string {
 	return "cluster"
 }
 
+// observePlatform handles the platform Helm release, including host dev where only data
+// services run in-cluster (make dev) and the controller serves the API on the host.
+func observePlatform(r *http.Request, rec controller.Reconciler, comp OverviewComponent, reconcileOff bool) OverviewComponent {
+	if reconcileOff {
+		comp.Reason = "reconcile off or helm/kubectl unavailable"
+		return comp
+	}
+	helm := rec.HelmReleaseDetail(r.Context(), comp.Release)
+	if helm.Err != nil {
+		comp.State = "degraded"
+		comp.Reason = helm.Err.Error()
+		return comp
+	}
+	pods := rec.PodsForRelease(r.Context(), comp.Release)
+	if pods.Err == nil {
+		comp.PodsReady = pods.Ready
+		comp.PodsTotal = pods.Total
+	}
+
+	if helm.Status == "" {
+		if pods.Total == 0 {
+			comp.State = "running"
+			comp.Reason = "platform on host (no in-cluster platform release)"
+			return comp
+		}
+		comp.State = "starting"
+		if comp.Reason == "" {
+			comp.Reason = "platform workloads present without helm release"
+		}
+		return comp
+	}
+
+	comp.HelmStatus = helm.Status
+	comp.Revision = helm.Revision
+	if helm.Description != "" {
+		comp.Reason = helm.Description
+	}
+	switch helm.Status {
+	case "deployed":
+		if pods.Total == 0 {
+			comp.State = "starting"
+			if comp.Reason == "" {
+				comp.Reason = "no platform pods"
+			}
+		} else if pods.Ready < pods.Total {
+			comp.State = "starting"
+			if comp.Reason == "" {
+				comp.Reason = "platform pods not ready"
+			}
+		} else {
+			comp.State = "running"
+		}
+	case "failed", "uninstalling":
+		comp.State = "degraded"
+		if comp.Reason == "" {
+			comp.Reason = "helm status: " + helm.Status
+		}
+	case "pending-install", "pending-upgrade", "pending-rollback":
+		comp.State = "starting"
+	default:
+		comp.State = "starting"
+	}
+	return comp
+}
+
 func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp OverviewComponent, reconcileOff bool) OverviewComponent {
 	if reconcileOff {
 		if comp.Desired && (comp.State == "" || comp.State == "pending") {
@@ -289,7 +354,7 @@ func (s *Server) observeRelease(r *http.Request, rec controller.Reconciler, comp
 				comp.Reason = "pods not ready"
 			}
 		}
-		if comp.Desired && pods.Total == 0 && comp.State == "running" {
+		if comp.Desired && pods.Total == 0 && comp.State == "running" && comp.Kind != "platform" {
 			comp.State = "starting"
 		}
 	}

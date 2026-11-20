@@ -13,7 +13,7 @@ export function Field({
   ...inputProps
 }: React.ComponentProps<typeof Input> & { label: string }) {
   return (
-    <div className={cn("block space-y-1", className)}>
+    <div className={cn("block space-y-2", className)}>
       <Label htmlFor={inputProps.id}>{label}</Label>
       <Input {...inputProps} />
     </div>
@@ -28,7 +28,7 @@ export function FieldPassword({
 }: React.ComponentProps<typeof Input> & { label: string }) {
   const [visible, setVisible] = useState(false);
   return (
-    <div className={cn("block space-y-1", className)}>
+    <div className={cn("block space-y-2", className)}>
       <Label htmlFor={inputProps.id}>{label}</Label>
       <div className="relative">
         <Input

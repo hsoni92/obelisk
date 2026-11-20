@@ -185,7 +185,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
                 onChange={(e) => setLabel(e.target.value)}
                 placeholder="e.g. Cloudflare R2"
               />
-              <div className="space-y-1">
+              <div className="space-y-2">
                 <Label className="text-eyebrow">Provider</Label>
                 <SelectField
                   value={provider}
@@ -195,7 +195,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
                 />
               </div>
               {provider === "aws" && (
-                <div className="space-y-1">
+                <div className="space-y-2">
                   <Label className="text-eyebrow">AWS region</Label>
                   <SelectField
                     value={awsRegion}

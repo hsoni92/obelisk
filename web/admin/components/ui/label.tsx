@@ -8,7 +8,7 @@ const Label = ({
   ...props
 }: React.ComponentProps<typeof LabelPrimitive.Root>) => (
   <LabelPrimitive.Root
-    className={cn("text-label text-muted-foreground", className)}
+    className={cn("block text-label text-muted-foreground", className)}
     {...props}
   />
 );

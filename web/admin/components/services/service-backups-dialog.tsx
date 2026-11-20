@@ -175,7 +175,7 @@ export function ServiceBackupsDialog({ row, onOpenChange }: Props) {
                       variant="ink"
                       size="sm"
                       disabled={
-                        inst.type !== "postgres" ||
+                        !inst.deployment?.backup?.supported ||
                         !data?.active_backup_id ||
                         restoreBusy ||
                         !running

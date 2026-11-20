@@ -72,10 +72,47 @@ func (r *Reconciler) PodsForRelease(ctx context.Context, release string) PodSumm
 	if r.reconcileDisabled() {
 		return PodSummary{}
 	}
+	if release == PlatformRelease {
+		return r.podsForPlatform(ctx)
+	}
+	return r.podsForLabelSelector(ctx, fmt.Sprintf("app=%s", release))
+}
+
+// podsForPlatform aggregates core platform workloads; the platform chart does not use app=<release>.
+func (r *Reconciler) podsForPlatform(ctx context.Context) PodSummary {
+	parts := []PodSummary{
+		r.podsForLabelSelector(ctx, "app=obelisk-kong"),
+		r.podsForLabelSelector(ctx, "app=obelisk-admin-ui"),
+		r.podsForLabelSelector(ctx, "app.kubernetes.io/name=obelisk-controller"),
+	}
+	edge := r.podsForLabelSelector(ctx, "app=obelisk-native-edge")
+	if edge.Total > 0 {
+		parts = append(parts, edge)
+	}
+	return mergePodSummaries(parts...)
+}
+
+func mergePodSummaries(parts ...PodSummary) PodSummary {
+	var out PodSummary
+	for _, p := range parts {
+		if p.Err != nil && out.Err == nil {
+			out.Err = p.Err
+		}
+		out.Ready += p.Ready
+		out.Total += p.Total
+		if out.PrimaryReason == "" && p.PrimaryReason != "" {
+			out.PrimaryReason = p.PrimaryReason
+			out.Detail = p.Detail
+		}
+	}
+	return out
+}
+
+func (r *Reconciler) podsForLabelSelector(ctx context.Context, selector string) PodSummary {
 	ns := r.namespace()
 	raw, err := commandRunner(ctx, "kubectl", "get", "pods",
 		"-n", ns,
-		"-l", fmt.Sprintf("app=%s", release),
+		"-l", selector,
 		"-o", "json")
 	if err != nil {
 		return PodSummary{Err: err}

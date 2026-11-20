@@ -246,8 +246,8 @@ func (s *Server) handlePostInstanceRestoreActive(w http.ResponseWriter, r *http.
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if typ != "postgres" {
-		http.Error(w, "restore active is only implemented for postgres in v1", http.StatusBadRequest)
+	if !obelisk.ServiceTypeSupportsBackup(typ) {
+		http.Error(w, "service type does not support data backup", http.StatusBadRequest)
 		return
 	}
 	cfg := config.EnsureReadablePath(s.ConfigPath)
@@ -307,7 +307,7 @@ func (s *Server) handlePostInstanceRestoreActive(w http.ResponseWriter, r *http.
 		http.Error(w, fetchErr.Error(), http.StatusBadGateway)
 		return
 	}
-	if err := backup.RestorePostgresSQL(ctx, inst, dump); err != nil {
+	if err := backup.RestoreInstanceData(ctx, inst, dump); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}

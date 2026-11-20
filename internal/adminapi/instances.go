@@ -32,9 +32,16 @@ type instanceView struct {
 	Deployment instanceDeploymentView `json:"deployment"`
 }
 
+type createInstanceFromBackup struct {
+	SourceType       string `json:"source_type"`
+	SourceInstanceID string `json:"source_instance_id"`
+	BackupID         string `json:"backup_id,omitempty"`
+}
+
 type createInstanceRequest struct {
-	Type        string `json:"type"`
-	DisplayName string `json:"display_name"`
+	Type        string                    `json:"type"`
+	DisplayName string                    `json:"display_name"`
+	FromBackup  *createInstanceFromBackup `json:"from_backup,omitempty"`
 }
 
 type patchInstanceBackupRequest struct {
@@ -147,14 +154,55 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	id := obelisk.AllocateInstanceID(&spec)
-	inst, err := obelisk.NewServiceInstance(req.Type, id, req.DisplayName)
-	if err != nil {
+	var (
+		inst       obelisk.ServiceInstance
+		sourceNode lineage.Node
+		sourceBkp  string
+		restoreOK  bool
+		restoreErr string
+	)
+	if req.FromBackup != nil {
+		fb := req.FromBackup
+		srcType := strings.ToLower(strings.TrimSpace(fb.SourceType))
+		srcID := strings.TrimSpace(fb.SourceInstanceID)
+		reqType := strings.ToLower(strings.TrimSpace(req.Type))
+		if srcType == "" || srcID == "" {
+			s.mu.Unlock()
+			http.Error(w, "from_backup requires source_type and source_instance_id", http.StatusBadRequest)
+			return
+		}
+		if reqType != srcType {
+			s.mu.Unlock()
+			http.Error(w, "instance type must match backup source type", http.StatusBadRequest)
+			return
+		}
+		if !obelisk.ServiceTypeSupportsBackup(reqType) {
+			s.mu.Unlock()
+			http.Error(w, "this service type does not support data backups", http.StatusBadRequest)
+			return
+		}
+		inst, sourceNode, err = backup.PrepareCloneInstance(cfg, &spec, srcType, srcID, fb.BackupID, "", req.DisplayName)
+		if err != nil {
+			s.mu.Unlock()
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		sourceBkp = sourceNode.ID
+	} else {
+		id := obelisk.AllocateInstanceID(&spec)
+		inst, err = obelisk.NewServiceInstance(req.Type, id, req.DisplayName)
+		if err != nil {
+			s.mu.Unlock()
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		spec.Instances = append(spec.Instances, inst)
+	}
+	if err := obelisk.ValidateInstanceBackupPolicyOverride(spec, inst); err != nil {
 		s.mu.Unlock()
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	spec.Instances = append(spec.Instances, inst)
 	obelisk.SyncLegacyServiceFlags(&spec)
 	if err := config.Save(cfg, spec); err != nil {
 		s.mu.Unlock()
@@ -168,6 +216,17 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 	} else {
 		controller.ReconcileAsync(s.reconciler(cfg))
 	}
+
+	if req.FromBackup != nil {
+		ctx := r.Context()
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		out, _ := backup.CompleteCloneRestore(ctx, cfg, s.HelmRoot, spec, inst, sourceNode, sourceBkp)
+		restoreOK = out.RestoreOK
+		restoreErr = out.RestoreError
+	}
+
 	ns := instanceNamespace()
 	resolved := obelisk.SpecWithResolvedCredentials(spec, func(in obelisk.ServiceInstance) obelisk.InstanceCredentials {
 		return credentials.MergeInstanceCredentials(r.Context(), ns, in)
@@ -185,12 +244,22 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 			break
 		}
 	}
-	writeJSON(w, map[string]any{
+	resp := map[string]any{
 		"instance":    inst,
 		"credentials": inst.Credentials,
 		"use":         use,
 		"accepted":    true,
-	})
+	}
+	if req.FromBackup != nil {
+		resp["from_backup"] = map[string]any{
+			"source_type":        strings.ToLower(strings.TrimSpace(req.FromBackup.SourceType)),
+			"source_instance_id": strings.TrimSpace(req.FromBackup.SourceInstanceID),
+			"backup_id":            sourceBkp,
+			"restore_ok":           restoreOK,
+			"restore_error":        restoreErr,
+		}
+	}
+	writeJSON(w, resp)
 }
 
 func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {

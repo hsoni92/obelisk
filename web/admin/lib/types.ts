@@ -335,10 +335,19 @@ export type ConnectionsResponse = {
   notes?: string;
 };
 
+export type CreateInstanceFromBackupResult = {
+  source_type: string;
+  source_instance_id: string;
+  backup_id: string;
+  restore_ok: boolean;
+  restore_error?: string;
+};
+
 export type CreateInstanceResponse = {
   instance: ServiceInstance;
   credentials: ServiceInstance["credentials"];
   use?: string;
+  from_backup?: CreateInstanceFromBackupResult;
 };
 
 export type OpenRouterAccountView = {

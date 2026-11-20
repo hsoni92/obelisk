@@ -508,6 +508,98 @@ function Kpi({
   );
 }
 
+type HealthTone = "ok" | "warn" | "bad";
+
+const TONE_TEXT: Record<HealthTone, string> = {
+  ok: "text-success",
+  warn: "text-warning",
+  bad: "text-destructive",
+};
+const TONE_BAR: Record<HealthTone, string> = {
+  ok: "bg-success",
+  warn: "bg-warning",
+  bad: "bg-destructive",
+};
+
+/** 0–10: components dominate, backups and pending work shave off the rest. */
+function healthScore({
+  degraded,
+  pending,
+  total,
+  backupTone,
+}: {
+  degraded: number;
+  pending: number;
+  total: number;
+  backupTone?: "success" | "warning" | "live" | "default";
+}) {
+  const t = Math.max(total, 1);
+  let score = 10;
+  score -= 6 * Math.min(degraded / t, 1);
+  score -= 2 * Math.min(pending / t, 1);
+  if (degraded > 0) score -= 1; // any degraded component is never "perfect"
+  if (backupTone === "warning") score -= 1.5;
+  if (backupTone === "live") score -= 3;
+  return Math.max(0, Math.min(10, Math.round(score * 10) / 10));
+}
+
+/** Animated isometric cube: bobbing core, pulsing light, orbiting satellites. */
+function HealthCube({ score, tone }: { score: number; tone: HealthTone }) {
+  const orbit = "M 10 88 a 78 39 0 1 0 156 0 a 78 39 0 1 0 -156 0";
+  return (
+    <div
+      className={cn("relative shrink-0", TONE_TEXT[tone])}
+      role="img"
+      aria-label={`Health score ${score} out of 10`}
+    >
+      <div aria-hidden className="absolute inset-8 rounded-full bg-current opacity-[0.14] blur-2xl" />
+      <svg viewBox="0 0 176 176" className="relative size-40 sm:size-44 overflow-visible">
+        {/* ground ring + shadow */}
+        <ellipse cx={88} cy={146} rx={52} ry={13} className="fill-foreground" fillOpacity={0.08} />
+        <ellipse cx={88} cy={146} rx={70} ry={22} fill="none" stroke="currentColor" strokeOpacity={0.3} strokeWidth={1} strokeDasharray="2 5" />
+
+        <g className="iso-float">
+          {/* cube faces */}
+          <polygon points="88,38 128,61 88,84 48,61" fill="currentColor" fillOpacity={0.92} />
+          <polygon points="48,61 88,84 88,130 48,107" fill="currentColor" fillOpacity={0.55} />
+          <polygon points="128,61 128,107 88,130 88,84" fill="currentColor" fillOpacity={0.3} />
+          {/* crisp edges */}
+          <g fill="none" stroke="var(--card)" strokeWidth={1.5} strokeLinejoin="round" strokeLinecap="round">
+            <polygon points="88,38 128,61 128,107 88,130 48,107 48,61" />
+            <polyline points="48,61 88,84 128,61" />
+            <line x1={88} y1={84} x2={88} y2={130} />
+          </g>
+          {/* pulsing core on the top face */}
+          <polygon className="iso-pulse" points="88,52 106,61.5 88,71 70,61.5" fill="var(--card)" />
+          {/* LEDs on left face */}
+          <g fill="var(--card)">
+            <circle className="iso-led" cx={60} cy={92} r={2} />
+            <circle className="iso-led iso-led-2" cx={68} cy={96.5} r={2} />
+            <circle className="iso-led iso-led-3" cx={76} cy={101} r={2} />
+          </g>
+          {/* vents on right face */}
+          <g stroke="var(--card)" strokeOpacity={0.55} strokeWidth={1.5} strokeLinecap="round">
+            <line x1={98} y1={96} x2={118} y2={85} />
+            <line x1={98} y1={104} x2={118} y2={93} />
+            <line x1={98} y1={112} x2={118} y2={101} />
+          </g>
+        </g>
+
+        {/* orbiting satellites */}
+        <g className="iso-orbit">
+          <circle r={4} fill="currentColor">
+            <animateMotion dur="7s" repeatCount="indefinite" path={orbit} />
+          </circle>
+          <circle r={2.5} fill="currentColor" fillOpacity={0.6}>
+            <animateMotion dur="7s" begin="-3.5s" repeatCount="indefinite" path={orbit} />
+          </circle>
+        </g>
+        <path d={orbit} fill="none" stroke="currentColor" strokeOpacity={0.2} strokeWidth={1} />
+      </svg>
+    </div>
+  );
+}
+
 function Verdict({
   loading,
   degraded,
@@ -538,42 +630,70 @@ function Verdict({
 
   const bad = degraded > 0 || backupTone === "live";
   const ok = issues.length === 0;
-  const Icon = ok ? CheckCircle2 : AlertTriangle;
+  const tone: HealthTone = ok ? "ok" : bad ? "bad" : "warn";
+  const score = healthScore({ degraded, pending, total, backupTone });
+  const scoreText = Number.isInteger(score) ? String(score) : score.toFixed(1);
+
   return (
-    <div
-      role="status"
-      className={cn(
-        "flex flex-wrap items-center gap-3 rounded-xl border px-4 py-3",
-        ok && "border-success/30 bg-success-tint text-success",
-        !ok && bad && "border-destructive/30 bg-destructive-tint text-destructive",
-        !ok && !bad && "border-warning/30 bg-warning-tint text-warning",
-      )}
-    >
-      <Icon className="size-5 shrink-0" aria-hidden />
-      <div className="min-w-0 flex-1">
-        <p className="text-sm font-semibold">
-          {ok
-            ? "All systems operational"
-            : bad
-              ? "Action needed"
-              : "Heads up"}
-        </p>
-        <p className="text-metadata opacity-90">
-          {ok
-            ? `${running} of ${total} components running · backups healthy`
-            : issues.join(" · ")}
-        </p>
+    <Card role="status" className="overflow-hidden">
+      <div className="flex flex-col items-center gap-6 p-6 sm:flex-row">
+        <HealthCube score={score} tone={tone} />
+
+        <div className="min-w-0 flex-1 self-stretch sm:self-center">
+          <p className="text-eyebrow text-muted-foreground">System health</p>
+          <div className="mt-1 flex items-baseline gap-2">
+            <span className={cn("text-5xl font-light leading-none tabular-nums", TONE_TEXT[tone])}>
+              {scoreText}
+            </span>
+            <span className="text-lg text-muted-foreground">/ 10</span>
+          </div>
+
+          <div
+            className="mt-4 grid grid-cols-10 gap-1"
+            role="meter"
+            aria-valuemin={0}
+            aria-valuemax={10}
+            aria-valuenow={score}
+            aria-label="Health score"
+          >
+            {Array.from({ length: 10 }, (_, i) => {
+              const fill = Math.max(0, Math.min(1, score - i));
+              return (
+                <span key={i} className="h-1.5 overflow-hidden rounded-full bg-muted">
+                  <span
+                    className={cn("block h-full rounded-full", TONE_BAR[tone])}
+                    style={{ width: `${fill * 100}%` }}
+                  />
+                </span>
+              );
+            })}
+          </div>
+
+          <p className="mt-3 text-sm font-medium">
+            {ok ? "All systems operational" : bad ? "Action needed" : "Heads up"}
+          </p>
+          <p className="text-metadata text-muted-foreground">
+            {ok
+              ? `${running} of ${total} components running · backups healthy`
+              : issues.join(" · ")}
+          </p>
+
+          {(!ok && (degraded > 0 || pending > 0)) || backupBad ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {!ok && (degraded > 0 || pending > 0) && (
+                <Button size="sm" variant="outline" onClick={onOpenServices}>
+                  View services
+                </Button>
+              )}
+              {backupBad && (
+                <Button size="sm" variant="outline" onClick={onOpenDR}>
+                  Fix backups
+                </Button>
+              )}
+            </div>
+          ) : null}
+        </div>
       </div>
-      {!ok && (degraded > 0 || pending > 0) && (
-        <Button size="sm" variant="outline" onClick={onOpenServices}>
-          View services
-        </Button>
-      )}
-      {backupBad && (
-        <Button size="sm" variant="outline" onClick={onOpenDR}>
-          Fix backups
-        </Button>
-      )}
-    </div>
+    </Card>
   );
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"strings"
@@ -40,6 +41,27 @@ func kubectlOutput(ctx context.Context, args ...string) ([]byte, error) {
 		if errors.As(err, &ee) {
 			stderr = strings.TrimSpace(string(ee.Stderr))
 		}
+		msg := strings.Join(args, " ")
+		if stderr != "" {
+			return nil, fmt.Errorf("kubectl %s: %w (%s)", msg, err, stderr)
+		}
+		return nil, fmt.Errorf("kubectl %s: %w", msg, err)
+	}
+	return out, nil
+}
+
+// kubectlCombined runs kubectl with optional stdin; returns combined output on failure.
+func kubectlCombined(ctx context.Context, stdin io.Reader, args ...string) ([]byte, error) {
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Minute)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, "kubectl", args...)
+	cmd.Env = kubeconfigEnv()
+	if stdin != nil {
+		cmd.Stdin = stdin
+	}
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		stderr := strings.TrimSpace(string(out))
 		msg := strings.Join(args, " ")
 		if stderr != "" {
 			return nil, fmt.Errorf("kubectl %s: %w (%s)", msg, err, stderr)

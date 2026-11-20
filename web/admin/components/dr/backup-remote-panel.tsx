@@ -186,7 +186,7 @@ export function BackupRemotePanel({
         , not in git.
       </p>
 
-      <div className="space-y-1">
+      <div className="space-y-2">
         <Label className="text-eyebrow">Remote storage</Label>
         <SelectField
           options={BACKUP_REMOTE_PROVIDER_OPTIONS}
@@ -200,7 +200,7 @@ export function BackupRemotePanel({
 
       {provider === "aws" ? (
         <>
-          <div className="space-y-1">
+          <div className="space-y-2">
             <Label className="text-eyebrow">AWS region</Label>
             <SelectField
               options={awsRegionOptions}

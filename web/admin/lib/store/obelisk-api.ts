@@ -210,14 +210,28 @@ export const obeliskApi = createApi({
     }),
     createInstance: builder.mutation<
       CreateInstanceResponse,
-      { type: string; display_name: string }
+      {
+        type: string;
+        display_name: string;
+        from_backup?: {
+          source_type: string;
+          source_instance_id: string;
+          backup_id?: string;
+        };
+      }
     >({
       query: (body) => ({
         url: "/instances",
         method: "POST",
         body,
       }),
-      invalidatesTags: ["Status", "Connections", "Overview"],
+      invalidatesTags: [
+        "Status",
+        "Connections",
+        "Overview",
+        "BackupCatalog",
+        "BackupLineage",
+      ],
     }),
     patchInstance: builder.mutation<
       unknown,
