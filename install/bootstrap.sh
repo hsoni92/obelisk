@@ -228,7 +228,7 @@ wait_platform_rollout() {
   command -v kubectl >/dev/null 2>&1 || return 0
   kubectl cluster-info >/dev/null 2>&1 || return 0
   local timeout="${OBELISK_PLATFORM_WAIT_SEC:-300}"
-  for dep in obelisk-kong obelisk-native-edge obelisk-controller obelisk-admin-ui; do
+  for dep in obelisk-kong obelisk-controller obelisk-admin-ui obelisk-native-edge; do
     if ! kubectl get deployment -n "$NAMESPACE" "$dep" >/dev/null 2>&1; then
       continue
     fi

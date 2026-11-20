@@ -22,6 +22,19 @@ func TestRenderNativeEdgeNginx_RedisSNI(t *testing.T) {
 	}
 }
 
+func TestRenderNativeEdgeNginx_MapHashBucketSize(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "178.105.35.230")
+	spec := obelisk.DefaultSpec("vps")
+	spec.Instances = []obelisk.ServiceInstance{
+		{ID: "valiant-pelican", Type: "postgres", Enabled: true},
+		{ID: "sunny-skunk", Type: "redis", Enabled: true},
+	}
+	out := RenderNativeEdgeNginx(spec, "obelisk", nil)
+	if !strings.Contains(out, "map_hash_bucket_size 128;") {
+		t.Fatalf("missing map_hash_bucket_size for long sslip.io SNIs:\n%s", out)
+	}
+}
+
 func TestRenderNativeEdgeNginx_SkipsDisabled(t *testing.T) {
 	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
 	spec := obelisk.DefaultSpec("vps")

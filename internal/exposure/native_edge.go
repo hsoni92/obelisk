@@ -28,6 +28,7 @@ func RenderNativeEdgeNginx(spec obelisk.Spec, namespace string, federated []peer
 	b.WriteString("error_log /var/log/nginx/error.log warn;\n")
 	b.WriteString("events { worker_connections 2048; }\n")
 	b.WriteString("stream {\n")
+	b.WriteString("    map_hash_bucket_size 128;\n")
 	b.WriteString("    resolver kube-dns.kube-system.svc.cluster.local valid=10s ipv6=off;\n")
 	b.WriteString("    map $ssl_preread_server_name $native_backend {\n")
 	b.WriteString("        default \"\";\n")
