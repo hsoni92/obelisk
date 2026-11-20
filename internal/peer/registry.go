@@ -244,6 +244,40 @@ func (r *Registry) FederatedTargets(spec obelisk.Spec, staleAfter time.Duration)
 	return out
 }
 
+// RemovePeer deletes a peer and its catalog snapshot from the gateway registry.
+func (r *Registry) RemovePeer(peerID string) error {
+	peerID = strings.TrimSpace(peerID)
+	if peerID == "" {
+		return fmt.Errorf("peer id required")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if _, ok := r.data.Peers[peerID]; !ok {
+		return fmt.Errorf("peer not found")
+	}
+	delete(r.data.Peers, peerID)
+	return r.save()
+}
+
+// RemovePeerWithToken deletes the peer when bearer matches its admission token.
+func (r *Registry) RemovePeerWithToken(peerID, bearer string) error {
+	peerID = strings.TrimSpace(peerID)
+	if peerID == "" {
+		return fmt.Errorf("peer id required")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	rec, ok := r.data.Peers[peerID]
+	if !ok {
+		return fmt.Errorf("peer not found")
+	}
+	if rec.TokenHash == "" || !subtleCompareBearer(bearer, rec.TokenHash) {
+		return fmt.Errorf("invalid peer token")
+	}
+	delete(r.data.Peers, peerID)
+	return r.save()
+}
+
 // AdmitPeer manually admits a pending peer and returns a new bearer token (OQ2 manual path).
 func (r *Registry) AdmitPeer(peerID string) (string, error) {
 	peerID = strings.TrimSpace(peerID)

@@ -36,7 +36,7 @@ func isPublic(r *http.Request) bool {
 		return r.Method == http.MethodGet
 	case "/api/v1/blueprint/github/authorize", "/api/v1/blueprint/github/callback":
 		return r.Method == http.MethodPost
-	case "/api/v1/peers/advertise":
+	case "/api/v1/peers/advertise", "/api/v1/peers/resign":
 		return r.Method == http.MethodPost
 	default:
 		return false

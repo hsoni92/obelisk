@@ -174,3 +174,58 @@ func (s *Server) handleFederationAdvertiseNow(w http.ResponseWriter, r *http.Req
 	}
 	writeJSON(w, map[string]any{"ok": true, "advertise_status": peer.GetAdvertiseStatus()})
 }
+
+func (s *Server) handleFederationUnregister(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	spec, err := config.Load(cfg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if obelisk.IsGateway(spec) {
+		http.Error(w, "gateway appliances do not register outward", http.StatusBadRequest)
+		return
+	}
+	advertiseURL := strings.TrimSpace(spec.PeerGateway.AdvertiseURL)
+	if advertiseURL == "" {
+		advertiseURL = strings.TrimSpace(os.Getenv("OBELISK_GATEWAY_ADVERTISE_URL"))
+	}
+	peerID := strings.TrimSpace(spec.Machine.ID)
+	if peerID == "" {
+		peerID = strings.TrimSpace(os.Getenv("OBELISK_PEER_ID"))
+	}
+	bearer := peer.ReadLocalToken(cfg)
+	cctx, cancel := context.WithTimeout(r.Context(), 25*time.Second)
+	defer cancel()
+	gwErr := peer.NotifyGatewayUnregister(cctx, advertiseURL, peerID, bearer)
+	peer.ClearLocalRegistration(cfg)
+
+	s.mu.Lock()
+	spec, err = config.Load(cfg)
+	if err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	spec.PeerGateway.AdvertiseURL = ""
+	spec.PeerGateway.GatewayEdgeHost = ""
+	if err := config.Save(s.ConfigPath, spec); err != nil {
+		s.mu.Unlock()
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	s.mu.Unlock()
+
+	rec := s.reconciler(cfg)
+	_, _ = rec.Reconcile(r.Context())
+
+	out := map[string]any{"ok": true, "advertise_url": ""}
+	if gwErr != nil {
+		out["gateway_warning"] = gwErr.Error()
+	}
+	writeJSON(w, out)
+}

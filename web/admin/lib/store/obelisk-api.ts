@@ -601,6 +601,23 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Federation", "Instances", "Status", "Connections", "Overview"],
     }),
+    federationUnregister: builder.mutation<
+      { ok: boolean; advertise_url: string; gateway_warning?: string },
+      void
+    >({
+      query: () => ({
+        url: "/federation/unregister",
+        method: "POST",
+      }),
+      invalidatesTags: ["Federation", "Instances", "Status", "Connections", "Overview"],
+    }),
+    deleteFederationPeer: builder.mutation<{ ok: boolean; peer_id: string }, string>({
+      query: (peerId) => ({
+        url: `/peers/${encodeURIComponent(peerId)}`,
+        method: "DELETE",
+      }),
+      invalidatesTags: ["Federation", "Instances", "Status", "Connections", "Overview"],
+    }),
     getBlueprintStatus: builder.query<BlueprintStatus, void>({
       query: () => "/blueprint/status",
       providesTags: ["Blueprint"],
@@ -823,6 +840,8 @@ export const {
   useGetFederationQuery,
   usePatchFederationMutation,
   useFederationAdvertiseNowMutation,
+  useFederationUnregisterMutation,
+  useDeleteFederationPeerMutation,
 } = obeliskApi;
 
 export const tailscalePollOptions = { pollingInterval: 8000 } as const;

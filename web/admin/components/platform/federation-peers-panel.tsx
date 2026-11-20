@@ -1,5 +1,15 @@
 "use client";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -8,7 +18,9 @@ import { relativeTime } from "@/lib/overview-series";
 import {
   federationPollOptions,
   rtkErrorMessage,
+  useDeleteFederationPeerMutation,
   useFederationAdvertiseNowMutation,
+  useFederationUnregisterMutation,
   useGetFederationQuery,
   usePatchFederationMutation,
 } from "@/lib/store/obelisk-api";
@@ -41,7 +53,11 @@ export function FederationPeersPanel({
   );
   const [patchFederation, patchState] = usePatchFederationMutation();
   const [advertiseNow, advertiseState] = useFederationAdvertiseNowMutation();
+  const [unregister, unregisterState] = useFederationUnregisterMutation();
+  const [deletePeer, deletePeerState] = useDeleteFederationPeerMutation();
   const [gatewayURL, setGatewayURL] = React.useState("");
+  const [peerToRemove, setPeerToRemove] = React.useState<string | null>(null);
+  const [confirmUnregister, setConfirmUnregister] = React.useState(false);
 
   React.useEffect(() => {
     if (data?.advertise_url != null) {
@@ -74,6 +90,32 @@ export function FederationPeersPanel({
     try {
       await advertiseNow().unwrap();
       toast.success("Catalog sent to gateway");
+    } catch (e) {
+      toast.error(rtkErrorMessage(e));
+    }
+  }
+
+  async function onConfirmRemovePeer() {
+    const id = peerToRemove;
+    if (!id) return;
+    try {
+      await deletePeer(id).unwrap();
+      toast.success(`Removed peer ${id}`);
+      setPeerToRemove(null);
+    } catch (e) {
+      toast.error(rtkErrorMessage(e));
+    }
+  }
+
+  async function onConfirmUnregister() {
+    try {
+      const res = await unregister().unwrap();
+      setGatewayURL("");
+      setConfirmUnregister(false);
+      toast.success("Unregistered from gateway");
+      if (res.gateway_warning) {
+        toast.warning(res.gateway_warning);
+      }
     } catch (e) {
       toast.error(rtkErrorMessage(e));
     }
@@ -138,6 +180,16 @@ export function FederationPeersPanel({
                       seen {relativeTime(peer.last_seen)}
                     </span>
                   ) : null}
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-destructive hover:text-destructive"
+                    disabled={deletePeerState.isLoading}
+                    onClick={() => setPeerToRemove(peer.id)}
+                  >
+                    Remove
+                  </Button>
                 </div>
               </li>
             ))}
@@ -146,6 +198,30 @@ export function FederationPeersPanel({
         {isLoading ? (
           <p className="text-metadata text-muted-foreground">Refreshing…</p>
         ) : null}
+        <AlertDialog
+          open={peerToRemove != null}
+          onOpenChange={(open) => !open && setPeerToRemove(null)}
+        >
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Remove peer from gateway?</AlertDialogTitle>
+              <AlertDialogDescription>
+                Federated services for{" "}
+                <span className="font-mono">{peerToRemove}</span> disappear from
+                this gateway until the peer registers again.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>Cancel</AlertDialogCancel>
+              <AlertDialogAction
+                className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                onClick={() => void onConfirmRemovePeer()}
+              >
+                Remove peer
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
       </div>
     );
   }
@@ -223,6 +299,42 @@ export function FederationPeersPanel({
           {advertise.last_error}
         </p>
       ) : null}
+
+      {data?.advertise_configured ? (
+        <div className="border-t border-border/60 pt-4">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="text-destructive border-destructive/30 hover:bg-destructive/10"
+            disabled={unregisterState.isLoading}
+            onClick={() => setConfirmUnregister(true)}
+          >
+            Unregister from gateway
+          </Button>
+        </div>
+      ) : null}
+
+      <AlertDialog open={confirmUnregister} onOpenChange={setConfirmUnregister}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Unregister from gateway?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Stops advertising, removes backhaul routes on this box, and asks
+              the gateway to drop this peer. Re-register anytime with a new save.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              onClick={() => void onConfirmUnregister()}
+            >
+              Unregister
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

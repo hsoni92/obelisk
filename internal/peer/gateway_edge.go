@@ -37,6 +37,11 @@ func WriteGatewayEdgeDomain(configPath, domain string) error {
 	return os.Rename(tmp, filepath.Join(dir, gatewayEdgeFile))
 }
 
+// ClearGatewayEdgeDomain removes learned gateway edge zone (local unregister).
+func ClearGatewayEdgeDomain(configPath string) {
+	_ = os.Remove(filepath.Join(config.CredentialsDir(configPath), gatewayEdgeFile))
+}
+
 // LoadGatewayEdgeDomain reads the learned gateway edge zone.
 func LoadGatewayEdgeDomain(configPath string) string {
 	path := filepath.Join(config.CredentialsDir(configPath), gatewayEdgeFile)
