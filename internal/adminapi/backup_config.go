@@ -23,6 +23,7 @@ type backupPolicyView struct {
 
 type backupDestinationView struct {
 	ID                    string `json:"id"`
+	IsPrimary             bool   `json:"is_primary"`
 	Label                 string `json:"label"`
 	Provider              string `json:"provider,omitempty"`
 	Endpoint              string `json:"endpoint"`
@@ -79,6 +80,11 @@ type postBackupDestinationRequest struct {
 	Credentials *backup.RemoteCredentials `json:"credentials,omitempty"`
 }
 
+type deleteBackupDestinationRequest struct {
+	AcknowledgePrimaryRemoval bool   `json:"acknowledge_primary_removal"`
+	PromoteDestinationID      string `json:"promote_destination_id,omitempty"`
+}
+
 type patchBackupDestinationRequest struct {
 	Label       *string `json:"label,omitempty"`
 	Provider    *string `json:"provider,omitempty"`
@@ -107,6 +113,7 @@ func (s *Server) buildBackupConfig(cfg string, spec obelisk.Spec) backupConfigRe
 	}
 	bucket := spec.BackupBucketName()
 	dests := obelisk.EffectiveDestinations(spec)
+	primaryID := obelisk.PrimaryBackupDestinationID(spec)
 	var views []backupDestinationView
 	readyCount := 0
 	enabledCount := 0
@@ -129,6 +136,7 @@ func (s *Server) buildBackupConfig(cfg string, spec obelisk.Spec) backupConfigRe
 		lag := scheduleLag(policy.Schedule, st.LastUploadAt, st.LastTestAt)
 		views = append(views, backupDestinationView{
 			ID:                    d.ID,
+			IsPrimary:             d.ID == primaryID,
 			Label:                 d.Label,
 			Provider:              d.Provider,
 			Endpoint:              d.Endpoint,
@@ -400,6 +408,10 @@ func (s *Server) handlePatchBackupDestination(w http.ResponseWriter, r *http.Req
 
 func (s *Server) handleDeleteBackupDestination(w http.ResponseWriter, r *http.Request) {
 	id := strings.TrimSpace(r.PathValue("id"))
+	var req deleteBackupDestinationRequest
+	if r.ContentLength > 0 {
+		_ = json.NewDecoder(r.Body).Decode(&req)
+	}
 	cfg := config.EnsureReadablePath(s.ConfigPath)
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -407,6 +419,35 @@ func (s *Server) handleDeleteBackupDestination(w http.ResponseWriter, r *http.Re
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+	isPrimary := obelisk.IsPrimaryBackupDestination(spec, id)
+	destCount := len(obelisk.EffectiveDestinations(spec))
+	if isPrimary {
+		if !req.AcknowledgePrimaryRemoval {
+			http.Error(w, "removing the primary destination requires acknowledge_primary_removal", http.StatusBadRequest)
+			return
+		}
+		if destCount > 1 {
+			promoteID := strings.TrimSpace(req.PromoteDestinationID)
+			if promoteID == "" {
+				http.Error(w, "promote_destination_id required when removing primary with other destinations configured", http.StatusBadRequest)
+				return
+			}
+			if promoteID == id {
+				http.Error(w, "choose a different destination to promote", http.StatusBadRequest)
+				return
+			}
+			formerPrimaryID, promotedFormerID, err := obelisk.PromoteBackupDestination(&spec, promoteID)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+			if promotedFormerID != "" && promotedFormerID != "primary" {
+				_ = backup.SwapDestinationCredentials(cfg, "primary", promotedFormerID)
+				_ = backup.SwapDestinationStatus(cfg, "primary", promotedFormerID)
+			}
+			id = formerPrimaryID
+		}
 	}
 	var next []obelisk.BackupDestination
 	found := false
@@ -422,7 +463,51 @@ func (s *Server) handleDeleteBackupDestination(w http.ResponseWriter, r *http.Re
 		return
 	}
 	spec.Backup.Destinations = next
+	obelisk.NormalizeBackup(&spec)
 	_ = backup.DeleteDestinationCredentials(cfg, id)
+	status, _ := backup.LoadStatus(cfg)
+	if status.Destinations != nil {
+		delete(status.Destinations, id)
+		_ = backup.SaveStatus(cfg, status)
+	}
+	if err := obelisk.ValidateBackupPolicy(spec); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if err := config.Save(cfg, spec); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	writeJSON(w, s.buildBackupConfig(cfg, spec))
+}
+
+func (s *Server) handlePromoteBackupDestination(w http.ResponseWriter, r *http.Request) {
+	id := strings.TrimSpace(r.PathValue("id"))
+	if id == "" {
+		http.Error(w, "id required", http.StatusBadRequest)
+		return
+	}
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	spec, err := config.Load(cfg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if obelisk.IsPrimaryBackupDestination(spec, id) {
+		writeJSON(w, s.buildBackupConfig(cfg, spec))
+		return
+	}
+	_, promotedFormerID, err := obelisk.PromoteBackupDestination(&spec, id)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	if promotedFormerID != "" && promotedFormerID != "primary" {
+		_ = backup.SwapDestinationCredentials(cfg, "primary", promotedFormerID)
+		_ = backup.SwapDestinationStatus(cfg, "primary", promotedFormerID)
+	}
 	if err := obelisk.ValidateBackupPolicy(spec); err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return

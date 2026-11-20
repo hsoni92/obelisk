@@ -3,6 +3,10 @@
 import { CopyableId } from "@/components/ui/copyable-id";
 import { DRSkeleton } from "@/components/skeletons";
 import { BackupPolicyCard } from "@/components/dr/backup-policy-card";
+import {
+  DeleteDestinationDialog,
+  type AffectedBackupService,
+} from "@/components/dr/delete-destination-dialog";
 import { DestinationsTable } from "@/components/dr/destinations-table";
 import { R2SetupHint } from "@/components/dr/r2-setup-hint";
 import { Badge } from "@/components/ui/badge";
@@ -31,11 +35,14 @@ import {
   usePatchBackupDestinationMutation,
   usePatchBackupPolicyMutation,
   usePostBackupDestinationMutation,
+  useGetBackupCatalogQuery,
+  usePromoteBackupDestinationMutation,
   useTestAllBackupDestinationsMutation,
   useTestBackupDestinationMutation,
 } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { CardHeading } from "@/components/ui/card";
+import type { BackupDestinationView } from "@/lib/types";
 import { Cloud, Plus } from "lucide-react";
 import { useMemo, useState } from "react";
 
@@ -43,15 +50,38 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
   const { data: config, isLoading } = useGetBackupConfigQuery(undefined, {
     pollingInterval: 8000,
   });
+  const { data: catalog } = useGetBackupCatalogQuery(undefined, {
+    pollingInterval: 15000,
+  });
+
+  const affectedBackupServices = useMemo((): AffectedBackupService[] => {
+    const rows = catalog?.rows ?? [];
+    return rows
+      .filter(
+        (r) =>
+          r.backup_enabled &&
+          (r.backup_count > 0 || Boolean(r.last_upload_at?.trim())),
+      )
+      .map((r) => ({
+        service_type: r.service_type,
+        instance_id: r.instance_id,
+        display_name: r.display_name,
+        backup_count: r.backup_count,
+      }));
+  }, [catalog?.rows]);
   const [patchPolicy] = usePatchBackupPolicyMutation();
   const [postDestination] = usePostBackupDestinationMutation();
   const [patchDestination] = usePatchBackupDestinationMutation();
   const [deleteDestination] = useDeleteBackupDestinationMutation();
+  const [promoteDestination] = usePromoteBackupDestinationMutation();
   const [testDestination] = useTestBackupDestinationMutation();
   const [testAll] = useTestAllBackupDestinationsMutation();
 
   const [busyKey, setBusyKey] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [removeTarget, setRemoveTarget] = useState<BackupDestinationView | null>(
+    null,
+  );
 
   const [label, setLabel] = useState("");
   const [provider, setProvider] = useState<BackupRemoteProvider>("r2");
@@ -165,13 +195,37 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
               await patchDestination({ id, body: { enabled } }).unwrap();
             })
           }
-          onRemove={(id) =>
-            act(`del-${id}`, async () => {
-              await deleteDestination({ id }).unwrap();
+          onPromote={(id) =>
+            act(`promote-${id}`, async () => {
+              await promoteDestination({ id }).unwrap();
+              toast.success("Primary destination updated");
             })
           }
+          onRemove={(row) => setRemoveTarget(row)}
         />
       </div>
+
+      <DeleteDestinationDialog
+        target={removeTarget}
+        allDestinations={config.destinations ?? []}
+        replicationFactor={config.policy.replication_factor}
+        affectedServices={affectedBackupServices}
+        open={!!removeTarget}
+        onOpenChange={(open) => {
+          if (!open) setRemoveTarget(null);
+        }}
+        busy={!!busyKey}
+        onConfirmRemove={async (payload) => {
+          await act(`del-${payload.id}`, async () => {
+            await deleteDestination({
+              id: payload.id,
+              acknowledge_primary_removal: payload.acknowledgePrimaryRemoval,
+              promote_destination_id: payload.promoteDestinationId,
+            }).unwrap();
+            toast.success("Destination removed");
+          });
+        }}
+      />
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent className="max-w-md">

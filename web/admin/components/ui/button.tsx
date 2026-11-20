@@ -19,6 +19,8 @@ const buttonVariants = cva(
         broadcast:
           "bg-broadcast text-broadcast-foreground shadow-rb-3 hover:bg-broadcast-hover rounded-full h-10 px-5 text-sm font-medium",
         link: "text-link font-medium underline-offset-4 hover:underline p-0 h-auto",
+        destructive:
+          "bg-destructive text-destructive-foreground hover:bg-destructive/90 rounded-full h-10 px-5 text-sm font-medium",
       },
       size: {
         default: "h-10 px-5",

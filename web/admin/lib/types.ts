@@ -232,6 +232,7 @@ export type StatusResponse = {
 
 export type BackupDestinationView = {
   id: string;
+  is_primary?: boolean;
   label: string;
   provider?: string;
   endpoint: string;

@@ -121,6 +121,30 @@ func DeleteDestinationCredentials(configPath, destinationID string) error {
 	return SaveDestinationsCredentials(configPath, file)
 }
 
+// SwapDestinationCredentials exchanges stored API keys for two destination ids.
+func SwapDestinationCredentials(configPath, idA, idB string) error {
+	if idA == idB {
+		return nil
+	}
+	file, err := LoadDestinationsCredentials(configPath)
+	if err != nil {
+		return err
+	}
+	a, okA := file.Destinations[idA]
+	b, okB := file.Destinations[idB]
+	if okA {
+		file.Destinations[idB] = a
+	} else {
+		delete(file.Destinations, idB)
+	}
+	if okB {
+		file.Destinations[idA] = b
+	} else {
+		delete(file.Destinations, idA)
+	}
+	return SaveDestinationsCredentials(configPath, file)
+}
+
 // AnyCredentialsConfigured is true when legacy or any destination has keys.
 func AnyCredentialsConfigured(configPath string) (bool, error) {
 	ok, err := CredentialsConfigured(configPath)

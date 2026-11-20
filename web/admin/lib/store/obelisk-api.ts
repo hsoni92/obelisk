@@ -137,10 +137,28 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
     }),
-    deleteBackupDestination: builder.mutation<BackupConfigResponse, { id: string }>({
-      query: ({ id }) => ({
+    deleteBackupDestination: builder.mutation<
+      BackupConfigResponse,
+      {
+        id: string;
+        acknowledge_primary_removal?: boolean;
+        promote_destination_id?: string;
+      }
+    >({
+      query: ({ id, acknowledge_primary_removal, promote_destination_id }) => ({
         url: `/backup/destinations/${encodeURIComponent(id)}`,
         method: "DELETE",
+        body: {
+          acknowledge_primary_removal: acknowledge_primary_removal ?? false,
+          promote_destination_id: promote_destination_id,
+        },
+      }),
+      invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
+    }),
+    promoteBackupDestination: builder.mutation<BackupConfigResponse, { id: string }>({
+      query: ({ id }) => ({
+        url: `/backup/destinations/${encodeURIComponent(id)}/promote-primary`,
+        method: "POST",
       }),
       invalidatesTags: ["BackupConfig", "BackupTarget", "Status"],
     }),
@@ -800,6 +818,7 @@ export const {
   usePostBackupDestinationMutation,
   usePatchBackupDestinationMutation,
   useDeleteBackupDestinationMutation,
+  usePromoteBackupDestinationMutation,
   useTestBackupDestinationMutation,
   useTestAllBackupDestinationsMutation,
   useCreateInstanceMutation,

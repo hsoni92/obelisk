@@ -41,6 +41,7 @@ export {
   usePostBackupDestinationMutation,
   usePatchBackupDestinationMutation,
   useDeleteBackupDestinationMutation,
+  usePromoteBackupDestinationMutation,
   useTestBackupDestinationMutation,
   useTestAllBackupDestinationsMutation,
   useGetConnectionsQuery,

@@ -171,3 +171,77 @@ func FindBackupDestination(s Spec, id string) (BackupDestination, bool) {
 	}
 	return BackupDestination{}, false
 }
+
+// PrimaryBackupDestinationID is the id of the first configured destination (canonical primary).
+func PrimaryBackupDestinationID(s Spec) string {
+	dests := EffectiveDestinations(s)
+	if len(dests) == 0 {
+		return ""
+	}
+	return dests[0].ID
+}
+
+// IsPrimaryBackupDestination reports whether id is the current primary (first destination).
+func IsPrimaryBackupDestination(s Spec, id string) bool {
+	id = strings.TrimSpace(id)
+	if id == "" {
+		return false
+	}
+	return PrimaryBackupDestinationID(s) == id
+}
+
+// PromoteBackupDestination makes promoteID the primary (index 0).
+// formerPrimaryID is the id assigned to the demoted previous primary (for credential/status migration).
+// promotedFormerID is the promote target's id before promotion (empty if unchanged).
+func PromoteBackupDestination(spec *Spec, promoteID string) (formerPrimaryID, promotedFormerID string, err error) {
+	promoteID = strings.TrimSpace(promoteID)
+	if promoteID == "" {
+		return "", "", fmt.Errorf("destination id required")
+	}
+	dests := spec.Backup.Destinations
+	if len(dests) == 0 {
+		return "", "", fmt.Errorf("no destinations configured")
+	}
+	idx := -1
+	for i, d := range dests {
+		if d.ID == promoteID {
+			idx = i
+			break
+		}
+	}
+	if idx < 0 {
+		return "", "", fmt.Errorf("destination %q not found", promoteID)
+	}
+	if idx == 0 {
+		NormalizeBackup(spec)
+		return "", "", nil
+	}
+	promoted := dests[idx]
+	demoted := dests[0]
+	promotedFormerID = promoted.ID
+	formerPrimaryID = demoted.ID
+
+	if promoted.ID != "primary" {
+		if demoted.ID == "primary" {
+			demoted.ID = promoted.ID
+			formerPrimaryID = demoted.ID
+		}
+		promoted.ID = "primary"
+	}
+
+	newList := make([]BackupDestination, 0, len(dests))
+	newList = append(newList, promoted)
+	for i, d := range dests {
+		if i == idx {
+			continue
+		}
+		if i == 0 {
+			newList = append(newList, demoted)
+			continue
+		}
+		newList = append(newList, d)
+	}
+	spec.Backup.Destinations = newList
+	NormalizeBackup(spec)
+	return formerPrimaryID, promotedFormerID, nil
+}

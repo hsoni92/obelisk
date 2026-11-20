@@ -83,6 +83,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/backup/destinations", s.handlePostBackupDestination)
 	mux.HandleFunc("PATCH /api/v1/backup/destinations/{id}", s.handlePatchBackupDestination)
 	mux.HandleFunc("DELETE /api/v1/backup/destinations/{id}", s.handleDeleteBackupDestination)
+	mux.HandleFunc("POST /api/v1/backup/destinations/{id}/promote-primary", s.handlePromoteBackupDestination)
 	mux.HandleFunc("POST /api/v1/backup/destinations/{id}/test", s.handleTestBackupDestination)
 	mux.HandleFunc("POST /api/v1/backup/destinations/test-all", s.handleTestAllBackupDestinations)
 	mux.HandleFunc("POST /api/v1/backup/test", s.handleBackupTest)

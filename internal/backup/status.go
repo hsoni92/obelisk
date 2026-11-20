@@ -71,6 +71,48 @@ func SaveStatus(configPath string, s StatusFile) error {
 	return os.Rename(tmp, p)
 }
 
+// RenameDestinationStatus moves runtime status from oldID to newID.
+func RenameDestinationStatus(configPath, oldID, newID string) error {
+	if oldID == newID {
+		return nil
+	}
+	s, err := LoadStatus(configPath)
+	if err != nil {
+		return err
+	}
+	st, ok := s.Destinations[oldID]
+	if !ok {
+		return nil
+	}
+	delete(s.Destinations, oldID)
+	s.Destinations[newID] = st
+	return SaveStatus(configPath, s)
+}
+
+// SwapDestinationStatus exchanges runtime status for two destination ids.
+func SwapDestinationStatus(configPath, idA, idB string) error {
+	if idA == idB {
+		return nil
+	}
+	s, err := LoadStatus(configPath)
+	if err != nil {
+		return err
+	}
+	a, okA := s.Destinations[idA]
+	b, okB := s.Destinations[idB]
+	if okA {
+		s.Destinations[idB] = a
+	} else {
+		delete(s.Destinations, idB)
+	}
+	if okB {
+		s.Destinations[idA] = b
+	} else {
+		delete(s.Destinations, idA)
+	}
+	return SaveStatus(configPath, s)
+}
+
 func UpdateDestinationTest(configPath, id string, ok bool, message string) error {
 	s, err := LoadStatus(configPath)
 	if err != nil {
