@@ -353,26 +353,33 @@ func (s *Server) handlePostInstanceRestoreActive(w http.ResponseWriter, r *http.
 }
 
 type backupCatalogRow struct {
-	ServiceType       string `json:"service_type"`
-	InstanceID        string `json:"instance_id"`
-	DisplayName       string `json:"display_name,omitempty"`
-	InstanceLive      bool   `json:"instance_live"`
-	BackupEnabled     bool   `json:"backup_enabled"`
-	Orphan            bool   `json:"orphan"`
-	State             string `json:"state,omitempty"`
-	BackupCount       int    `json:"backup_count"`
-	ActiveBackupID    string `json:"active_backup_id,omitempty"`
-	ActiveBackupAt    string `json:"active_backup_at,omitempty"`
-	ActiveBackupBytes int64  `json:"active_backup_bytes,omitempty"`
-	LastUploadAt      string `json:"last_upload_at,omitempty"`
-	LineageID         string `json:"lineage_id,omitempty"`
-	Clone             bool   `json:"clone,omitempty"`
-	CloneSourceKey    string `json:"clone_source_key,omitempty"`
+	ServiceType            string `json:"service_type"`
+	InstanceID             string `json:"instance_id"`
+	DisplayName            string `json:"display_name,omitempty"`
+	InstanceLive           bool   `json:"instance_live"`
+	BackupEnabled          bool   `json:"backup_enabled"`
+	Orphan                 bool   `json:"orphan"`
+	State                  string `json:"state,omitempty"`
+	BackupCount            int    `json:"backup_count"`
+	ActiveBackupID         string `json:"active_backup_id,omitempty"`
+	ActiveBackupAt         string `json:"active_backup_at,omitempty"`
+	ActiveBackupBytes      int64  `json:"active_backup_bytes,omitempty"`
+	LastUploadAt           string `json:"last_upload_at,omitempty"`
+	LineageID              string `json:"lineage_id,omitempty"`
+	Clone                  bool   `json:"clone,omitempty"`
+	CloneSourceKey         string `json:"clone_source_key,omitempty"`
+	ReplicationFactor      int    `json:"replication_factor,omitempty"`
+	ReplicationOverridden  bool   `json:"replication_overridden,omitempty"`
+	ReplicationFromWitness bool   `json:"replication_from_witness,omitempty"`
 }
 
 type backupCatalogResponse struct {
-	GeneratedAt string             `json:"generated_at"`
-	Rows        []backupCatalogRow `json:"rows"`
+	GeneratedAt               string             `json:"generated_at"`
+	GlobalReplicationFactor   int                `json:"global_replication_factor"`
+	EnabledDestinationCount   int                `json:"enabled_destination_count"`
+	ReadyDestinationCount     int                `json:"ready_destination_count"`
+	ReplicationReady          bool               `json:"replication_ready"`
+	Rows                      []backupCatalogRow `json:"rows"`
 }
 
 func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) {
@@ -391,6 +398,14 @@ func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	globalPolicy := obelisk.ResolvedBackupPolicy(spec)
+	globalRF := globalPolicy.ReplicationFactor
+	if globalRF < 1 {
+		globalRF = 1
+	}
+	enabledDests := len(obelisk.EnabledBackupDestinations(spec))
+	readyDests := countReadyBackupDestinations(cfg, spec, status)
+
 	liveKeys := map[string]struct{}{}
 	var rows []backupCatalogRow
 
@@ -405,14 +420,21 @@ func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) 
 		key := lineage.InstanceKey(inst.Type, inst.ID)
 		liveKeys[key] = struct{}{}
 		instKey := inst.Type + "/" + inst.ID
+		view, _ := obelisk.ResolvedInstanceBackupPolicy(inst, spec.Backup.Policy)
+		effRF := view.ReplicationFactor
+		if effRF < 1 {
+			effRF = 1
+		}
 		row := backupCatalogRow{
-			ServiceType:   inst.Type,
-			InstanceID:    inst.ID,
-			DisplayName:   inst.DisplayName,
-			InstanceLive:  true,
-			BackupEnabled: obelisk.InstanceDataBackupEnabled(inst),
-			State:         states[instKey],
-			LastUploadAt:  status.Instances[instKey],
+			ServiceType:           inst.Type,
+			InstanceID:            inst.ID,
+			DisplayName:           inst.DisplayName,
+			InstanceLive:          true,
+			BackupEnabled:         obelisk.InstanceDataBackupEnabled(inst),
+			State:                 states[instKey],
+			LastUploadAt:          status.Instances[instKey],
+			ReplicationFactor:     effRF,
+			ReplicationOverridden: effRF != globalRF,
 		}
 		if f, ok := idx.Forests[key]; ok {
 			sum := lineage.SummarizeForest(f)
@@ -444,7 +466,7 @@ func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) 
 		if f.Clone {
 			state = "clone"
 		}
-		addRow(backupCatalogRow{
+		orphanRow := backupCatalogRow{
 			ServiceType:       parts[0],
 			InstanceID:        parts[1],
 			DisplayName:       f.DisplayName,
@@ -460,7 +482,12 @@ func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) 
 			LastUploadAt:      status.Instances[key],
 			LineageID:         f.LineageID,
 			State:             state,
-		})
+		}
+		if sum.ActiveWitnessRF > 0 {
+			orphanRow.ReplicationFactor = sum.ActiveWitnessRF
+			orphanRow.ReplicationFromWitness = true
+		}
+		addRow(orphanRow)
 	}
 
 	sort.Slice(rows, func(i, j int) bool {
@@ -471,9 +498,31 @@ func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) 
 	})
 
 	writeJSON(w, backupCatalogResponse{
-		GeneratedAt: time.Now().UTC().Format(time.RFC3339),
-		Rows:        rows,
+		GeneratedAt:             time.Now().UTC().Format(time.RFC3339),
+		GlobalReplicationFactor: globalRF,
+		EnabledDestinationCount: enabledDests,
+		ReadyDestinationCount:   readyDests,
+		ReplicationReady:        readyDests >= globalRF,
+		Rows:                    rows,
 	})
+}
+
+func countReadyBackupDestinations(cfg string, spec obelisk.Spec, status backup.StatusFile) int {
+	ready := 0
+	for _, d := range obelisk.EnabledBackupDestinations(spec) {
+		credOK, _ := backup.DestinationCredentialsConfigured(cfg, d.ID)
+		if !credOK {
+			legacy, ok, _ := backup.LoadCredentials(cfg)
+			if ok && d.ID == "primary" {
+				credOK = legacy.AccessKeyID != ""
+			}
+		}
+		st := status.Destinations[d.ID]
+		if d.Enabled && d.Endpoint != "" && credOK && st.LastTestOK != nil && *st.LastTestOK {
+			ready++
+		}
+	}
+	return ready
 }
 
 func (s *Server) handlePostBackupIndexRebuild(w http.ResponseWriter, r *http.Request) {

@@ -1,7 +1,7 @@
 "use client";
 
+import { StateStatus } from "@/components/ui/status-dot";
 import { CopyButton } from "@/components/services/copy-button";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -17,7 +17,7 @@ import { relativeTime } from "@/lib/overview-series";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { BackupLineagePanel } from "@/components/services/backup-lineage-panel";
 import { InstanceDatabasesPanel } from "@/components/services/instance-databases-panel";
-import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
+import { type ServiceRow } from "@/lib/service-rows";
 import * as React from "react";
 
 function Section({
@@ -92,9 +92,7 @@ export function ServiceDetailsDialog({
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2 text-lg font-normal capitalize">
                 {inst.display_name || inst.id}
-                <Badge variant={stateBadgeVariant(row.state)}>
-                  {row.state}
-                </Badge>
+                <StateStatus state={row.state} className="ml-1 text-sm" />
               </DialogTitle>
               <DialogDescription className="capitalize">
                 {inst.type} instance

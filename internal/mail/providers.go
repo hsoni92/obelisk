@@ -12,12 +12,13 @@ type SMTPProfile struct {
 }
 
 var smtpByDomain = map[string]SMTPProfile{
-	"gmail.com":     {Host: "smtp.gmail.com", Port: 465, ImplicitTLS: true},
-	"googlemail.com": {Host: "smtp.gmail.com", Port: 465, ImplicitTLS: true},
-	"outlook.com":   {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
-	"hotmail.com":   {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
-	"live.com":      {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
-	"yahoo.com":     {Host: "smtp.mail.yahoo.com", Port: 465, ImplicitTLS: true},
+	// Submission port 587 + STARTTLS: many VPS hosts (e.g. Hetzner) block outbound 465/25 but allow 587.
+	"gmail.com":      {Host: "smtp.gmail.com", Port: 587, ImplicitTLS: false},
+	"googlemail.com": {Host: "smtp.gmail.com", Port: 587, ImplicitTLS: false},
+	"outlook.com":    {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
+	"hotmail.com":    {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
+	"live.com":       {Host: "smtp-mail.outlook.com", Port: 587, ImplicitTLS: false},
+	"yahoo.com":      {Host: "smtp.mail.yahoo.com", Port: 587, ImplicitTLS: false},
 }
 
 func LookupSMTP(address string) (SMTPProfile, error) {

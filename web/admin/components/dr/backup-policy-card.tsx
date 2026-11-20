@@ -4,8 +4,13 @@ import { Badge } from "@/components/ui/badge";
 import { CardHeading } from "@/components/ui/card";
 import { ShieldCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+  parseReplicationFactor,
+  ReplicationFactorSelect,
+} from "@/components/backup/replication-factor-select";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
+import { SelectField } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { BACKUP_SCHEDULE_PRESETS } from "@/lib/backup-schedule-presets";
 import type { BackupConfigResponse } from "@/lib/types";
@@ -50,7 +55,10 @@ export function BackupPolicyCard({ config, busy, onSave }: Props) {
       : schedule.trim() || p.schedule;
     await onSave({
       schedule: resolvedSchedule,
-      replication_factor: Math.max(1, parseInt(rf, 10) || 1),
+      replication_factor: parseReplicationFactor(
+        rf,
+        config.enabled_destination_count,
+      ),
       data_retention_days: Math.max(1, parseInt(dataDays, 10) || 14),
       config_keep_count: Math.max(1, parseInt(configKeep, 10) || 30),
       include_config: includeConfig,
@@ -93,21 +101,18 @@ export function BackupPolicyCard({ config, busy, onSave }: Props) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           <Label htmlFor="dr-schedule">Schedule</Label>
-          <select
+          <SelectField
             id="dr-schedule"
-            className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+            className="mt-2"
             value={schedule}
-            onChange={(e) => setSchedule(e.target.value)}
-          >
-            {SCHEDULE_PRESETS.map((s) => (
-              <option key={s.value} value={s.value}>
-                {s.label}
-              </option>
-            ))}
-            {scheduleIsCustom && schedule !== "custom" && (
-              <option value={schedule}>Current: {schedule}</option>
-            )}
-          </select>
+            onValueChange={setSchedule}
+            options={[
+              ...SCHEDULE_PRESETS,
+              ...(scheduleIsCustom && schedule !== "custom"
+                ? [{ value: schedule, label: `Current: ${schedule}` }]
+                : []),
+            ]}
+          />
           {(schedule === "custom" || scheduleIsCustom) && (
             <Field
               className="mt-2"
@@ -118,11 +123,11 @@ export function BackupPolicyCard({ config, busy, onSave }: Props) {
             />
           )}
         </div>
-        <Field
-          label="Replication (min copies)"
+        <ReplicationFactorSelect
+          id="dr-replication-factor"
           value={rf}
-          onChange={(e) => setRf(e.target.value)}
-          inputMode="numeric"
+          onChange={setRf}
+          maxCopies={config.enabled_destination_count}
         />
         <Field
           label="Data retention (days)"

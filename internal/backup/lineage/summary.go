@@ -2,10 +2,11 @@ package lineage
 
 // ForestSummary is a compact view for catalog / monitor UIs.
 type ForestSummary struct {
-	NodeCount       int
-	ActiveID        string
-	ActiveCreatedAt string
-	ActiveSize      int64
+	NodeCount              int
+	ActiveID               string
+	ActiveCreatedAt        string
+	ActiveSize             int64
+	ActiveWitnessRF        int
 }
 
 // SummarizeForest counts live nodes and resolves the active snapshot metadata.
@@ -22,6 +23,7 @@ func SummarizeForest(f Forest) ForestSummary {
 		if n, ok := f.Nodes[out.ActiveID]; ok && !n.Tombstone {
 			out.ActiveCreatedAt = n.CreatedAt
 			out.ActiveSize = n.Size
+			out.ActiveWitnessRF = n.Witness.ReplicationFactor
 		}
 	}
 	return out

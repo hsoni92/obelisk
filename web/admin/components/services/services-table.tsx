@@ -13,7 +13,8 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
+import { StateStatus } from "@/components/ui/status-dot";
+import type { ServiceRow } from "@/lib/service-rows";
 import { relativeTime } from "@/lib/overview-series";
 import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
@@ -321,13 +322,10 @@ export function ServicesTable({
         accessorFn: (r) => r.state,
         header: "Status",
         cell: ({ row }) => (
-          <Badge
-            variant={stateBadgeVariant(row.original.state)}
-            className="-ml-2.5"
+          <StateStatus
+            state={row.original.state}
             title={row.original.statusHint}
-          >
-            {row.original.state}
-          </Badge>
+          />
         ),
       },
       {

@@ -52,18 +52,15 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 	if err != nil {
 		return RunOutcome{}, err
 	}
-	policy := obelisk.ResolvedBackupPolicy(spec)
-	rf := policy.ReplicationFactor
-	if rf < 1 {
-		rf = 1
-	}
-
 	var dumps []DataDump
 	if filter.active() {
 		dumps = CollectDataDumpsForInstance(ctx, spec, r.InstanceStates, filter.ServiceType, filter.InstanceID)
 	} else {
 		dumps = CollectDataDumps(ctx, spec, r.InstanceStates)
 	}
+
+	rf := requiredReplication(spec, filter, dumps)
+	policy := obelisk.ResolvedBackupPolicy(spec)
 
 	out := RunOutcome{RequiredReplication: rf}
 	var artifacts []runArtifact
@@ -229,4 +226,48 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 	_ = UpdateLastRun(cfg)
 
 	return out, nil
+}
+
+// requiredReplication is the minimum destination copy count for this run
+// (per-instance override when scoped; else max effective RF across backed-up instances).
+func requiredReplication(spec obelisk.Spec, filter InstanceFilter, dumps []DataDump) int {
+	global := obelisk.ResolvedBackupPolicy(spec).ReplicationFactor
+	if global < 1 {
+		global = 1
+	}
+	if filter.active() {
+		for _, inst := range spec.Instances {
+			if inst.Type != filter.ServiceType || inst.ID != filter.InstanceID {
+				continue
+			}
+			view, _ := obelisk.ResolvedInstanceBackupPolicy(inst, spec.Backup.Policy)
+			rf := view.ReplicationFactor
+			if rf < 1 {
+				rf = 1
+			}
+			return rf
+		}
+		return global
+	}
+	maxRF := global
+	for _, d := range dumps {
+		if d.Skipped || len(d.Body) == 0 {
+			continue
+		}
+		for _, inst := range spec.Instances {
+			if inst.Type != d.ServiceType || inst.ID != d.InstanceID {
+				continue
+			}
+			view, _ := obelisk.ResolvedInstanceBackupPolicy(inst, spec.Backup.Policy)
+			rf := view.ReplicationFactor
+			if rf < 1 {
+				rf = 1
+			}
+			if rf > maxRF {
+				maxRF = rf
+			}
+			break
+		}
+	}
+	return maxRF
 }

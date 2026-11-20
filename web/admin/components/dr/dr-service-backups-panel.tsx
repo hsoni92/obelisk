@@ -1,5 +1,6 @@
 "use client";
 
+import { StateStatus } from "@/components/ui/status-dot";
 import { BackupRowActionsMenu } from "@/components/backup/backup-row-actions-menu";
 import {
   CloneBackupDialog,
@@ -32,16 +33,22 @@ import type { ServiceInstance } from "@/lib/api";
 import type { BackupCatalogRow } from "@/lib/types";
 import { formatBytes } from "@/lib/format-bytes";
 import { relativeTime } from "@/lib/overview-series";
-import { serviceRowKey, stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
+import { serviceRowKey, type ServiceRow } from "@/lib/service-rows";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { CardHeading } from "@/components/ui/card";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { DatabaseBackup, RefreshCw } from "lucide-react";
 import * as React from "react";
 
 /** Fixed track widths so header and body rows share one column layout. */
 const CATALOG_ROW =
-  "grid w-full grid-cols-[minmax(9rem,1.35fr)_5.5rem_4.25rem_3.25rem_minmax(7rem,1fr)_minmax(5.5rem,0.85fr)_2rem] items-center gap-x-3";
+  "grid w-full grid-cols-[minmax(9rem,1.35fr)_5.5rem_4.25rem_3.75rem_3.25rem_minmax(7rem,1fr)_minmax(5.5rem,0.85fr)_2rem] items-center gap-x-3";
 
 export function DRServiceBackupsPanel() {
   const [fetchStatus] = useLazyGetStatusQuery();
@@ -67,6 +74,9 @@ export function DRServiceBackupsPanel() {
   const [deleteConfirm, setDeleteConfirm] = React.useState("");
 
   const rows = data?.rows ?? [];
+  const globalRf = data?.global_replication_factor ?? 1;
+  const readyDests = data?.ready_destination_count ?? 0;
+  const enabledDests = data?.enabled_destination_count ?? 0;
 
   const stats = React.useMemo(() => {
     let withSnapshots = 0;
@@ -177,6 +187,7 @@ export function DRServiceBackupsPanel() {
   }
 
   return (
+    <TooltipProvider delayDuration={300}>
     <div className="space-y-4">
       <CloneBackupDialog
         target={cloneTarget}
@@ -277,6 +288,28 @@ export function DRServiceBackupsPanel() {
           />
         </dl>
 
+        {rows.length > 0 ? (
+          <p className="text-metadata text-muted-foreground">
+            Redundancy = minimum copies across off-site destinations per backup.
+            Global default{" "}
+            <span className="font-medium text-foreground tabular-nums">
+              ×{globalRf}
+            </span>
+            {enabledDests > 0 ? (
+              <>
+                {" "}
+                ·{" "}
+                <span className="tabular-nums">
+                  {readyDests}/{enabledDests}
+                </span>{" "}
+                destinations ready
+              </>
+            ) : (
+              " · add destinations under DR to replicate"
+            )}
+          </p>
+        ) : null}
+
         {rows.length === 0 ? (
           <p className="py-8 text-center text-sm text-muted-foreground">
             No data services on this appliance yet. Add postgres, mysql, or
@@ -284,7 +317,7 @@ export function DRServiceBackupsPanel() {
           </p>
         ) : (
           <div className="overflow-x-auto">
-            <div className="min-w-[40rem] space-y-1 px-1">
+            <div className="min-w-[44rem] space-y-1 px-1">
               <div
                 className={cn(
                   CATALOG_ROW,
@@ -295,6 +328,9 @@ export function DRServiceBackupsPanel() {
                 <span>Service</span>
                 <span>Status</span>
                 <span>In DR</span>
+                <span className="tabular-nums" title="Minimum destination copies">
+                  RF
+                </span>
                 <span className="tabular-nums">Count</span>
                 <span>Active snapshot</span>
                 <span>Last upload</span>
@@ -304,6 +340,9 @@ export function DRServiceBackupsPanel() {
                 <CatalogRow
                   key={`${row.service_type}/${row.instance_id}`}
                   row={row}
+                  globalRf={globalRf}
+                  readyDests={readyDests}
+                  enabledDests={enabledDests}
                   rowBusy={rowBusy === `${row.service_type}/${row.instance_id}`}
                   onView={() => void openLineage(row)}
                   onCreateBackup={() => void createBackup(row)}
@@ -331,6 +370,7 @@ export function DRServiceBackupsPanel() {
         onOpenChange={(o) => !o && setViewRow(null)}
       />
     </div>
+    </TooltipProvider>
   );
 }
 
@@ -361,6 +401,9 @@ function Stat({
 
 function CatalogRow({
   row,
+  globalRf,
+  readyDests,
+  enabledDests,
   rowBusy,
   onView,
   onCreateBackup,
@@ -368,6 +411,9 @@ function CatalogRow({
   onCloneBackup,
 }: {
   row: BackupCatalogRow;
+  globalRf: number;
+  readyDests: number;
+  enabledDests: number;
   rowBusy: boolean;
   onView: () => void;
   onCreateBackup: () => void;
@@ -414,9 +460,7 @@ function CatalogRow({
           Orphan
         </Badge>
       ) : row.state ? (
-        <Badge variant={stateBadgeVariant(row.state)} className="w-fit font-normal">
-          {row.state}
-        </Badge>
+        <StateStatus state={row.state} />
       ) : (
         <span className="text-muted-foreground">—</span>
       )}
@@ -431,6 +475,12 @@ function CatalogRow({
           Off
         </Badge>
       )}
+      <RedundancyCell
+        row={row}
+        globalRf={globalRf}
+        readyDests={readyDests}
+        enabledDests={enabledDests}
+      />
       <span className="tabular-nums">{row.backup_count}</span>
       <span
         className="min-w-0 truncate text-[13px]"
@@ -466,6 +516,79 @@ function CatalogRow({
       </span>
     </div>
   );
+}
+
+function RedundancyCell({
+  row,
+  globalRf,
+  readyDests,
+  enabledDests,
+}: {
+  row: BackupCatalogRow;
+  globalRf: number;
+  readyDests: number;
+  enabledDests: number;
+}) {
+  const rf = row.replication_factor ?? 0;
+
+  if (row.instance_live && row.backup_enabled && rf > 0) {
+    const shortfall = rf > readyDests;
+    const tooltip = row.replication_overridden
+      ? `This service requires ×${rf} redundancy. Global default is ×${globalRf}.`
+      : `Uses global default ×${globalRf}.`;
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <div className="flex min-w-0 flex-col gap-0.5">
+            <span
+              className={cn(
+                "tabular-nums text-[13px] font-medium",
+                row.replication_overridden && "text-broadcast",
+              )}
+            >
+              ×{rf}
+              {row.replication_overridden ? (
+                <Badge
+                  variant="outline"
+                  className="ml-1.5 h-4 px-1 py-0 text-[9px] font-normal uppercase"
+                >
+                  custom
+                </Badge>
+              ) : null}
+            </span>
+            {shortfall && enabledDests > 0 ? (
+              <span className="text-[10px] tabular-nums text-warning">
+                {readyDests}/{enabledDests} dest
+              </span>
+            ) : null}
+          </div>
+        </TooltipTrigger>
+        <TooltipContent className="max-w-xs">
+          {tooltip}
+          {shortfall
+            ? ` Only ${readyDests} of ${enabledDests} destinations are ready; need ${rf} for a successful backup.`
+            : null}
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  if (row.replication_from_witness && rf > 0) {
+    return (
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <span className="tabular-nums text-[13px] text-muted-foreground">
+            ×{rf}
+          </span>
+        </TooltipTrigger>
+        <TooltipContent>
+          Active snapshot was captured at ×{rf} redundancy (historical witness).
+        </TooltipContent>
+      </Tooltip>
+    );
+  }
+
+  return <span className="text-muted-foreground">—</span>;
 }
 
 function ServiceNameCell({

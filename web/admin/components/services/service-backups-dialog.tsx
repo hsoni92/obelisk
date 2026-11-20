@@ -1,6 +1,6 @@
 "use client";
 
-import { Badge } from "@/components/ui/badge";
+import { StateStatus } from "@/components/ui/status-dot";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -18,7 +18,7 @@ import { BackupLineageSteps } from "@/components/services/backup-lineage-steps";
 import type { BackupLineageNode } from "@/lib/types";
 import type { ServiceInstance } from "@/lib/api";
 import { rtkErrorMessage } from "@/lib/api";
-import { stateBadgeVariant, type ServiceRow } from "@/lib/service-rows";
+import { type ServiceRow } from "@/lib/service-rows";
 import {
   useDeleteInstanceBackupMutation,
   useGetInstanceBackupLineageQuery,
@@ -136,9 +136,7 @@ export function ServiceBackupsDialog({ row, onOpenChange }: Props) {
             <DialogHeader>
               <DialogTitle className="flex flex-wrap items-center gap-2 text-lg font-normal capitalize">
                 Backups · {inst.display_name || inst.id}
-                <Badge variant={stateBadgeVariant(row.state)}>
-                  {row.state}
-                </Badge>
+                <StateStatus state={row.state} className="ml-1 text-sm" />
               </DialogTitle>
               <DialogDescription>
                 Per-service lineage — {inst.type}/{inst.id}

@@ -72,10 +72,17 @@ export type BackupCatalogRow = {
   lineage_id?: string;
   clone?: boolean;
   clone_source_key?: string;
+  replication_factor?: number;
+  replication_overridden?: boolean;
+  replication_from_witness?: boolean;
 };
 
 export type BackupCatalogResponse = {
   generated_at: string;
+  global_replication_factor: number;
+  enabled_destination_count: number;
+  ready_destination_count: number;
+  replication_ready: boolean;
   rows: BackupCatalogRow[];
 };
 

@@ -22,3 +22,8 @@ curl -sS -X POST "${ORIGIN}/mail/api/v1/send" \
 
 - Kong: 30 requests/minute per IP, 1 MB JSON body on `/mail`
 - v1.0: text/html only; six SMTP provider presets
+
+## VPS egress (Hetzner and similar)
+
+Mailbox add runs **SMTP AUTH from the controller host**. Many providers block outbound **25** and **465**; **587** (STARTTLS submission) is usually allowed. Presets use **587** for Gmail/Yahoo/Outlook. If add still times out, on the VPS run:  
+`timeout 8 bash -c '</dev/tcp/smtp.gmail.com/587' && echo OK`

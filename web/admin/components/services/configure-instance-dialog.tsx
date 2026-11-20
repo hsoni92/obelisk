@@ -10,8 +10,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  parseReplicationFactor,
+  ReplicationFactorSelect,
+} from "@/components/backup/replication-factor-select";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
+import { SelectField } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { BACKUP_SCHEDULE_PRESETS } from "@/lib/backup-schedule-presets";
 import { useGetBackupConfigQuery } from "@/lib/api";
@@ -88,8 +93,12 @@ export function ConfigureInstanceDialog({
     setDisplayName(instance.display_name?.trim() || "");
     setBackupOn(backupMeta?.enabled ?? instance.backup?.enabled ?? true);
     const pol = backupMeta?.policy;
-    setCustomPolicy(pol?.overridden ?? false);
     const g = globalBackup?.policy;
+    const scheduleOverride =
+      !!g && !!pol && pol.schedule !== g.schedule;
+    const retentionOverride =
+      !!g && !!pol && pol.data_retention_days !== g.data_retention_days;
+    setCustomPolicy(scheduleOverride || retentionOverride);
     setSchedule(pol?.schedule ?? g?.schedule ?? "0 3 * * *");
     setRf(String(pol?.replication_factor ?? g?.replication_factor ?? 1));
     setRetention(
@@ -124,15 +133,34 @@ export function ConfigureInstanceDialog({
 
     if (backupSupported) {
       patch.backup = { enabled: backupOn };
+      const g = globalBackup?.policy;
+      const globalRf = g?.replication_factor ?? 1;
+      const globalSchedule = g?.schedule ?? "0 3 * * *";
+      const globalRetention = g?.data_retention_days ?? 14;
+      const destCount = globalBackup?.enabled_destination_count ?? 0;
+      const instanceRf = parseReplicationFactor(rf, destCount);
+      const resolvedSchedule =
+        schedule === "custom" ? customCron.trim() : schedule.trim();
+      const instanceRetention = Math.max(1, parseInt(retention, 10) || 14);
+
+      const policyOverride: NonNullable<
+        ConfigureInstanceSave["backup"]
+      >["policy_override"] = {};
+      if (backupOn && instanceRf !== globalRf) {
+        policyOverride.replication_factor = instanceRf;
+      }
       if (customPolicy) {
-        const resolvedSchedule =
-          schedule === "custom" ? customCron.trim() : schedule.trim();
-        patch.backup.policy_override = {
-          schedule: resolvedSchedule || globalBackup?.policy.schedule,
-          replication_factor: Math.max(1, parseInt(rf, 10) || 1),
-          data_retention_days: Math.max(1, parseInt(retention, 10) || 14),
-        };
-      } else {
+        const sched = resolvedSchedule || globalSchedule;
+        if (sched !== globalSchedule) {
+          policyOverride.schedule = sched;
+        }
+        if (instanceRetention !== globalRetention) {
+          policyOverride.data_retention_days = instanceRetention;
+        }
+      }
+      if (Object.keys(policyOverride).length > 0) {
+        patch.backup.policy_override = policyOverride;
+      } else if (effective?.overridden) {
         patch.backup.clear_policy_override = true;
       }
     }
@@ -176,8 +204,11 @@ export function ConfigureInstanceDialog({
     onOpenChange(false);
   }
 
+  const globalRf = globalBackup?.policy.replication_factor ?? 1;
+  const parsedRf = parseInt(rf, 10) || globalRf;
+  const rfOverridesGlobal = parsedRf !== globalRf;
   const globalLine = globalBackup?.policy
-    ? `Global default: RF ${globalBackup.policy.replication_factor}, ${globalBackup.policy.schedule}, ${globalBackup.policy.data_retention_days}d retention`
+    ? `Global default: RF ×${globalBackup.policy.replication_factor}, ${globalBackup.policy.schedule}, ${globalBackup.policy.data_retention_days}d retention`
     : "Global defaults load from DR policy.";
 
   return (
@@ -324,12 +355,30 @@ export function ConfigureInstanceDialog({
                     {globalLine}
                   </p>
 
+                  {backupOn ? (
+                    <div className="space-y-1.5 rounded-lg border border-border bg-muted/20 p-3">
+                      <ReplicationFactorSelect
+                        id="instance-replication-factor"
+                        value={rf}
+                        onChange={setRf}
+                        maxCopies={
+                          globalBackup?.enabled_destination_count ?? 0
+                        }
+                      />
+                      <p className="text-metadata text-muted-foreground">
+                        {rfOverridesGlobal
+                          ? `This service uses ×${parsedRf} redundancy; global policy is ×${globalRf}.`
+                          : `Matches global redundancy (×${globalRf}). Raise copies here for this service only.`}
+                      </p>
+                    </div>
+                  ) : null}
+
                   <label className="flex items-center justify-between gap-3 text-sm">
-                    <span>Custom backup policy</span>
+                    <span>Custom schedule &amp; retention</span>
                     <Switch
                       checked={customPolicy}
                       onCheckedChange={setCustomPolicy}
-                      aria-label="Override global backup policy"
+                      aria-label="Override global backup schedule and retention"
                     />
                   </label>
 
@@ -337,12 +386,11 @@ export function ConfigureInstanceDialog({
                     <div className="space-y-3 rounded-lg border border-border bg-muted/30 p-3">
                       <div>
                         <Label htmlFor="inst-schedule">Frequency</Label>
-                        <select
+                        <SelectField
                           id="inst-schedule"
-                          className="mt-1 w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+                          className="mt-2"
                           value={scheduleIsPreset ? schedule : "custom"}
-                          onChange={(e) => {
-                            const v = e.target.value;
+                          onValueChange={(v) => {
                             if (v === "custom") {
                               setSchedule("custom");
                             } else {
@@ -350,14 +398,11 @@ export function ConfigureInstanceDialog({
                               setCustomCron("");
                             }
                           }}
-                        >
-                          {BACKUP_SCHEDULE_PRESETS.map((s) => (
-                            <option key={s.value} value={s.value}>
-                              {s.label}
-                            </option>
-                          ))}
-                          <option value="custom">Custom cron…</option>
-                        </select>
+                          options={[
+                            ...BACKUP_SCHEDULE_PRESETS,
+                            { value: "custom", label: "Custom cron…" },
+                          ]}
+                        />
                         {(schedule === "custom" || !scheduleIsPreset) && (
                           <Field
                             className="mt-2"
@@ -370,12 +415,6 @@ export function ConfigureInstanceDialog({
                           />
                         )}
                       </div>
-                      <Field
-                        label="Replication (min copies)"
-                        value={rf}
-                        onChange={(e) => setRf(e.target.value)}
-                        inputMode="numeric"
-                      />
                       <Field
                         label="Data retention (days)"
                         value={retention}

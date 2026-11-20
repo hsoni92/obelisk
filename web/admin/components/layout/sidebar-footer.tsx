@@ -12,19 +12,13 @@ import { relativeTime } from "@/lib/overview-series";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
+import { StatusDot, type StatusTone } from "@/components/ui/status-dot";
 import { Fingerprint, Loader2, LogOut, Server } from "lucide-react";
 import { CopyableId } from "@/components/ui/copyable-id";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
-type Tone = "ok" | "warn" | "bad" | "idle";
-
-const DOT: Record<Tone, string> = {
-  ok: "bg-broadcast shadow-[0_0_0_3px_rgb(215_242_73/0.22)]",
-  warn: "bg-[#f5c27a] shadow-[0_0_0_3px_rgb(245_194_122/0.22)]",
-  bad: "bg-[#ff9a90] shadow-[0_0_0_3px_rgb(255_154_144/0.22)]",
-  idle: "bg-white/40",
-};
+type Tone = StatusTone;
 
 function useSidebarStatus() {
   const { data } = useGetBlueprintStatusQuery(undefined, {
@@ -138,10 +132,7 @@ export function SidebarFooter({ rail }: { rail: boolean }) {
                   Blueprint
                 </dt>
                 <dd className="mt-1 flex items-center gap-2">
-                  <span
-                    className={cn("size-2 shrink-0 rounded-full", DOT[tone])}
-                    aria-hidden
-                  />
+                  <StatusDot tone={tone} onDark />
                   <span className="truncate text-sm font-medium" role="status">
                     {label}
                   </span>
@@ -188,11 +179,10 @@ export function SidebarFooter({ rail }: { rail: boolean }) {
             >
               <Avatar login={data?.login} className="size-8 text-xs" />
               <span
-                className={cn(
-                  "absolute -bottom-0.5 -right-0.5 size-2.5 rounded-full ring-2 ring-feature",
-                  DOT[tone],
-                )}
-              />
+                className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-feature"
+              >
+                <StatusDot tone={tone} onDark className="size-2.5" />
+              </span>
             </span>
             <button
               type="button"
