@@ -2,6 +2,7 @@ package lineage
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -102,12 +103,13 @@ func DeleteEntireForest(configPath, serviceType, instanceID string) (CascadeDele
 		return res, fmt.Errorf("no backup lineage for %s", key)
 	}
 	for id, n := range f.Nodes {
-		if n.Tombstone {
-			continue
-		}
 		res.DeletedIDs = append(res.DeletedIDs, id)
-		res.ObjectKeys = append(res.ObjectKeys, n.ObjectKey)
-		res.ManifestKeys = append(res.ManifestKeys, n.ManifestKey)
+		if strings.TrimSpace(n.ObjectKey) != "" {
+			res.ObjectKeys = append(res.ObjectKeys, n.ObjectKey)
+		}
+		if strings.TrimSpace(n.ManifestKey) != "" {
+			res.ManifestKeys = append(res.ManifestKeys, n.ManifestKey)
+		}
 	}
 	delete(idx.Forests, key)
 	if err := Save(configPath, idx); err != nil {

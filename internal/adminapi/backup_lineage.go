@@ -168,19 +168,35 @@ func (s *Server) handleDeleteInstanceBackupForest(w http.ResponseWriter, r *http
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	res, err := lineage.DeleteEntireForest(cfg, typ, id)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-	if len(res.DeletedIDs) == 0 {
-		writeJSON(w, map[string]any{"status": "ok", "deleted": []string{}})
-		return
-	}
-	allKeys := append(append([]string{}, res.ObjectKeys...), res.ManifestKeys...)
 	ctx := r.Context()
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	res, err := lineage.DeleteEntireForest(cfg, typ, id)
+	if err != nil {
+		if strings.Contains(err.Error(), "no backup lineage") {
+			_ = lineage.RemoveForest(cfg, typ, id)
+			res = lineage.CascadeDeleteResult{}
+		} else {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+	}
+	allKeys := uniqueNonempty(append(append([]string{}, res.ObjectKeys...), res.ManifestKeys...))
+	prefixKeys, listErr := backup.ListInstanceBackupObjectKeys(ctx, cfg, spec, typ, id)
+	if listErr != nil {
+		writeJSON(w, map[string]any{
+			"status":  "degraded",
+			"deleted": res.DeletedIDs,
+			"message": listErr.Error(),
+		})
+		return
+	}
+	allKeys = uniqueNonempty(append(allKeys, prefixKeys...))
+	if len(allKeys) == 0 {
+		s.recordAudit("Backup", "forest_deleted", typ+"/"+id)
+		writeJSON(w, map[string]any{"status": "ok", "deleted": res.DeletedIDs, "objects_purged": 0})
+		return
 	}
 	if err := backup.DeleteObjectsAllDestinations(ctx, cfg, spec, allKeys); err != nil {
 		writeJSON(w, map[string]any{
@@ -191,7 +207,28 @@ func (s *Server) handleDeleteInstanceBackupForest(w http.ResponseWriter, r *http
 		return
 	}
 	s.recordAudit("Backup", "forest_deleted", typ+"/"+id)
-	writeJSON(w, map[string]any{"status": "ok", "deleted": res.DeletedIDs})
+	writeJSON(w, map[string]any{
+		"status":         "ok",
+		"deleted":        res.DeletedIDs,
+		"objects_purged": len(allKeys),
+	})
+}
+
+func uniqueNonempty(keys []string) []string {
+	seen := map[string]struct{}{}
+	var out []string
+	for _, k := range keys {
+		k = strings.TrimSpace(k)
+		if k == "" {
+			continue
+		}
+		if _, ok := seen[k]; ok {
+			continue
+		}
+		seen[k] = struct{}{}
+		out = append(out, k)
+	}
+	return out
 }
 
 func (s *Server) handleDeleteInstanceBackup(w http.ResponseWriter, r *http.Request) {

@@ -22,6 +22,8 @@ type Props = {
   onCloneBackup?: () => void;
   /** Orphan forests: delete is the primary recovery action */
   orphan?: boolean;
+  /** When indexed snapshot count is 0 */
+  emptyForest?: boolean;
 };
 
 export function BackupRowActionsMenu({
@@ -34,6 +36,7 @@ export function BackupRowActionsMenu({
   onDeleteAll,
   onCloneBackup,
   orphan,
+  emptyForest,
 }: Props) {
   const hasView = !!onViewLineage;
   const hasCreate = !!onCreateBackup;
@@ -95,7 +98,11 @@ export function BackupRowActionsMenu({
             className="text-destructive focus:text-destructive"
             onSelect={() => onDeleteAll?.()}
           >
-            {orphan ? "Delete orphan backups…" : "Delete all backups…"}
+            {orphan
+              ? "Delete orphan backups…"
+              : emptyForest
+                ? "Remove backup entry…"
+                : "Delete all backups…"}
           </DropdownMenuItem>
         ) : null}
       </DropdownMenuContent>

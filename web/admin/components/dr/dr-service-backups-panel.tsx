@@ -381,7 +381,8 @@ function CatalogRow({
     row.instance_live &&
     row.backup_enabled &&
     row.state === "running";
-  const canDeleteAll = row.backup_count > 0;
+  // Catalog rows may have 0 indexed snapshots (empty forest, tombstones, or live-but-never-backed-up).
+  const canDeleteAll = true;
   const canClone = row.backup_count > 0;
   const menuLabel = `${row.service_type}/${row.instance_id}`;
 
@@ -454,6 +455,7 @@ function CatalogRow({
           label={menuLabel}
           busy={rowBusy}
           orphan={orphanOnly}
+          emptyForest={row.backup_count === 0}
           onViewLineage={
             row.backup_count > 0 || row.instance_live ? onView : undefined
           }
