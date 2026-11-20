@@ -36,8 +36,10 @@ spec:
           image: {{ .Values.image }}
           {{- if .Values.edgeTLS.enabled }}
           args:
+            # MongoDB 7+ (SERVER-72839) requires a trust chain when TLS is enabled.
             - --tlsMode=requireTLS
             - --tlsCertificateKeyFile=/var/run/edge/tls.pem
+            - --tlsCAFile=/var/run/edge/tls.pem
             - --tlsAllowConnectionsWithoutCertificates
           {{- end }}
           ports:

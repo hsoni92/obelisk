@@ -6,6 +6,7 @@ import (
 	"os/exec"
 	"strings"
 
+	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -28,10 +29,21 @@ func (r *Reconciler) ensureInstanceDatabases(ctx context.Context, inst obelisk.S
 	case "mysql":
 		return ensureMySQLDatabases(ctx, r.namespace(), pod, user, pass, names)
 	case "mongodb":
-		return ensureMongoDatabases(ctx, r.namespace(), pod, user, pass, names)
+		return ensureMongoDatabases(ctx, r.namespace(), pod, user, pass, names, r.instanceNativeEdgeTLS(ctx, inst))
 	default:
 		return nil
 	}
+}
+
+func (r *Reconciler) instanceNativeEdgeTLS(ctx context.Context, inst obelisk.ServiceInstance) bool {
+	if !nativeEdgeTLSInCluster(inst.Type) {
+		return false
+	}
+	spec, err := config.Load(r.ConfigPath)
+	if err != nil {
+		return false
+	}
+	return obelisk.VPSEdge(spec) && r.edgeTLSSecretReady(ctx)
 }
 
 func (r *Reconciler) readyPodName(ctx context.Context, release string) (string, error) {
@@ -109,7 +121,7 @@ func ensureMySQLDatabases(ctx context.Context, ns, pod, user, pass string, names
 	return nil
 }
 
-func ensureMongoDatabases(ctx context.Context, ns, pod, user, pass string, names []string) error {
+func ensureMongoDatabases(ctx context.Context, ns, pod, user, pass string, names []string, edgeTLS bool) error {
 	for _, db := range names {
 		script := fmt.Sprintf(
 			`db.getSiblingDB(%s).createCollection('_obelisk_init');`,
@@ -119,12 +131,25 @@ func ensureMongoDatabases(ctx context.Context, ns, pod, user, pass string, names
 		if user != "" && pass != "" {
 			auth = fmt.Sprintf("-u %s -p %s --authenticationDatabase admin ", mongoQuoteShell(user), mongoQuoteShell(pass))
 		}
-		cmd := fmt.Sprintf(`mongosh --quiet %s--eval %q`, auth, script)
+		cmd := fmt.Sprintf(`mongosh --quiet %s%s--eval %q`, auth, mongoMongoshTLSFlags(edgeTLS), script)
 		if err := kubectlExec(ctx, ns, pod, "mongodb", "sh", "-ec", cmd); err != nil {
 			return err
 		}
 	}
 	return nil
+}
+
+const mongoEdgePEM = "/var/run/edge/tls.pem"
+
+// mongoMongoshTLSFlags matches in-pod mongod edge TLS (combined self-signed pem).
+func mongoMongoshTLSFlags(edgeTLS bool) string {
+	if !edgeTLS {
+		return ""
+	}
+	return fmt.Sprintf(
+		"--tls --tlsCertificateKeyFile=%s --tlsCAFile=%s --tlsAllowInvalidCertificates ",
+		mongoEdgePEM, mongoEdgePEM,
+	)
 }
 
 func pgQuoteIdent(s string) string {
