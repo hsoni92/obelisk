@@ -47,8 +47,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import {
+  Boxes,
   EllipsisVertical,
   FolderKanban,
+  Globe,
   KeyRound,
   Pencil,
   Plus,
@@ -56,6 +58,7 @@ import {
   Sparkles,
   Terminal,
   Trash2,
+  type LucideIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 
@@ -281,21 +284,40 @@ export function ProjectsPanel({ createSignal = 0 }: Props) {
                 <DialogDescription>
                   Call the discovery endpoint with a Bearer token (header only).
                   The response contains connection URLs — treat it like a
-                  password.
+                  password. For workloads on the same k3s cluster, append{" "}
+                  <code className="text-xs">?audience=in_cluster</code> to the
+                  discovery URL.
                 </DialogDescription>
               </DialogHeader>
               <DialogBody className="space-y-4 text-sm">
                 {accessProject.discovery_url ? (
                   <>
                     <AccessStep n={1} title="Discovery endpoint (GET)">
-                      <div className="flex items-center gap-2 rounded-lg bg-muted/50 px-3 py-2">
-                        <code className="min-w-0 flex-1 break-all text-xs">
-                          {discoveryAbsolute(accessProject.discovery_url)}
-                        </code>
-                        <CopyButton
-                          label="Discovery URL"
+                      <div className="space-y-4">
+                        <AccessUrlRow
+                          icon={Globe}
+                          title="Remote / edge"
+                          hint="Vercel, Railway, LAN"
+                          label="Discovery URL (edge)"
                           value={discoveryAbsolute(accessProject.discovery_url)}
                         />
+                        {accessProject.discovery_kong_in_cluster_url ? (
+                          <AccessUrlRow
+                            icon={Boxes}
+                            title="In-cluster"
+                            hint="Pod on this k3s · returns Service DNS"
+                            label="Discovery URL (in-cluster)"
+                            value={accessProject.discovery_kong_in_cluster_url}
+                          />
+                        ) : accessProject.discovery_url_in_cluster ? (
+                          <AccessUrlRow
+                            icon={Boxes}
+                            title="In-cluster"
+                            hint="Append to the Kong or admin base URL"
+                            label="Discovery path (in-cluster)"
+                            value={accessProject.discovery_url_in_cluster}
+                          />
+                        ) : null}
                       </div>
                     </AccessStep>
                     <AccessStep n={2} title="Bearer token">
@@ -339,9 +361,15 @@ export function ProjectsPanel({ createSignal = 0 }: Props) {
                       icon={<Terminal className="size-3.5" aria-hidden />}
                     >
                       <pre className="overflow-x-auto whitespace-pre-wrap font-mono text-[11px] text-muted-foreground">
-                        {`curl -sS \\
+                        {`# Remote / edge (default)
+curl -sS \\
   -H "Authorization: Bearer YOUR_TOKEN" \\
-  "${discoveryAbsolute(accessProject.discovery_url)}"`}
+  "${discoveryAbsolute(accessProject.discovery_url)}"
+
+# Same cluster (pod in another namespace)
+curl -sS \\
+  -H "Authorization: Bearer YOUR_TOKEN" \\
+  "${discoveryAbsolute(accessProject.discovery_url)}?audience=in_cluster"`}
                       </pre>
                     </Disclosure>
                   </>
@@ -611,6 +639,36 @@ function ProjectCard({
       </footer>
       </div>
     </article>
+  );
+}
+
+function AccessUrlRow({
+  icon: Icon,
+  title,
+  hint,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  title: string;
+  hint: string;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div>
+      <div className="flex items-center justify-between gap-2">
+        <p className="flex items-center gap-1.5 text-[13px] font-medium text-foreground">
+          <Icon className="size-3.5 text-muted-foreground" aria-hidden />
+          {title}
+        </p>
+        <CopyButton label={label} value={value} />
+      </div>
+      <p className="mt-0.5 text-[11px] text-muted-foreground">{hint}</p>
+      <code className="mt-1.5 block break-all rounded-xl bg-muted px-3 py-2 font-mono text-[11px] leading-relaxed text-foreground">
+        {value}
+      </code>
+    </div>
   );
 }
 

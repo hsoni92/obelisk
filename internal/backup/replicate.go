@@ -47,6 +47,10 @@ func ReplicateObjects(
 			continue
 		}
 		bucket := obelisk.DestinationBucket(spec, d)
+		if err := EnsureDestinationBucket(ctx, d.Endpoint, bucket, creds); err != nil {
+			errs = append(errs, fmt.Sprintf("%s: %v", d.Label, err))
+			continue
+		}
 		var destErr error
 		for _, p := range pairs {
 			if err := PutObject(ctx, d.Endpoint, bucket, p.Key, creds, p.Body); err != nil {

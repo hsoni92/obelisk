@@ -451,6 +451,7 @@ function ServicesPageContent() {
           selected={selected}
           onSelectedChange={setSelected}
           selectionDisabled={bulkBusy}
+          inClusterNotes={connections?.in_cluster_notes}
           onClearFilters={() => {
             resetServiceFilters();
             router.replace("/services", { scroll: false });

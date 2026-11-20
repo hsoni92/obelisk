@@ -35,6 +35,8 @@ func main() {
 		cmdRestore(os.Args[2:])
 	case "github":
 		cmdGitHub(os.Args[2:])
+	case "admin":
+		cmdAdmin(os.Args[2:])
 	case "configure":
 		cmdConfigure(os.Args[2:])
 	case "gateway":
@@ -84,6 +86,7 @@ Commands:
   configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
+  admin allow add|remove|list|clear   restrict which GitHub users may sign in to the admin UI
   version            show install ref from /opt/obelisk/.install-meta.json
   update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
   start|stop|restart [--root /opt/obelisk] [--namespace NAME] [--system]

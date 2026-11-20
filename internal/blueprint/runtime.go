@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/credentials"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -163,18 +164,27 @@ func (rt *Runtime) Authenticate(r *http.Request) (string, bool) {
 	if err != nil {
 		return "", false
 	}
-	return rt.Sessions.Lookup(c.Value)
+	login, ok := rt.Sessions.Lookup(c.Value)
+	if !ok {
+		return "", false
+	}
+	if err := credentials.LoginPermitted(config.CredentialsDir(rt.ConfigPath), login); err != nil {
+		return "", false
+	}
+	return login, true
 }
 
 // CompleteLogin stores tokens and opens an admin session. The passphrase is not involved.
 func (rt *Runtime) CompleteLogin(ctx context.Context, tok Token) (sessionID string, err error) {
 	if tok.Login == "" {
-		rt.mustStage(tok)
-		login, err := rt.Git.Login(ctx)
+		login, err := loginForAccessToken(ctx, tok.AccessToken)
 		if err != nil {
 			return "", err
 		}
 		tok.Login = login
+	}
+	if err := credentials.LoginPermitted(config.CredentialsDir(rt.ConfigPath), tok.Login); err != nil {
+		return "", err
 	}
 	if err := rt.Tokens.Save(tok); err != nil {
 		return "", err
@@ -188,6 +198,17 @@ func (rt *Runtime) CompleteLogin(ctx context.Context, tok Token) (sessionID stri
 // mustStage saves a token that has no login yet so Git.Login can read it.
 func (rt *Runtime) mustStage(tok Token) {
 	_ = rt.Tokens.Save(tok)
+}
+
+func loginForAccessToken(ctx context.Context, accessToken string) (string, error) {
+	accessToken = strings.TrimSpace(accessToken)
+	if accessToken == "" {
+		return "", fmt.Errorf("github access token is empty")
+	}
+	gh := &GitHub{
+		Token: func(context.Context) (string, error) { return accessToken, nil },
+	}
+	return gh.Login(ctx)
 }
 
 // Logout drops the admin session. OAuth tokens stay so a re-login can be explicit.

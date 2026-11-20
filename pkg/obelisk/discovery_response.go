@@ -1,6 +1,9 @@
 package obelisk
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 // ProjectDiscovery is the GET /discover/v1/projects/{id} JSON body.
 type ProjectDiscovery struct {
@@ -16,12 +19,14 @@ type ProjectDiscovery struct {
 }
 
 // BuildProjectDiscovery filters BuildConnections output to project membership.
+// audience may be ConnectionAudienceInCluster to promote in-cluster URLs to the top level.
 func BuildProjectDiscovery(
 	spec Spec,
 	p Project,
 	states map[string]string,
 	observedAt time.Time,
 	extras ProjectDiscoveryExtras,
+	audience string,
 ) ProjectDiscovery {
 	full := BuildConnections(spec, states)
 	want := ProjectInstanceSet(p)
@@ -36,14 +41,14 @@ func BuildProjectDiscovery(
 				_ = st // reserved for future state field on InstanceConnection
 			}
 		}
-		inst = append(inst, ic)
+		inst = append(inst, InstanceConnectionForAudience(ic, audience))
 	}
 	for _, ref := range p.InstanceIDs {
 		if !want[ref] || !IsExposureMemberRef(ref) {
 			continue
 		}
 		if ic, ok := buildExposureConnection(ref, extras); ok {
-			inst = append(inst, ic)
+			inst = append(inst, InstanceConnectionForAudience(ic, audience))
 		}
 	}
 	var out ProjectDiscovery
@@ -56,6 +61,9 @@ func BuildProjectDiscovery(
 	}
 	out.ObservedAt = observedAt.UTC().Format(time.RFC3339)
 	out.Notes = full.Notes
+	if strings.EqualFold(strings.TrimSpace(audience), ConnectionAudienceInCluster) && full.InClusterNotes != "" {
+		out.Notes = full.InClusterNotes
+	}
 	if len(inst) == 0 && len(p.InstanceIDs) > 0 {
 		if out.Notes != "" {
 			out.Notes += " "

@@ -10,6 +10,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/credentials"
 )
 
 func (s *Server) handleBlueprintStatus(w http.ResponseWriter, r *http.Request) {
@@ -222,6 +223,8 @@ func writeBlueprintErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, blueprint.ErrClientNotConfigured):
 		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
+	case errors.Is(err, credentials.ErrLoginNotAllowed):
+		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": err.Error()})
 	case errors.Is(err, blueprint.ErrWrongPassphrase), errors.Is(err, blueprint.ErrMachineChoice),
 		errors.Is(err, blueprint.ErrMachineIDClobber):
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})

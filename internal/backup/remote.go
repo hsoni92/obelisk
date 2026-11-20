@@ -189,6 +189,26 @@ func BucketUsage(ctx context.Context, endpoint, bucket string, creds RemoteCrede
 	return bytes, objects, nil
 }
 
+// EnsureDestinationBucket creates the machine bucket when missing (same as Test connection).
+func EnsureDestinationBucket(ctx context.Context, endpoint, bucket string, creds RemoteCredentials) error {
+	host, secure, err := parseEndpoint(endpoint)
+	if err != nil {
+		return err
+	}
+	if strings.TrimSpace(bucket) == "" {
+		return fmt.Errorf("bucket name is required")
+	}
+	cli, err := minio.New(host, &minio.Options{
+		Creds:  credentials.NewStaticV4(creds.AccessKeyID, creds.SecretAccessKey, ""),
+		Secure: secure,
+	})
+	if err != nil {
+		return err
+	}
+	_, err = ensureRemoteBucket(ctx, cli, bucket, host)
+	return err
+}
+
 // PutObject uploads raw bytes to an object key.
 func PutObject(ctx context.Context, endpoint, bucket, key string, creds RemoteCredentials, data []byte) error {
 	host, secure, err := parseEndpoint(endpoint)

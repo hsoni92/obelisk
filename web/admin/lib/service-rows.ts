@@ -1,5 +1,5 @@
 import type { ConnectionsResponse, ServiceInstance } from "@/lib/api";
-import type { VitalsRow } from "@/lib/types";
+import type { ConnectionAudience, VitalsRow } from "@/lib/types";
 
 export type InstanceConnection = NonNullable<
   ConnectionsResponse["instances"]
@@ -54,39 +54,80 @@ export function buildServiceRows(
 
 export type ConnectionEntry = { label: string; value: string };
 
+/** Flat connection fields for one reachability audience. */
+export type ResolvedConnection = InstanceConnection;
+
+export function resolveConnection(
+  conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
+): ResolvedConnection | undefined {
+  if (!conn) return undefined;
+  if (audience !== "in_cluster" || !conn.in_cluster) {
+    return conn;
+  }
+  const inner = conn.in_cluster;
+  return {
+    ...conn,
+    use: inner.use ?? conn.use,
+    postgres: inner.postgres ?? conn.postgres,
+    mysql: inner.mysql ?? conn.mysql,
+    mongodb: inner.mongodb ?? conn.mongodb,
+    redis: inner.redis ?? conn.redis,
+    s3_http: inner.s3_http ?? conn.s3_http,
+    qdrant_http: inner.qdrant_http ?? conn.qdrant_http,
+    qdrant_grpc: inner.qdrant_grpc ?? conn.qdrant_grpc,
+    searxng_http: inner.searxng_http ?? conn.searxng_http,
+    kafka_bootstrap: inner.kafka_bootstrap ?? conn.kafka_bootstrap,
+    schema_registry_http:
+      inner.schema_registry_http ?? conn.schema_registry_http,
+    unimeter_api: inner.unimeter_api ?? conn.unimeter_api,
+    unimeter_health_http:
+      inner.unimeter_health_http ?? conn.unimeter_health_http,
+    public_path: inner.host ?? conn.public_path,
+  };
+}
+
 export function connectionEntries(
   conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
 ): ConnectionEntry[] {
-  if (!conn) return [];
+  const view = resolveConnection(conn, audience);
+  if (!view) return [];
   const out: ConnectionEntry[] = [];
-  if (conn.postgres) out.push({ label: "PostgreSQL", value: conn.postgres });
-  if (conn.mysql) out.push({ label: "MySQL", value: conn.mysql });
-  if (conn.mongodb) out.push({ label: "MongoDB", value: conn.mongodb });
-  if (conn.redis) out.push({ label: "Redis", value: conn.redis });
-  if (conn.s3_http) out.push({ label: "S3 HTTP", value: conn.s3_http });
-  if (conn.qdrant_http)
-    out.push({ label: "Qdrant REST", value: conn.qdrant_http });
-  if (conn.qdrant_grpc)
-    out.push({ label: "Qdrant gRPC", value: conn.qdrant_grpc });
-  if (conn.searxng_http)
-    out.push({ label: "SearXNG", value: conn.searxng_http });
-  if (conn.kafka_bootstrap)
-    out.push({ label: "Kafka bootstrap", value: conn.kafka_bootstrap });
-  if (conn.schema_registry_http)
+  if (view.postgres) out.push({ label: "PostgreSQL", value: view.postgres });
+  if (view.mysql) out.push({ label: "MySQL", value: view.mysql });
+  if (view.mongodb) out.push({ label: "MongoDB", value: view.mongodb });
+  if (view.redis) out.push({ label: "Redis", value: view.redis });
+  if (view.s3_http) out.push({ label: "S3 HTTP", value: view.s3_http });
+  if (view.qdrant_http)
+    out.push({ label: "Qdrant REST", value: view.qdrant_http });
+  if (view.qdrant_grpc)
+    out.push({ label: "Qdrant gRPC", value: view.qdrant_grpc });
+  if (view.searxng_http)
+    out.push({ label: "SearXNG", value: view.searxng_http });
+  if (view.kafka_bootstrap)
+    out.push({ label: "Kafka bootstrap", value: view.kafka_bootstrap });
+  if (view.schema_registry_http)
     out.push({
       label: "Schema Registry",
-      value: conn.schema_registry_http,
+      value: view.schema_registry_http,
     });
-  if (conn.unimeter_api)
-    out.push({ label: "Unimeter API", value: conn.unimeter_api });
-  if (conn.unimeter_health_http)
-    out.push({ label: "Unimeter health", value: conn.unimeter_health_http });
+  if (view.unimeter_api)
+    out.push({ label: "Unimeter API", value: view.unimeter_api });
+  if (view.unimeter_health_http)
+    out.push({ label: "Unimeter health", value: view.unimeter_health_http });
+  if (audience === "in_cluster" && conn?.in_cluster?.host) {
+    out.unshift({ label: "Service DNS", value: conn.in_cluster.host });
+  }
   return out;
 }
 
 /** Short label for tables; full credential is `connectionUse`. */
-export function connectionPreview(conn?: InstanceConnection): string | null {
-  const use = connectionUse(conn);
+export function connectionPreview(
+  conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
+): string | null {
+  const use = connectionUse(conn, audience);
   if (!use) return null;
   const first = use.split("\n")[0] ?? use;
   if (use.includes("\n")) {
@@ -96,17 +137,25 @@ export function connectionPreview(conn?: InstanceConnection): string | null {
 }
 
 /** Admin-shareable credential block (one per service). */
-export function connectionUse(conn?: InstanceConnection): string | null {
-  if (conn?.use?.trim()) return conn.use.trim();
-  const entries = connectionEntries(conn);
+export function connectionUse(
+  conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
+): string | null {
+  const view = resolveConnection(conn, audience);
+  if (view?.use?.trim()) return view.use.trim();
+  const entries = connectionEntries(conn, audience);
   return entries[0]?.value ?? null;
 }
 
 /** Copy-ready block for details / share dialogs. */
-export function connectionDetailsBlob(conn?: InstanceConnection): string | null {
-  const use = conn?.use?.trim();
+export function connectionDetailsBlob(
+  conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
+): string | null {
+  const view = resolveConnection(conn, audience);
+  const use = view?.use?.trim();
   if (use) return use;
-  const entries = connectionEntries(conn);
+  const entries = connectionEntries(conn, audience);
   if (entries.length === 0) return null;
   return entries.map((e) => `${e.label}: ${e.value}`).join("\n");
 }
@@ -123,11 +172,13 @@ function useLineEnvKey(line: string): string | null {
 /** Structured rows for the admin UI (every remote connection field). */
 export function connectionCredentialLines(
   conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
 ): ConnectionEntry[] {
-  const use = conn?.use?.trim();
+  const view = resolveConnection(conn, audience);
+  const use = view?.use?.trim();
   if (use) {
     const out: ConnectionEntry[] = [];
-    const typed = connectionEntries(conn);
+    const typed = connectionEntries(conn, audience);
     for (const line of use.split("\n")) {
       const t = line.trim();
       if (!t) continue;
@@ -144,20 +195,22 @@ export function connectionCredentialLines(
     }
     if (out.length > 0) return out;
   }
-  return connectionEntries(conn);
+  return connectionEntries(conn, audience);
 }
 
 /** True when URLs are present but expected secret env lines are absent. */
 export function connectionCredentialsIncomplete(
   conn?: InstanceConnection,
+  audience: ConnectionAudience = "edge",
 ): boolean {
-  const use = conn?.use?.trim() ?? "";
+  const view = resolveConnection(conn, audience);
+  const use = view?.use?.trim() ?? "";
   if (!use) return false;
   const has = (key: string) => use.split("\n").some((l) => l.startsWith(`${key}=`));
-  if (conn?.s3_http && (!has("AWS_ACCESS_KEY_ID") || !has("AWS_SECRET_ACCESS_KEY"))) {
+  if (view?.s3_http && (!has("AWS_ACCESS_KEY_ID") || !has("AWS_SECRET_ACCESS_KEY"))) {
     return true;
   }
-  if (conn?.qdrant_http && !has("QDRANT_API_KEY") && !has("api-key")) {
+  if (view?.qdrant_http && !has("QDRANT_API_KEY") && !has("api-key")) {
     return true;
   }
   return false;

@@ -7,6 +7,7 @@ import { ServerCog } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Field } from "@/components/ui/field";
 import { Label } from "@/components/ui/label";
+import { R2SetupHint } from "@/components/dr/r2-setup-hint";
 import { SelectField } from "@/components/ui/select";
 import {
   AWS_S3_REGIONS,
@@ -231,6 +232,7 @@ export function BackupRemotePanel({
             ? "Keys on file. Enter both fields below to rotate."
             : "Enter R2/S3 access key and secret."}
         </p>
+        {provider === "r2" && <R2SetupHint />}
         <Field
           label="Access key ID"
           value={accessKey}

@@ -4,6 +4,7 @@ import { CopyableId } from "@/components/ui/copyable-id";
 import { DRSkeleton } from "@/components/skeletons";
 import { BackupPolicyCard } from "@/components/dr/backup-policy-card";
 import { DestinationsTable } from "@/components/dr/destinations-table";
+import { R2SetupHint } from "@/components/dr/r2-setup-hint";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
@@ -213,6 +214,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
                   placeholder="https://<account>.r2.cloudflarestorage.com"
                 />
               )}
+              {provider === "r2" && <R2SetupHint />}
               <Field
                 label="Access key"
                 value={accessKey}

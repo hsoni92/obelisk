@@ -4,6 +4,21 @@ On a **new VPS**, install the platform first with the curl installer in [install
 
 Operators sign in with GitHub. The appliance keeps an encrypted copy of desired state in a private repository and uses S3/R2 only for `data/`.
 
+## Admin GitHub allowlist (VPS)
+
+By default, **any** GitHub account that can finish OAuth against your app may use the admin UI. On an internet-reachable VPS, restrict sign-in to GitHub logins you trust:
+
+```bash
+sudo obelisk admin allow add --login your-github-user
+sudo obelisk admin allow list
+```
+
+- Allowlist file: `/var/lib/obelisk/credentials/admin-github-allowlist.json` (mode `0600`), on the same host path the controller reads.
+- **File missing:** open (legacy behavior).
+- **File present, empty `logins`:** all GitHub UI sign-in denied.
+- **On-box CLI** (`Authorization: Bearer` local token) is unaffected; use that for automation on the host.
+- Remove enforcement: `sudo obelisk admin allow clear`.
+
 ## OAuth app
 
 Register an OAuth App at GitHub → **Settings → Developer settings → OAuth Apps**. The admin UI redirects to `{origin}/login/callback`; redirect URIs must match **exactly** (no wildcards).

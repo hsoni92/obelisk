@@ -9,6 +9,24 @@ import (
 
 const DiscoveryPathPrefix = "/discover/v1/projects/"
 
+// DiscoveryAudienceQuery is appended for in-cluster connection strings in discovery JSON.
+const DiscoveryAudienceQuery = "?audience=in_cluster"
+
+// ProjectDiscoveryPath returns the GET path for a project (no query).
+func ProjectDiscoveryPath(projectID string) string {
+	return DiscoveryPathPrefix + strings.TrimSpace(projectID)
+}
+
+// ProjectDiscoveryPathInCluster returns the discovery path with in-cluster audience.
+func ProjectDiscoveryPathInCluster(projectID string) string {
+	return ProjectDiscoveryPath(projectID) + DiscoveryAudienceQuery
+}
+
+// ProjectDiscoveryKongInClusterURL is how pods reach discovery via Kong inside the cluster.
+func ProjectDiscoveryKongInClusterURL(projectID, namespace string) string {
+	return KongInClusterBaseURL(namespace) + ProjectDiscoveryPathInCluster(projectID)
+}
+
 // NewProjectID returns an opaque stable id for URLs.
 func NewProjectID() string {
 	b := make([]byte, 18)

@@ -18,7 +18,7 @@ func TestBuildProjectDiscovery_FiltersMembership(t *testing.T) {
 		Name:        "app",
 		InstanceIDs: []string{"postgres/a"},
 	}}
-	out := BuildProjectDiscovery(spec, spec.Projects[0], nil, time.Now(), ProjectDiscoveryExtras{})
+	out := BuildProjectDiscovery(spec, spec.Projects[0], nil, time.Now(), ProjectDiscoveryExtras{}, "")
 	if len(out.Instances) != 1 || out.Instances[0].Type != "postgres" {
 		t.Fatalf("got %+v", out.Instances)
 	}
@@ -35,7 +35,7 @@ func TestBuildProjectDiscovery_ExposureMember(t *testing.T) {
 	}}
 	out := BuildProjectDiscovery(spec, spec.Projects[0], nil, time.Now(), ProjectDiscoveryExtras{
 		OpenRouterGatewayToken: "gw_secret",
-	})
+	}, "")
 	if len(out.Instances) != 1 || out.Instances[0].Type != "openrouter" {
 		t.Fatalf("got %+v", out.Instances)
 	}

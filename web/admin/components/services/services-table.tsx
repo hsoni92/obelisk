@@ -74,6 +74,7 @@ type ServicesTableProps = {
   selectionDisabled?: boolean;
   onConfigure: (inst: ServiceInstance) => void;
   onClearFilters?: () => void;
+  inClusterNotes?: string;
 };
 
 const SKELETON_HEADERS = [
@@ -156,6 +157,7 @@ export function ServicesTable({
   selectionDisabled = false,
   onConfigure,
   onClearFilters,
+  inClusterNotes,
 }: ServicesTableProps) {
   const [sorting, setSorting] = React.useState<SortingState>([
     { id: "name", desc: false },
@@ -458,6 +460,7 @@ export function ServicesTable({
         onOpenChange={(o) => !o && setDetailsKey(null)}
         onConfigure={onConfigure}
         onOpenBackups={(key) => setBackupsKey(key)}
+        inClusterNotes={inClusterNotes}
       />
       <ServiceBackupsDialog
         row={backupsRow}

@@ -75,6 +75,7 @@ func buildExposureConnection(ref string, extras ProjectDiscoveryExtras) (Instanc
 				"Authorization: Bearer " + tok,
 			}, "\n")
 		}
+		ic.InCluster = exposureInClusterBlock(ref, tok, ObeliskNamespace())
 		return ic, true
 	case ExposureMailMember:
 		url := exposureGatewayURL("/mail/api/v1")
@@ -99,6 +100,7 @@ func buildExposureConnection(ref string, extras ProjectDiscoveryExtras) (Instanc
 				"Authorization: Bearer " + tok,
 			}, "\n")
 		}
+		ic.InCluster = exposureInClusterBlock(ref, tok, ObeliskNamespace())
 		return ic, true
 	default:
 		return InstanceConnection{}, false

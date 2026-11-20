@@ -163,6 +163,10 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 			continue
 		}
 		bucket := obelisk.DestinationBucket(spec, d)
+		if err := EnsureDestinationBucket(ctx, d.Endpoint, bucket, creds); err != nil {
+			out.Errors = append(out.Errors, fmt.Sprintf("%s: %v", d.Label, err))
+			continue
+		}
 		var destErr error
 		for _, a := range artifacts {
 			if err := PutObject(ctx, d.Endpoint, bucket, a.key, creds, a.body); err != nil {

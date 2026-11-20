@@ -134,7 +134,12 @@ export type ProjectView = {
   instance_ids?: string[];
   discovery_enabled: boolean;
   discovery_configured: boolean;
+  /** Path on the admin/Kong HTTP edge (remote clients). */
   discovery_url?: string;
+  /** Same path with `?audience=in_cluster` (append to your public or Kong base). */
+  discovery_url_in_cluster?: string;
+  /** Full URL for pods: Kong Service + in-cluster audience. */
+  discovery_kong_in_cluster_url?: string;
 };
 
 export type TailscaleLiveStatus = {
@@ -310,6 +315,26 @@ export type DiagnosticsRunResponse = {
   results: DiagnosticInstanceResult[];
 };
 
+export type ConnectionBlock = {
+  use?: string;
+  host?: string;
+  postgres?: string;
+  mysql?: string;
+  mongodb?: string;
+  redis?: string;
+  s3_http?: string;
+  qdrant_http?: string;
+  qdrant_grpc?: string;
+  searxng_http?: string;
+  kafka_bootstrap?: string;
+  schema_registry_http?: string;
+  unimeter_api?: string;
+  unimeter_health_http?: string;
+  databases?: { name: string; url: string }[];
+};
+
+export type ConnectionAudience = "edge" | "in_cluster";
+
 export type ConnectionsResponse = {
   instances?: {
     id: string;
@@ -331,8 +356,10 @@ export type ConnectionsResponse = {
     schema_registry_http?: string;
     unimeter_api?: string;
     unimeter_health_http?: string;
+    in_cluster?: ConnectionBlock;
   }[];
   notes?: string;
+  in_cluster_notes?: string;
 };
 
 export type CreateInstanceFromBackupResult = {

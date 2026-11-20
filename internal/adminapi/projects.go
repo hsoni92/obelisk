@@ -17,12 +17,14 @@ import (
 )
 
 type projectView struct {
-	ID                  string   `json:"id"`
-	Name                string   `json:"name"`
-	InstanceIDs         []string `json:"instance_ids,omitempty"`
-	DiscoveryEnabled    bool     `json:"discovery_enabled"`
-	DiscoveryConfigured bool     `json:"discovery_configured"`
-	DiscoveryURL        string   `json:"discovery_url,omitempty"`
+	ID                          string   `json:"id"`
+	Name                        string   `json:"name"`
+	InstanceIDs                 []string `json:"instance_ids,omitempty"`
+	DiscoveryEnabled            bool     `json:"discovery_enabled"`
+	DiscoveryConfigured         bool     `json:"discovery_configured"`
+	DiscoveryURL                string   `json:"discovery_url,omitempty"`
+	DiscoveryURLInCluster       string   `json:"discovery_url_in_cluster,omitempty"`
+	DiscoveryKongInClusterURL   string   `json:"discovery_kong_in_cluster_url,omitempty"`
 }
 
 func (s *Server) enrichProjectView(cfg string, p obelisk.Project) projectView {
@@ -33,7 +35,9 @@ func (s *Server) enrichProjectView(cfg string, p obelisk.Project) projectView {
 		DiscoveryEnabled: p.DiscoveryEnabled,
 	}
 	if p.DiscoveryEnabled {
-		v.DiscoveryURL = obelisk.DiscoveryPathPrefix + p.ID
+		v.DiscoveryURL = obelisk.ProjectDiscoveryPath(p.ID)
+		v.DiscoveryURLInCluster = obelisk.ProjectDiscoveryPathInCluster(p.ID)
+		v.DiscoveryKongInClusterURL = obelisk.ProjectDiscoveryKongInClusterURL(p.ID, instanceNamespace())
 		tok := disc.ReadToken(cfg, p.ID)
 		v.DiscoveryConfigured = strings.TrimSpace(tok) != ""
 	}
@@ -292,7 +296,8 @@ func (s *Server) handleDiscoverProject(w http.ResponseWriter, r *http.Request) {
 		observedAt = s.statesCache.at.UTC()
 	}
 	extras := projectDiscoveryExtras(cfg)
-	out := obelisk.BuildProjectDiscovery(resolved, *p, states, observedAt, extras)
+	audience := strings.TrimSpace(r.URL.Query().Get("audience"))
+	out := obelisk.BuildProjectDiscovery(resolved, *p, states, observedAt, extras, audience)
 	s.recordAudit("Project", "discovery_access", p.Name)
 	writeJSON(w, out)
 }

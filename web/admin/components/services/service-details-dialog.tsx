@@ -23,14 +23,17 @@ import * as React from "react";
 function Section({
   title,
   children,
+  plain,
 }: {
   title: string;
   children: React.ReactNode;
+  /** No tinted container: the content brings its own surfaces. */
+  plain?: boolean;
 }) {
   return (
     <section>
       <h4 className="mb-2 text-eyebrow text-muted-foreground">{title}</h4>
-      <div className="rounded-xl bg-muted px-4 py-1">{children}</div>
+      {plain ? children : <div className="rounded-xl bg-muted px-4 py-1">{children}</div>}
     </section>
   );
 }
@@ -69,6 +72,7 @@ type Props = {
   onOpenChange: (open: boolean) => void;
   onConfigure: (inst: ServiceInstance) => void;
   onOpenBackups?: (rowKey: string) => void;
+  inClusterNotes?: string;
 };
 
 export function ServiceDetailsDialog({
@@ -76,6 +80,7 @@ export function ServiceDetailsDialog({
   onOpenChange,
   onConfigure,
   onOpenBackups,
+  inClusterNotes,
 }: Props) {
   const inst = row?.instance;
   const backup = inst?.deployment?.backup;
@@ -211,15 +216,15 @@ export function ServiceDetailsDialog({
                 </Section>
               )}
 
-              <Section title="Remote connection">
+              <Section title="Connection URLs" plain>
                 <p className="mb-3 text-metadata text-muted-foreground">
-                  Endpoints and secrets for clients on the public Internet or
-                  your LAN — copy fields individually or use{" "}
-                  <span className="font-medium">Copy all credentials</span>.
+                  Use Remote for clients outside the cluster, or In-cluster for
+                  other pods (Kubernetes Service DNS).
                 </p>
                 <ConnectionCredentialsPanel
                   connection={row.connection}
                   enabled={inst.enabled}
+                  inClusterNotes={inClusterNotes}
                 />
               </Section>
             </DialogBody>

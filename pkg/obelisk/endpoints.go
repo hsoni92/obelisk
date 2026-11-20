@@ -9,8 +9,9 @@ import (
 
 // Connections holds copy-ready endpoint hints for the admin UI.
 type Connections struct {
-	Instances []InstanceConnection `json:"instances,omitempty"`
-	Notes     string               `json:"notes,omitempty"`
+	Instances      []InstanceConnection `json:"instances,omitempty"`
+	Notes          string               `json:"notes,omitempty"`
+	InClusterNotes string               `json:"in_cluster_notes,omitempty"`
 }
 
 // InstanceConnection is one instance endpoint block for the admin console.
@@ -38,6 +39,8 @@ type InstanceConnection struct {
 	Origin      string               `json:"origin,omitempty"`      // local | federated
 	PeerID      string               `json:"peer_id,omitempty"`
 	Reachable   *bool                `json:"reachable,omitempty"`
+	// InCluster holds URLs for workloads on the same Kubernetes cluster.
+	InCluster   *ConnectionBlock       `json:"in_cluster,omitempty"`
 }
 
 // PublicHost returns the hostname clients should use for native protocols.
@@ -189,8 +192,10 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			}
 		}
 		ic.Use = instanceUse(spec, inst, ic)
+		attachInClusterBlock(&ic, spec, inst, ObeliskNamespace())
 		out.Instances = append(out.Instances, ic)
 	}
+	out.InClusterNotes = InClusterConnectionNotes(ObeliskNamespace())
 	return out
 }
 
