@@ -112,3 +112,11 @@ obelisk restore --chain --passphrase "$OBELISK_BLUEPRINT_PASSPHRASE" --adopt-mac
 Phases: `pull_blueprint` → `unlock` → `apply_control` → `restore_data` → `reconcile_services` → Funnel forced off. The UI shows settings restored and data restored separately. `restore_data` downloads objects under `data/` only.
 
 `obelisk blueprint status|unlock|lock|push` talks to the controller on `127.0.0.1:8080` with the on-box token in the credentials directory.
+
+## Multiple machines (one GitHub login)
+
+Use **one private repo** (default `obelisk-appliance`). Each appliance pushes to its own branch: `machine-` + `machine.id` (for example `machine-obelisk-a1b2c3d4e5f6`). The `main` branch is not the default upstream after onboarding.
+
+- A second machine must not share another machine’s branch; push is refused if the remote bundle’s `machine_id` does not match this host.
+- Upgrades from an older single-machine install on `main` auto-repoint to `machine-<id>` when the remote manifest matches this host, then push once to the new branch.
+- To copy another machine’s settings once, use **Import** from the admin UI and specify that machine’s branch (REST/CLI `branch` on import when supported).

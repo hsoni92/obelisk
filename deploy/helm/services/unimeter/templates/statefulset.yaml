@@ -1,0 +1,76 @@
+{{- $fqdn := printf "%s-0.%s.%s.svc.cluster.local" .Release.Name .Release.Name .Release.Namespace }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: unimeter
+          image: {{ .Values.image }}
+          imagePullPolicy: IfNotPresent
+          command:
+            - billing
+            - --data-dir=/data
+          securityContext:
+            seccompProfile:
+              type: Unconfined
+          env:
+            - name: MY_ADDR
+              value: {{ (.Values.myAddr | default (printf "%s:7001" $fqdn)) | quote }}
+          ports:
+            - name: api
+              containerPort: 7001
+            - name: health
+              containerPort: 9090
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 3
+            periodSeconds: 5
+            timeoutSeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: health
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 3
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /data
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - name: api
+      port: 7001
+      targetPort: api
+    - name: health
+      port: 9090
+      targetPort: health

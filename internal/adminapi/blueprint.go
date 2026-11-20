@@ -162,12 +162,13 @@ func (s *Server) handleBlueprintImport(w http.ResponseWriter, r *http.Request) {
 		Passphrase      string `json:"passphrase"`
 		Repository      string `json:"repository"`
 		MachineIDChoice string `json:"machine_id_choice"`
+		Branch          string `json:"branch"`
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeJSONStatus(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
-	if err := s.Blueprint.Import(r.Context(), body.Passphrase, body.Repository, body.MachineIDChoice); err != nil {
+	if err := s.Blueprint.Import(r.Context(), body.Passphrase, body.Repository, body.Branch, body.MachineIDChoice); err != nil {
 		writeBlueprintErr(w, err)
 		return
 	}
@@ -221,7 +222,8 @@ func writeBlueprintErr(w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, blueprint.ErrClientNotConfigured):
 		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
-	case errors.Is(err, blueprint.ErrWrongPassphrase), errors.Is(err, blueprint.ErrMachineChoice):
+	case errors.Is(err, blueprint.ErrWrongPassphrase), errors.Is(err, blueprint.ErrMachineChoice),
+		errors.Is(err, blueprint.ErrMachineIDClobber):
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})
 	case errors.Is(err, blueprint.ErrLocked), errors.Is(err, blueprint.ErrOnboardingRequired), errors.Is(err, blueprint.ErrImportRequired):
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})
@@ -237,3 +239,4 @@ func writeJSONStatus(w http.ResponseWriter, code int, v any) {
 	w.WriteHeader(code)
 	_ = json.NewEncoder(w).Encode(v)
 }
+

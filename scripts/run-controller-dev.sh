@@ -7,6 +7,11 @@ source "$ROOT/scripts/load-dotenv.sh"
 load_dotenv "$ROOT"
 export KUBECONFIG="${KUBECONFIG:-$ROOT/dev/kubeconfig}"
 export OBELISK_RECONCILE="${OBELISK_RECONCILE:-cluster}"
+export OBELISK_PUBLIC_HOST="${OBELISK_PUBLIC_HOST:-localhost}"
+# Cluster dev (make dev) must reconcile Redpanda with a host-reachable Kafka advertise address.
+if [ "$OBELISK_RECONCILE" = "cluster" ]; then
+  export OBELISK_DEV="${OBELISK_DEV:-1}"
+fi
 exec "$ROOT/tmp/obelisk-controller" \
   -listen ":8080" \
   -gateway-listen "${GATEWAY_LISTEN:-:18081}" \

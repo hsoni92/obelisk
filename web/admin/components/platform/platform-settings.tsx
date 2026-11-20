@@ -1,6 +1,8 @@
 "use client";
 
+import { BlueprintPanel } from "@/components/blueprint/blueprint-panel";
 import { TailscaleFederationPanel } from "@/components/platform/tailscale-federation-panel";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
   readTheme,
@@ -10,8 +12,7 @@ import {
   type ThemeMode,
 } from "@/lib/theme";
 import { GitBranch, Monitor, Moon, Network, Palette, Sun, type LucideIcon } from "lucide-react";
-import Link from "next/link";
-import { useSyncExternalStore } from "react";
+import { useEffect, useState, useSyncExternalStore } from "react";
 
 const MODES: {
   id: ThemeMode;
@@ -24,11 +25,17 @@ const MODES: {
   { id: "system", label: "System", hint: "Match this device", icon: Monitor },
 ];
 
-const SIDE_LINKS = [
-  { id: "tailscale", label: "Tailscale & gateway", icon: Network, href: "#tailscale" },
-  { id: "appearance", label: "Appearance", icon: Palette, href: "#appearance" },
-  { id: "blueprint", label: "Blueprint", icon: GitBranch, href: "#blueprint" },
+const PLATFORM_TABS = [
+  { id: "tailscale", label: "Tailscale & gateway", icon: Network },
+  { id: "appearance", label: "Appearance", icon: Palette },
+  { id: "blueprint", label: "Blueprint", icon: GitBranch },
 ] as const;
+
+type PlatformTab = (typeof PLATFORM_TABS)[number]["id"];
+
+function isPlatformTab(value: string): value is PlatformTab {
+  return PLATFORM_TABS.some((tab) => tab.id === value);
+}
 
 function subscribeSystem(onChange: () => void) {
   const media = window.matchMedia("(prefers-color-scheme: dark)");
@@ -36,7 +43,11 @@ function subscribeSystem(onChange: () => void) {
   return () => media.removeEventListener("change", onChange);
 }
 
+const tabTriggerClass =
+  "flex w-full items-center justify-start gap-2 rounded-lg border-l-2 border-transparent bg-transparent px-3 py-2 text-left text-[13px] font-medium text-foreground shadow-none hover:bg-card/60 data-[state=active]:border-broadcast data-[state=active]:bg-card/60 data-[state=active]:text-foreground";
+
 export function PlatformSettings() {
+  const [tab, setTab] = useState<PlatformTab>("tailscale");
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "light" as const);
   const systemDark = useSyncExternalStore(
     subscribeSystem,
@@ -45,88 +56,105 @@ export function PlatformSettings() {
   );
   const resolved = theme === "system" ? (systemDark ? "dark" : "light") : theme;
 
+  useEffect(() => {
+    function syncFromHash() {
+      const hash = window.location.hash.replace(/^#/, "");
+      if (isPlatformTab(hash)) setTab(hash);
+    }
+    syncFromHash();
+    window.addEventListener("hashchange", syncFromHash);
+    return () => window.removeEventListener("hashchange", syncFromHash);
+  }, []);
+
+  function onTabChange(value: string) {
+    if (!isPlatformTab(value)) return;
+    setTab(value);
+    const path = `${window.location.pathname}#${value}`;
+    window.history.replaceState(null, "", path);
+  }
+
   return (
-    <div className="grid max-w-3xl gap-8 md:grid-cols-[11rem_minmax(0,1fr)]">
-      <nav aria-label="Platform settings" className="md:sticky md:top-4 md:self-start">
-        <p className="mb-2 px-3 text-eyebrow text-muted-foreground">Platform</p>
-        <ul className="space-y-1">
-          {SIDE_LINKS.map((item) => {
+    <Tabs value={tab} onValueChange={onTabChange} className="max-w-3xl">
+      <div className="grid gap-8 md:grid-cols-[11rem_minmax(0,1fr)]">
+        <TabsList
+          aria-label="Platform settings"
+          className="h-auto flex-col items-stretch gap-0 rounded-none bg-transparent p-0 shadow-none md:sticky md:top-4 md:self-start"
+        >
+          <p className="mb-2 w-full px-3 text-eyebrow text-muted-foreground">Platform</p>
+          {PLATFORM_TABS.map((item) => {
             const Icon = item.icon;
             return (
-              <li key={item.id}>
-                <Link
-                  href={item.href}
-                  className="flex w-full items-center gap-2 rounded-lg border-l-2 border-transparent px-3 py-2 text-left text-[13px] font-medium text-foreground hover:bg-card/60"
-                >
-                  <Icon className="size-4 shrink-0 text-muted-foreground" />
-                  {item.label}
-                </Link>
-              </li>
+              <TabsTrigger key={item.id} value={item.id} className={tabTriggerClass}>
+                <Icon className="size-4 shrink-0 text-muted-foreground" />
+                {item.label}
+              </TabsTrigger>
             );
           })}
-        </ul>
-      </nav>
+        </TabsList>
 
-      <div className="space-y-12">
-        <TailscaleFederationPanel />
+        <div className="min-w-0">
+          <TabsContent value="tailscale" className="mt-0">
+            <TailscaleFederationPanel />
+          </TabsContent>
 
-        <section id="appearance" aria-labelledby="appearance-heading" className="scroll-mt-20">
-          <h2 id="appearance-heading" className="text-page-title">
-            Appearance
-          </h2>
-          <p className="mt-0.5 text-body text-muted-foreground">
-            Theme for this browser. It stays on this device and does not change the appliance.
-          </p>
+          <TabsContent value="appearance" className="mt-0">
+            <section aria-labelledby="appearance-heading">
+              <h2 id="appearance-heading" className="text-page-title">
+                Appearance
+              </h2>
+              <p className="mt-0.5 text-body text-muted-foreground">
+                Theme for this browser. It stays on this device and does not change the appliance.
+              </p>
 
-          <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-rb-2">
-            <p className="text-section-title">Theme</p>
-            <p className="mt-0.5 text-metadata text-muted-foreground">
-              {theme === "dark"
-                ? "Dark theme is on."
-                : theme === "light"
-                  ? "Light theme is on."
-                  : `Following this device (${resolved}).`}
-            </p>
+              <div className="mt-4 rounded-xl border border-border bg-card p-4 shadow-rb-2">
+                <p className="text-section-title">Theme</p>
+                <p className="mt-0.5 text-metadata text-muted-foreground">
+                  {theme === "dark"
+                    ? "Dark theme is on."
+                    : theme === "light"
+                      ? "Light theme is on."
+                      : `Following this device (${resolved}).`}
+                </p>
 
-            <div className="mt-4 grid grid-cols-3 gap-3">
-              {MODES.map((mode) => {
-                const selected = theme === mode.id;
-                const Icon = mode.icon;
-                return (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    aria-pressed={selected}
-                    onClick={() => setTheme(mode.id)}
-                    className={cn(
-                      "rounded-xl border bg-background p-2 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                      selected
-                        ? "border-broadcast ring-1 ring-broadcast"
-                        : "border-border",
-                    )}
-                  >
-                    <ThemePreview mode={mode.id} />
-                    <span className="mt-2 flex items-center gap-1.5 px-0.5 text-[13px] font-medium text-foreground">
-                      <Icon className="size-3.5 text-muted-foreground" />
-                      {mode.label}
-                    </span>
-                    <span className="mt-0.5 block px-0.5 text-[11px] leading-4 text-muted-foreground">
-                      {mode.hint}
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </section>
+                <div className="mt-4 grid grid-cols-3 gap-3">
+                  {MODES.map((mode) => {
+                    const selected = theme === mode.id;
+                    const Icon = mode.icon;
+                    return (
+                      <button
+                        key={mode.id}
+                        type="button"
+                        aria-pressed={selected}
+                        onClick={() => setTheme(mode.id)}
+                        className={cn(
+                          "rounded-xl border bg-background p-2 text-left transition-colors hover:bg-surface focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                          selected
+                            ? "border-broadcast ring-1 ring-broadcast"
+                            : "border-border",
+                        )}
+                      >
+                        <ThemePreview mode={mode.id} />
+                        <span className="mt-2 flex items-center gap-1.5 px-0.5 text-[13px] font-medium text-foreground">
+                          <Icon className="size-3.5 text-muted-foreground" />
+                          {mode.label}
+                        </span>
+                        <span className="mt-0.5 block px-0.5 text-[11px] leading-4 text-muted-foreground">
+                          {mode.hint}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </section>
+          </TabsContent>
 
-        <section id="blueprint" className="scroll-mt-20">
-          <p className="text-metadata text-muted-foreground">
-            Encrypted GitHub blueprint controls are in the panel below.
-          </p>
-        </section>
+          <TabsContent value="blueprint" className="mt-0">
+            <BlueprintPanel />
+          </TabsContent>
+        </div>
       </div>
-    </div>
+    </Tabs>
   );
 }
 

@@ -17,6 +17,10 @@ services:
     enabled: false
   searxng:
     enabled: false
+  redpanda:
+    enabled: false
+  unimeter:
+    enabled: false
 backup:
   remote:
     endpoint: https://ACCOUNT_ID.r2.cloudflarestorage.com

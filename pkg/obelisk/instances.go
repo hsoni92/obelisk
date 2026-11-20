@@ -21,7 +21,7 @@ type InstanceCredentials struct {
 type ServiceInstance struct {
 	// ID is the immutable route slug (e.g. calm-otter) used in edge hostnames and Helm release names.
 	ID          string                 `yaml:"id" json:"id"`
-	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng
+	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng | redpanda | unimeter
 	DisplayName string                 `yaml:"display_name,omitempty" json:"display_name,omitempty"`
 	Enabled     bool                   `yaml:"enabled" json:"enabled"`
 	Backup      InstanceBackupSettings `yaml:"backup,omitempty" json:"backup,omitempty"`
@@ -66,6 +66,11 @@ func DefaultCredentialsForType(typ string) InstanceCredentials {
 	case "searxng":
 		return InstanceCredentials{
 			SecretKey: randomDevSecret(32),
+		}
+	case "redpanda":
+		return InstanceCredentials{
+			Username: "obelisk",
+			Password: randomDevSecret(16),
 		}
 	default:
 		return InstanceCredentials{}
@@ -123,10 +128,10 @@ func SlugID(s string) string {
 
 func ValidateServiceType(typ string) error {
 	switch typ {
-	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng":
+	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng", "redpanda", "unimeter":
 		return nil
 	default:
-		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, or searxng")
+		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, searxng, redpanda, or unimeter")
 	}
 }
 
@@ -163,6 +168,10 @@ func normalizeInstanceCredentials(inst *ServiceInstance) {
 		if strings.TrimSpace(inst.Credentials.Database) == "" {
 			inst.Credentials.Database = BootstrapDatabaseName
 		}
+	case "redpanda":
+		if strings.TrimSpace(inst.Credentials.Username) == "" {
+			inst.Credentials.Username = "obelisk"
+		}
 	}
 }
 
@@ -189,6 +198,12 @@ func NormalizeInstances(spec *Spec) {
 		}
 		if spec.Services.SearXNG.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("searxng", "default", spec))
+		}
+		if spec.Services.Redpanda.Enabled {
+			spec.Instances = append(spec.Instances, legacyInstance("redpanda", "default", spec))
+		}
+		if spec.Services.Unimeter.Enabled {
+			spec.Instances = append(spec.Instances, legacyInstance("unimeter", "default", spec))
 		}
 	}
 	for i := range spec.Instances {
@@ -254,6 +269,9 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		c.AccessKey = "changeme-qdrant-dev"
 	case "searxng":
 		c.SecretKey = "changeme-searxng-dev"
+	case "redpanda":
+		c.Username = "obelisk"
+		c.Password = "changeme-in-ui"
 	}
 	enabled := false
 	switch typ {
@@ -271,6 +289,10 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		enabled = spec.Services.Qdrant.Enabled
 	case "searxng":
 		enabled = spec.Services.SearXNG.Enabled
+	case "redpanda":
+		enabled = spec.Services.Redpanda.Enabled
+	case "unimeter":
+		enabled = spec.Services.Unimeter.Enabled
 	}
 	return ServiceInstance{
 		ID:          id,
@@ -291,6 +313,8 @@ func SyncLegacyServiceFlags(spec *Spec) {
 	spec.Services.RustFS.Enabled = anyInstanceEnabled(spec, "rustfs")
 	spec.Services.Qdrant.Enabled = anyInstanceEnabled(spec, "qdrant")
 	spec.Services.SearXNG.Enabled = anyInstanceEnabled(spec, "searxng")
+	spec.Services.Redpanda.Enabled = anyInstanceEnabled(spec, "redpanda")
+	spec.Services.Unimeter.Enabled = anyInstanceEnabled(spec, "unimeter")
 }
 
 func anyInstanceEnabled(spec *Spec, typ string) bool {

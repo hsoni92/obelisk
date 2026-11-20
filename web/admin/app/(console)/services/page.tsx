@@ -51,7 +51,7 @@ import {
 import { buildServiceRows, serviceRowKey } from "@/lib/service-rows";
 import { useSurfaceFilters } from "@/lib/store/hooks";
 import { toast } from "@/lib/toast";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { Suspense, useEffect, useMemo, useState } from "react";
 
 const TYPES = [
@@ -62,11 +62,12 @@ const TYPES = [
   "rustfs",
   "qdrant",
   "searxng",
+  "redpanda",
+  "unimeter",
 ] as const;
 
 function ServicesPageContent() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [busy, setBusy] = useState<string | null>(null);
   const [bulkBusy, setBulkBusy] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(() => new Set());
@@ -82,16 +83,8 @@ function ServicesPageContent() {
   const {
     filters: serviceFilters,
     activeCount: serviceFilterCount,
-    setQuery: setServiceQuery,
     reset: resetServiceFilters,
   } = useSurfaceFilters(SERVICES_SURFACE);
-
-  const urlQ = searchParams.get("q") ?? "";
-  useEffect(() => {
-    if (urlQ !== serviceFilters.query) {
-      setServiceQuery(urlQ);
-    }
-  }, [urlQ, serviceFilters.query, setServiceQuery]);
 
   const {
     data: status,

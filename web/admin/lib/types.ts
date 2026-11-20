@@ -87,7 +87,16 @@ export type InstanceDeploymentView = {
 
 export type ServiceInstance = {
   id: string;
-  type: "postgres" | "mysql" | "mongodb" | "redis" | "rustfs" | "qdrant" | "searxng";
+  type:
+    | "postgres"
+    | "mysql"
+    | "mongodb"
+    | "redis"
+    | "rustfs"
+    | "qdrant"
+    | "searxng"
+    | "redpanda"
+    | "unimeter";
   display_name?: string;
   enabled: boolean;
   state?: string;
@@ -279,6 +288,10 @@ export type ConnectionsResponse = {
     qdrant_http?: string;
     qdrant_grpc?: string;
     searxng_http?: string;
+    kafka_bootstrap?: string;
+    schema_registry_http?: string;
+    unimeter_api?: string;
+    unimeter_health_http?: string;
   }[];
   notes?: string;
 };
@@ -363,6 +376,7 @@ export type BlueprintStatus = {
   client_configured: boolean;
   repository?: string;
   branch?: string;
+  default_upstream_branch?: string;
   generation: number;
   remote_generation?: number;
   last_sync_at?: string;

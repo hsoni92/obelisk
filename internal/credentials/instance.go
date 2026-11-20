@@ -44,6 +44,10 @@ func MergeInstanceCredentials(ctx context.Context, namespace string, inst obelis
 			if out.AccessKey == "" {
 				out.AccessKey = v
 			}
+		case "username":
+			if out.Username == "" {
+				out.Username = v
+			}
 		}
 	}
 	return out
@@ -61,6 +65,8 @@ func credentialsComplete(typ string, c obelisk.InstanceCredentials) bool {
 		return strings.TrimSpace(c.AccessKey) != ""
 	case "searxng":
 		return strings.TrimSpace(c.SecretKey) != ""
+	case "redpanda":
+		return strings.TrimSpace(c.Username) != "" && strings.TrimSpace(c.Password) != ""
 	default:
 		return true
 	}
@@ -81,6 +87,11 @@ func secretKeysForType(typ string) map[string]string {
 		return map[string]string{"access_key": "apiKey"}
 	case "searxng":
 		return map[string]string{"secret_key": "secretKey"}
+	case "redpanda":
+		return map[string]string{
+			"username": "username",
+			"password": "password",
+		}
 	default:
 		return nil
 	}

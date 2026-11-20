@@ -162,6 +162,16 @@ func probeInstance(ctx context.Context, inst obelisk.ServiceInstance, ic obelisk
 			return nil, fmt.Errorf("missing searxng url")
 		}
 		return probeSearXNG(ctx, ic.SearXNGHTTP)
+	case "redpanda":
+		if ic.KafkaBootstrap == "" {
+			return nil, fmt.Errorf("missing kafka bootstrap")
+		}
+		return probeRedpanda(ctx, ic.KafkaBootstrap)
+	case "unimeter":
+		if ic.UnimeterHealthHTTP == "" {
+			return nil, fmt.Errorf("missing unimeter health url")
+		}
+		return probeUnimeter(ctx, ic.UnimeterHealthHTTP)
 	default:
 		return nil, fmt.Errorf("unsupported type %q", inst.Type)
 	}

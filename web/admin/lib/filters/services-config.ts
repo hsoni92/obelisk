@@ -15,6 +15,8 @@ export const SERVICE_TYPES = [
   "rustfs",
   "qdrant",
   "searxng",
+  "redpanda",
+  "unimeter",
 ] as const;
 
 export const SERVICE_STATES = [
@@ -36,6 +38,8 @@ export const SERVICE_TYPE_LABEL: Record<(typeof SERVICE_TYPES)[number], string> 
     rustfs: "RustFS",
     qdrant: "Qdrant",
     searxng: "SearXNG",
+    redpanda: "Redpanda",
+    unimeter: "Unimeter",
   };
 
 export function defaultServicesFilters(): SurfaceFilterState {

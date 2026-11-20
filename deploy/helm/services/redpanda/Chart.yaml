@@ -1,0 +1,5 @@
+apiVersion: v2
+name: obelisk-redpanda
+version: 0.1.0
+appVersion: "26.2"
+description: Redpanda Kafka-compatible streaming (https://docs.redpanda.com/current/get-started/quick-start/)

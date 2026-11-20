@@ -29,8 +29,12 @@ type InstanceConnection struct {
 	RouteID     string `json:"route_id,omitempty"`
 	QdrantHTTP  string `json:"qdrant_http,omitempty"`
 	QdrantGRPC  string `json:"qdrant_grpc,omitempty"`
-	SearXNGHTTP string `json:"searxng_http,omitempty"`
-	Databases   []DatabaseConnection `json:"databases,omitempty"`
+	SearXNGHTTP        string `json:"searxng_http,omitempty"`
+	UnimeterAPI        string `json:"unimeter_api,omitempty"`
+	UnimeterHealthHTTP string `json:"unimeter_health_http,omitempty"`
+	KafkaBootstrap     string `json:"kafka_bootstrap,omitempty"`
+	SchemaRegistryHTTP string `json:"schema_registry_http,omitempty"`
+	Databases          []DatabaseConnection `json:"databases,omitempty"`
 	Origin      string               `json:"origin,omitempty"`      // local | federated
 	PeerID      string               `json:"peer_id,omitempty"`
 	Reachable   *bool                `json:"reachable,omitempty"`
@@ -157,6 +161,25 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			} else {
 				ic.SearXNGHTTP = fmt.Sprintf("http://%s:8080", host)
 			}
+		case "redpanda":
+			bootstrapHost := host
+			if vpsEdge {
+				bootstrapHost = PublicEdgeHost(inst)
+			}
+			ic.KafkaBootstrap = fmt.Sprintf("%s:9092", bootstrapHost)
+			ic.SchemaRegistryHTTP = schemaRegistryPublicURL(spec, inst, host)
+		case "unimeter":
+			apiHost := host
+			healthHost := host
+			if vpsEdge {
+				apiHost = PublicEdgeHost(inst)
+				healthHost = PublicEdgeHost(inst)
+			} else if h := PublicEdgeHost(inst); h != "" && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
+				apiHost = h
+				healthHost = h
+			}
+			ic.UnimeterAPI = fmt.Sprintf("%s:7001", apiHost)
+			ic.UnimeterHealthHTTP = fmt.Sprintf("http://%s:9090/health", healthHost)
 		}
 		if IsRelationalEngine(inst.Type) {
 			for _, name := range DesiredDatabaseNames(inst) {
@@ -222,9 +245,47 @@ func instanceUse(spec Spec, inst ServiceInstance, ic InstanceConnection) string 
 			return ic.SearXNGHTTP
 		}
 		return fmt.Sprintf("%s\nsecret-key: %s", ic.SearXNGHTTP, sk)
+	case "redpanda":
+		if ic.KafkaBootstrap == "" {
+			return ""
+		}
+		lines := []string{
+			fmt.Sprintf("KAFKA_BOOTSTRAP_SERVERS=%s", ic.KafkaBootstrap),
+			// dev-container v1: PLAINTEXT listener (SCRAM bootstrap user reserved for a follow-on).
+			"KAFKA_SECURITY_PROTOCOL=PLAINTEXT",
+		}
+		if ic.SchemaRegistryHTTP != "" {
+			lines = append(lines, fmt.Sprintf("SCHEMA_REGISTRY_URL=%s", ic.SchemaRegistryHTTP))
+		}
+		return strings.Join(lines, "\n")
+	case "unimeter":
+		if ic.UnimeterAPI == "" {
+			return ""
+		}
+		lines := []string{fmt.Sprintf("UNIMETER_ADDR=%s", ic.UnimeterAPI)}
+		if ic.UnimeterHealthHTTP != "" {
+			lines = append(lines, fmt.Sprintf("UNIMETER_HEALTH_URL=%s", ic.UnimeterHealthHTTP))
+		}
+		return strings.Join(lines, "\n")
 	default:
 		return ""
 	}
+}
+
+// schemaRegistryPublicURL is the Schema Registry base URL clients use from outside the cluster.
+func schemaRegistryPublicURL(spec Spec, inst ServiceInstance, host string) string {
+	if VPSEdge(spec) {
+		if edge := PublicEdgeHost(inst); edge != "" && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
+			return fmt.Sprintf("http://%s:8081", edge)
+		}
+		if u := PublicHTTPEdgeURL(inst); u != "" {
+			return u
+		}
+	}
+	if h := strings.TrimSpace(host); h != "" {
+		return fmt.Sprintf("http://%s:8081", h)
+	}
+	return ""
 }
 
 func relationalUseBlock(spec Spec, inst ServiceInstance, ic InstanceConnection) string {

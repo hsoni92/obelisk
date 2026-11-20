@@ -48,5 +48,10 @@ func mergeFederatedURLs(spec obelisk.Spec, inst obelisk.ServiceInstance, ic *obe
 		ic.Redis = "rediss://:PASSWORD@" + host + ":" + obelisk.NativeEdgeTLSPort() + "/0"
 	case "rustfs":
 		ic.S3HTTP = obelisk.PublicHTTPEdgeURL(inst)
+	case "redpanda":
+		ic.KafkaBootstrap = host + ":9092"
+		ic.SchemaRegistryHTTP = obelisk.PublicHTTPEdgeURL(inst)
+	case "unimeter":
+		ic.UnimeterAPI = host + ":7001"
 	}
 }

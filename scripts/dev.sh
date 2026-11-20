@@ -70,10 +70,12 @@ fi
 if [ "$OBSERVE_ONLY" = "1" ]; then
   export OBELISK_RECONCILE=off
   unset OBELISK_DEV
+  unset OBELISK_PUBLIC_HOST
   echo "[dev] reconcile: off (instances stay pending; use default dev for k3d)"
 else
   export OBELISK_RECONCILE=cluster
-  unset OBELISK_DEV
+  export OBELISK_DEV=1
+  export OBELISK_PUBLIC_HOST="${OBELISK_PUBLIC_HOST:-localhost}"
   need docker
   need k3d
   need helm
@@ -130,6 +132,8 @@ find_stale_dev_pids() {
     pgrep -f "scripts/run-controller-dev\.sh" 2>/dev/null || true
     pgrep -f "air -c $ROOT/\.air\.toml" 2>/dev/null || true
     pgrep -f "$ROOT/web/admin/node_modules/\.bin/next" 2>/dev/null || true
+    pgrep -f "scripts/dev-port-forwards\.sh" 2>/dev/null || true
+    pgrep -f "kubectl port-forward -n ${OBELISK_NAMESPACE:-obelisk}" 2>/dev/null || true
     for pid in $(pgrep -f "next-server" 2>/dev/null || true); do
       cwd="$(readlink -f "/proc/$pid/cwd" 2>/dev/null || true)"
       [ "$cwd" = "$ROOT/web/admin" ] && echo "$pid"
@@ -164,6 +168,7 @@ port_listening() {
 
 check_ports_free() {
   local port busy=0
+  # Data-plane ports (:9092, :6379, …) are bound by scripts/dev-port-forwards.sh after startup.
   local ports=("8080" "3080" "${GATEWAY_LISTEN##*:}" "${MAIL_GATEWAY_LISTEN##*:}")
   for port in "${ports[@]}"; do
     [ -z "$port" ] && continue
@@ -201,6 +206,12 @@ trap cleanup EXIT INT TERM
 
 echo "[dev] API http://127.0.0.1:8080  (restarts on .go changes via air)"
 echo "[dev] UI  http://localhost:3080  (Next.js hot reload; API is :8080)"
+
+if [ "$OBSERVE_ONLY" != "1" ]; then
+  echo "[dev] data services: kubectl port-forwards on :9092 (Kafka), :8081 (Schema Registry), …"
+  "$ROOT/scripts/dev-port-forwards.sh" &
+  PIDS+=($!)
+fi
 
 air -c "$ROOT/.air.toml" &
 PIDS+=($!)

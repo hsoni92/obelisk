@@ -59,7 +59,8 @@
         "redis": { "$ref": "#/$defs/serviceToggle" },
         "rustfs": { "$ref": "#/$defs/serviceToggle" },
         "qdrant": { "$ref": "#/$defs/serviceToggle" },
-        "searxng": { "$ref": "#/$defs/serviceToggle" }
+        "searxng": { "$ref": "#/$defs/serviceToggle" },
+        "redpanda": { "$ref": "#/$defs/serviceToggle" }
       }
     },
     "machine": {

@@ -61,7 +61,7 @@ export function TailscaleFederationPanel() {
   }
 
   return (
-    <section id="tailscale" aria-labelledby="tailscale-heading" className="scroll-mt-20">
+    <section aria-labelledby="tailscale-heading">
       <CardHeading
         icon={Network}
         title="Tailscale & gateway"

@@ -70,6 +70,7 @@ Full product spec: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 | MySQL, MongoDB | Native drivers |
 | Qdrant | Vector search |
 | SearXNG | Metasearch |
+| Redpanda | Kafka API (SASL/SCRAM) |
 
 </td>
 </tr>
@@ -262,7 +263,7 @@ obelisk — middleware appliance CLI
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
   status [--api URL] [--config path]
-  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng>
+  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter>
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push
   restore --chain [--adopt-machine-id | --keep-machine-id]

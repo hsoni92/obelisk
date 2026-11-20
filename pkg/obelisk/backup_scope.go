@@ -5,7 +5,7 @@ import (
 	"strings"
 )
 
-// Data backup scope: postgres, mysql, mongodb, rustfs, qdrant (not redis, searxng, …).
+// Data backup scope: postgres, mysql, mongodb, rustfs, qdrant (not redis, searxng, redpanda, unimeter, …).
 var BackupDataServiceTypes = []string{"postgres", "mysql", "mongodb", "rustfs", "qdrant"}
 
 // InstanceBackupPolicyOverride overrides global backup.policy for one instance.

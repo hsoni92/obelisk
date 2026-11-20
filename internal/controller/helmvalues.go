@@ -2,6 +2,7 @@ package controller
 
 import (
 	"os"
+	"strings"
 
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 	"gopkg.in/yaml.v3"
@@ -23,6 +24,9 @@ func writeInstanceValues(vpsEdge, edgeTLSReady bool, inst obelisk.ServiceInstanc
 		creds["apiKey"] = inst.Credentials.AccessKey
 	case "searxng":
 		creds["secretKey"] = inst.Credentials.SecretKey
+	case "redpanda":
+		creds["username"] = inst.Credentials.Username
+		creds["password"] = inst.Credentials.Password
 	}
 	replicas := 1
 	if !inst.Enabled {
@@ -36,6 +40,15 @@ func writeInstanceValues(vpsEdge, edgeTLSReady bool, inst obelisk.ServiceInstanc
 		if d := obelisk.RustFSServerDomains(inst); d != "" {
 			vals["serverDomains"] = d
 		}
+	}
+	if inst.Type == "redpanda" && inst.Enabled && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
+		if h := obelisk.PublicEdgeHost(inst); h != "" {
+			vals["devAdvertiseHost"] = h
+		}
+	}
+	if inst.Type == "unimeter" && inst.Enabled && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
+		// Partition map must include host:port; long *.localhost MY_ADDR values are truncated by v0.1 server builds.
+		vals["myAddr"] = "127.0.0.1:7001"
 	}
 	if vpsEdge && edgeTLSReady && nativeEdgeTLSInCluster(inst.Type) {
 		vals["edgeTLS"] = map[string]any{

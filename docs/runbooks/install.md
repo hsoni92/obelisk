@@ -121,7 +121,7 @@ Obelisk from that app's ingress, or use `LoadBalancer` on 9080/9443 only.
 ## UI dev on a laptop (no `/etc/obelisk`)
 
 ```bash
-make dev              # k3d + cluster Helm reconcile, Air + Next.js (one terminal)
+make dev              # k3d + cluster Helm reconcile, Air + Next.js, auto port-forwards (Kafka :9092, …)
 make dev-observe      # API + UI only (OBELISK_RECONCILE=off)
 
 # Or separate processes without API hot-reload:

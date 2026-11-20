@@ -1,0 +1,140 @@
+{{- $fqdn := printf "%s-0.%s.%s.svc.cluster.local" .Release.Name .Release.Name .Release.Namespace }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  serviceName: {{ .Release.Name }}
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: redpanda
+          image: {{ .Values.image }}
+          command:
+            - /usr/bin/rpk
+            - redpanda
+            - start
+            - --smp
+            - "1"
+            - --memory
+            - 1G
+            - --reserve-memory
+            - 0M
+            - --overprovisioned
+            - --check=false
+            - --mode
+            - dev-container
+            - --kafka-addr
+            {{- if .Values.devAdvertiseHost }}
+            - internal://0.0.0.0:9092,external://0.0.0.0:19092
+            {{- else }}
+            - internal://0.0.0.0:9092
+            {{- end }}
+            - --advertise-kafka-addr
+            {{- if .Values.devAdvertiseHost }}
+            - internal://{{ $fqdn }}:9092,external://{{ .Values.devAdvertiseHost }}:9092
+            {{- else }}
+            - internal://{{ $fqdn }}:9092
+            {{- end }}
+            - --schema-registry-addr
+            - internal://0.0.0.0:8081
+            - --rpc-addr
+            - 0.0.0.0:33145
+            - --advertise-rpc-addr
+            - {{ $fqdn }}:33145
+          env:
+            {{- if .Values.credentials.password }}
+            - name: RP_BOOTSTRAP_USER
+              valueFrom:
+                secretKeyRef:
+                  name: {{ .Release.Name }}
+                  key: bootstrapUser
+            {{- end }}
+          ports:
+            - name: kafka
+              containerPort: 9092
+            {{- if .Values.devAdvertiseHost }}
+            - name: kafka-external
+              containerPort: 19092
+            {{- end }}
+            - name: schema-registry
+              containerPort: 8081
+            - name: admin
+              containerPort: 9644
+          readinessProbe:
+            httpGet:
+              path: /v1/status/ready
+              port: admin
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 12
+          livenessProbe:
+            httpGet:
+              path: /v1/status/ready
+              port: admin
+            initialDelaySeconds: 45
+            periodSeconds: 20
+            timeoutSeconds: 5
+          resources:
+            requests:
+              cpu: 250m
+              memory: 1536Mi
+            limits:
+              memory: 1536Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+            {{- if .Values.credentials.password }}
+            - name: bootstrap
+              mountPath: /etc/redpanda/.bootstrap.yaml
+              subPath: .bootstrap.yaml
+              readOnly: true
+            {{- end }}
+      {{- if .Values.credentials.password }}
+      volumes:
+        - name: bootstrap
+          configMap:
+            name: {{ .Release.Name }}-bootstrap
+      {{- end }}
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.storage.size }}
+---
+# Headless service — required for StatefulSet pod DNS (rpc/kafka advertise).
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  clusterIP: None
+  publishNotReadyAddresses: true
+  selector:
+    app: {{ .Release.Name }}
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka
+    {{- if .Values.devAdvertiseHost }}
+    - name: kafka-external
+      port: 19092
+      targetPort: kafka-external
+    {{- end }}
+    - name: schema-registry
+      port: 8081
+      targetPort: schema-registry
+    - name: admin
+      port: 9644
+      targetPort: admin

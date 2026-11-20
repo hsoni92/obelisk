@@ -24,8 +24,10 @@ import {
   HardDrive,
   Layers,
   Plus,
+  Radio,
   Search,
   Server,
+  Activity,
 } from "lucide-react";
 import * as React from "react";
 
@@ -78,6 +80,18 @@ const TYPES: {
     label: "SearXNG",
     hint: "Privacy-respecting metasearch",
     icon: Search,
+  },
+  {
+    id: "redpanda",
+    label: "Redpanda",
+    hint: "Kafka-compatible streaming (not in DR data backups)",
+    icon: Radio,
+  },
+  {
+    id: "unimeter",
+    label: "Unimeter",
+    hint: "Usage metering & billing events (not in DR data backups)",
+    icon: Activity,
   },
 ];
 

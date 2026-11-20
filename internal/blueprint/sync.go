@@ -217,10 +217,7 @@ func (s *Syncer) push(ctx context.Context, force bool) error {
 	if err != nil {
 		return err
 	}
-	branch := spec.Blueprint.GitHub.Branch
-	if branch == "" {
-		branch = "main"
-	}
+	branch := obelisk.EffectiveBlueprintBranch(spec)
 	gen := spec.Blueprint.GitHub.Generation + 1
 	if gen < 1 {
 		gen = 1
@@ -235,6 +232,10 @@ func (s *Syncer) push(ctx context.Context, force bool) error {
 		if err := json.Unmarshal(files[FileManifest], &remote); err != nil {
 			_ = s.fail(err)
 			return err
+		}
+		if clobber := machineIDClobber(remote.MachineID, spec.Machine.ID, localNeverSynced(spec), force); clobber != nil {
+			_ = s.fail(clobber)
+			return clobber
 		}
 		if remote.ContentSHA256 == hash {
 			if spec.Blueprint.GitHub.Generation != remote.Generation || spec.Blueprint.GitHub.SyncStatus != obelisk.SyncSynced {
@@ -322,6 +323,18 @@ func (s *Syncer) diverged(pushed string) bool {
 func localNeverSynced(spec obelisk.Spec) bool {
 	gh := spec.Blueprint.GitHub
 	return gh.Generation == 0 && strings.TrimSpace(gh.LastCommitSHA) == ""
+}
+
+func machineIDClobber(remoteID, localID string, neverSynced, force bool) error {
+	remoteID = strings.TrimSpace(remoteID)
+	localID = strings.TrimSpace(localID)
+	if remoteID == "" || localID == "" || remoteID == localID {
+		return nil
+	}
+	if neverSynced || force {
+		return fmt.Errorf("%w (remote machine %s)", ErrMachineIDClobber, remoteID)
+	}
+	return nil
 }
 
 func (s *Syncer) fail(err error) error {

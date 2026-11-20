@@ -1,0 +1,10 @@
+{{- if .Values.credentials.password }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Release.Name }}-bootstrap
+data:
+  .bootstrap.yaml: |
+    enable_sasl: true
+    kafka_enable_authorization: false
+{{- end }}

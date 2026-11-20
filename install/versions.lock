@@ -8,5 +8,7 @@ REDIS_IMAGE=redis:7-alpine
 RUSTFS_IMAGE=rustfs/rustfs:latest
 QDRANT_IMAGE=qdrant/qdrant:v1.12.5
 SEARXNG_IMAGE=docker.io/searxng/searxng:latest
+REDPANDA_IMAGE=docker.redpanda.com/redpandadata/redpanda:v26.2.7
+UNIMETER_IMAGE=ghcr.io/unimeter/unimeter:latest
 RUSTFS_CHART=0.1.0
 NEXTJS=16.x

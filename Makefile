@@ -30,6 +30,8 @@ helm-lint:
 	helm lint deploy/helm/services/mongodb
 	helm lint deploy/helm/services/qdrant
 	helm lint deploy/helm/services/searxng
+	helm lint deploy/helm/services/redpanda
+	helm lint deploy/helm/services/unimeter
 
 ci: check-go test-go build-cli build-controller helm-lint
 	cd web/admin && npm ci && npm run build
@@ -71,7 +73,7 @@ install-air: check-go
 	@echo "air installed to $$($(GO) env GOPATH)/bin — ensure that directory is on your PATH"
 
 dev: check-go
-	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/run-controller-dev.sh
+	chmod +x install/k3d-dev.sh scripts/dev.sh scripts/dev-port-forwards.sh scripts/run-controller-dev.sh
 	./scripts/dev.sh
 
 dev-observe: check-go

@@ -261,6 +261,10 @@ func dataMounts(typ string) []diskMount {
 			{Container: "searxng", Path: "/etc/searxng", Label: "config"},
 			{Container: "searxng", Path: "/var/cache/searxng", Label: "data"},
 		}
+	case "redpanda":
+		return []diskMount{{Container: "redpanda", Path: "/var/lib/redpanda/data", Label: "data"}}
+	case "unimeter":
+		return []diskMount{{Container: "unimeter", Path: "/data", Label: "data"}}
 	default:
 		return nil
 	}

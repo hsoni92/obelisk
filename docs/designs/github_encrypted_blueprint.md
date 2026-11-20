@@ -8,6 +8,8 @@
 
 ## Overview
 
+> **Amendment:** Multi-appliance fleets under one GitHub login use per-machine branches and optional follows; see [multi_machine_blueprint.md](./multi_machine_blueprint.md). Default upstream is no longer `main` for new installs after that change ships.
+
 Obelisk stores desired state in `obelisk.yaml` on the appliance. Operators **sign in with GitHub** in the admin UI. Every appliance has a **GitHub home for its encrypted blueprint** (private repo). If the repo already has a bundle, install/login **pulls, decrypts, and applies** it; if the repo is empty, the operator goes through **fresh onboarding** (initial spec, passphrase, first push).
 
 The appliance **pushes** an encrypted mirror after each successful save. On disaster recovery, the same login flow leads into **chained restore**: blueprint from GitHub, then **S3/R2 `data/`** using `machine.id` and backup settings from the bundle.

@@ -162,6 +162,11 @@ export function ConfigureInstanceDialog({
     } else if (instance.type === "searxng") {
       const secret_key = String(data.get("secret_key") || "");
       if (secret_key) body.secret_key = secret_key;
+    } else if (instance.type === "redpanda") {
+      const username = String(data.get("username") || "").trim();
+      const password = String(data.get("password") || "");
+      if (username) body.username = username;
+      if (password) body.password = password;
     }
     if (Object.keys(body).length > 0) {
       patch.credentials = body;
@@ -269,6 +274,21 @@ export function ConfigureInstanceDialog({
                   type="password"
                   placeholder="Leave blank to keep current"
                 />
+              )}
+              {instance.type === "redpanda" && (
+                <>
+                  <Field
+                    label="SASL username"
+                    name="username"
+                    defaultValue={instance.credentials.username}
+                  />
+                  <Field
+                    label="SASL password"
+                    name="password"
+                    type="password"
+                    placeholder="Leave blank to keep current"
+                  />
+                </>
               )}
             </div>
 

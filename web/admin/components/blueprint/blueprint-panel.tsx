@@ -165,7 +165,7 @@ export function BlueprintPanel() {
     Boolean(data.last_push_error) && !(conflict && isImportRequiredError);
 
   return (
-    <section id="blueprint" aria-labelledby="blueprint-heading" className="mt-8 max-w-3xl">
+    <section id="blueprint" aria-labelledby="blueprint-heading">
       <h2 id="blueprint-heading" className="text-page-title">
         Blueprint
       </h2>
@@ -181,6 +181,12 @@ export function BlueprintPanel() {
           <div>
             <dt className="text-metadata text-muted-foreground">Repository</dt>
             <dd className="font-mono text-[12px]">{data.repository || "—"}</dd>
+          </div>
+          <div>
+            <dt className="text-metadata text-muted-foreground">Branch</dt>
+            <dd className="font-mono text-[12px]">
+              {data.branch || data.default_upstream_branch || "—"}
+            </dd>
           </div>
           <div>
             <dt className="text-metadata text-muted-foreground">Sync</dt>
@@ -407,6 +413,7 @@ export function BlueprintPanel() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
     </section>
   );
 }

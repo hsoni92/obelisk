@@ -1,0 +1,13 @@
+replicas: 1
+image: ghcr.io/unimeter/unimeter:latest
+storage:
+  size: 2Gi
+credentials: {}
+# billing uses an io_uring event loop that can spin ~1 core while idle; cap CPU in dev and prod.
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: 500m
+    memory: 1Gi

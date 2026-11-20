@@ -13,6 +13,7 @@ var (
 	ErrClientNotConfigured = errors.New("GitHub OAuth client is not configured")
 	ErrPending             = errors.New("authorization pending")
 	ErrOnboardingRequired  = errors.New("blueprint onboarding is required")
+	ErrMachineIDClobber    = errors.New("remote blueprint belongs to another machine; use a different branch or import with adopt")
 )
 
 const (

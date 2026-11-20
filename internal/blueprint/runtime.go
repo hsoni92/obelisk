@@ -43,6 +43,7 @@ type Status struct {
 	DiscoveredRepository string `json:"discovered_repository,omitempty"`
 	KeyID                string `json:"key_id,omitempty"`
 	RemoteKeyID          string `json:"remote_key_id,omitempty"`
+	DefaultBranch        string `json:"default_upstream_branch,omitempty"`
 }
 
 // Runtime is the in-process blueprint controller: OAuth, unlock, and sync.
@@ -65,6 +66,7 @@ type Runtime struct {
 type probeCache struct {
 	at         time.Time
 	repo       string
+	branch     string
 	present    bool
 	generation int
 	machineID  string
@@ -99,6 +101,10 @@ func NewRuntime(configPath, helmRoot string) (*Runtime, error) {
 func (rt *Runtime) Start(ctx context.Context) {
 	go rt.Sync.Loop(ctx)
 	go rt.refreshLoop(ctx)
+	go func() {
+		rt.ensureUpstreamBranch()
+		rt.maybeMigrateMainBranch(ctx)
+	}()
 }
 
 func (rt *Runtime) refreshLoop(ctx context.Context) {
@@ -110,6 +116,7 @@ func (rt *Runtime) refreshLoop(ctx context.Context) {
 			return
 		case <-t.C:
 			_, _ = rt.AccessToken(ctx)
+			rt.maybeMigrateMainBranch(ctx)
 		}
 	}
 }
@@ -198,8 +205,16 @@ func (rt *Runtime) Onboard(ctx context.Context, repository, branch, passphrase s
 	if err != nil {
 		return err
 	}
+	spec, err := config.Load(rt.ConfigPath)
+	if err != nil {
+		return err
+	}
 	if branch == "" {
-		branch = "main"
+		var berr error
+		branch, berr = obelisk.BlueprintUpstreamBranch(spec.Machine.ID)
+		if berr != nil {
+			branch = "main"
+		}
 	}
 	kdf, err := DefaultKDFParams()
 	if err != nil {
@@ -277,7 +292,8 @@ func (rt *Runtime) Lock() error {
 // Import pulls the remote bundle, decrypts it, and replaces local desired state.
 // choice is "adopt" or "keep" when machine ids differ.
 // When passphrase is empty, an already-unlocked session key is tried first.
-func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice string) error {
+// branchOverride, when non-empty, selects the git ref to fetch.
+func (rt *Runtime) Import(ctx context.Context, passphrase, repository, branchOverride, choice string) error {
 	passphrase = strings.TrimSpace(passphrase)
 	if passphrase == "" && !rt.Session.Unlocked() {
 		return fmt.Errorf("passphrase is required")
@@ -297,9 +313,9 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, choice st
 		}
 		repo = tok.Login + "/" + obelisk.DefaultBlueprintRepoName
 	}
-	branch := current.Blueprint.GitHub.Branch
+	branch := strings.TrimSpace(branchOverride)
 	if branch == "" {
-		branch = "main"
+		branch = obelisk.EffectiveBlueprintBranch(current)
 	}
 	var (
 		kdf  KDFParams
@@ -407,7 +423,7 @@ func (rt *Runtime) Status(ctx context.Context, login string) Status {
 	}
 	gh := spec.Blueprint.GitHub
 	st.Repository = gh.Repository
-	st.Branch = gh.Branch
+	st.Branch = obelisk.EffectiveBlueprintBranch(spec)
 	st.Generation = gh.Generation
 	st.LastSyncAt = gh.LastSyncAt
 	st.LastCommitSHA = gh.LastCommitSHA
@@ -419,6 +435,9 @@ func (rt *Runtime) Status(ctx context.Context, login string) Status {
 	st.LastPushError = gh.LastPushError
 	st.MachineID = spec.Machine.ID
 	st.KeyID = gh.KeyID
+	if upstream, err := obelisk.BlueprintUpstreamBranch(spec.Machine.ID); err == nil {
+		st.DefaultBranch = upstream
+	}
 	displaySpec := spec
 	if st.CryptoUnlocked {
 		rt.Sync.healStaleNeverSynced()
@@ -461,9 +480,9 @@ func (rt *Runtime) applySyncDisplay(st *Status, spec obelisk.Spec) {
 
 func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Spec) {
 	repo := st.Repository
-	branch := st.Branch
-	if branch == "" {
-		branch = "main"
+	branch := obelisk.EffectiveBlueprintBranch(spec)
+	if st.Branch != "" {
+		branch = strings.TrimSpace(st.Branch)
 	}
 	if repo == "" {
 		if tok, err := rt.Tokens.Load(); err == nil && tok.Login != "" {
@@ -473,12 +492,12 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 			return
 		}
 	}
-	probe, ok := rt.cachedProbe(repo)
+	probe, ok := rt.cachedProbe(repo, branch)
 	if !ok {
 		pctx, cancel := context.WithTimeout(ctx, 4*time.Second)
 		present, manifest, err := rt.Git.LookupRepo(pctx, repo, branch)
 		cancel()
-		probe = probeCache{at: time.Now(), repo: repo, present: present}
+		probe = probeCache{at: time.Now(), repo: repo, branch: branch, present: present}
 		if err != nil {
 			probe.err = sanitize(err.Error())
 		} else if present {
@@ -524,10 +543,10 @@ func (rt *Runtime) InvalidateProbe() {
 	rt.probeMu.Unlock()
 }
 
-func (rt *Runtime) cachedProbe(repo string) (probeCache, bool) {
+func (rt *Runtime) cachedProbe(repo, branch string) (probeCache, bool) {
 	rt.probeMu.Lock()
 	defer rt.probeMu.Unlock()
-	if rt.probe.repo == repo && time.Since(rt.probe.at) < 30*time.Second {
+	if rt.probe.repo == repo && rt.probe.branch == branch && time.Since(rt.probe.at) < 30*time.Second {
 		return rt.probe, true
 	}
 	return probeCache{}, false

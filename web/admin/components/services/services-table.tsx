@@ -34,9 +34,11 @@ import {
   DatabaseBackup,
   HardDrive,
   Layers,
+  Radio,
   Search,
   Server,
   SlidersHorizontal,
+  Activity,
 } from "lucide-react";
 import * as React from "react";
 
@@ -48,6 +50,8 @@ const TYPE_ICONS = {
   rustfs: HardDrive,
   qdrant: Box,
   searxng: Search,
+  redpanda: Radio,
+  unimeter: Activity,
 } as const;
 
 const GRID =

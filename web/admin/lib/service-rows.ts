@@ -70,6 +70,17 @@ export function connectionEntries(
     out.push({ label: "Qdrant gRPC", value: conn.qdrant_grpc });
   if (conn.searxng_http)
     out.push({ label: "SearXNG", value: conn.searxng_http });
+  if (conn.kafka_bootstrap)
+    out.push({ label: "Kafka bootstrap", value: conn.kafka_bootstrap });
+  if (conn.schema_registry_http)
+    out.push({
+      label: "Schema Registry",
+      value: conn.schema_registry_http,
+    });
+  if (conn.unimeter_api)
+    out.push({ label: "Unimeter API", value: conn.unimeter_api });
+  if (conn.unimeter_health_http)
+    out.push({ label: "Unimeter health", value: conn.unimeter_health_http });
   return out;
 }
 

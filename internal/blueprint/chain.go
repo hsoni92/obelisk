@@ -41,10 +41,7 @@ func (rt *Runtime) ChainPull(ctx context.Context, ch *Chain) error {
 		}
 		repo = tok.Login + "/" + obelisk.DefaultBlueprintRepoName
 	}
-	branch := current.Blueprint.GitHub.Branch
-	if branch == "" {
-		branch = "main"
-	}
+	branch := obelisk.EffectiveBlueprintBranch(current)
 	files, err := rt.Git.Fetch(ctx, repo, branch)
 	if err != nil {
 		return err

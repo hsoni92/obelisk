@@ -1,6 +1,9 @@
 package obelisk
 
-import "strings"
+import (
+	"fmt"
+	"strings"
+)
 
 // Sync status values stored on blueprint.github.sync_status.
 const (
@@ -14,6 +17,9 @@ const (
 
 // DefaultBlueprintRepoName is created when onboarding does not name a repo.
 const DefaultBlueprintRepoName = "obelisk-appliance"
+
+// BlueprintBranchPrefix is prepended to machine.id for the default git upstream ref.
+const BlueprintBranchPrefix = "machine-"
 
 // Blueprint is the encrypted GitHub mirror of desired state.
 type Blueprint struct {
@@ -40,6 +46,39 @@ type BlueprintGitHub struct {
 	LastPushError  string `yaml:"last_push_error,omitempty" json:"last_push_error,omitempty"`
 }
 
+// BlueprintUpstreamBranch returns the default git ref for an appliance upstream.
+func BlueprintUpstreamBranch(machineID string) (string, error) {
+	machineID = strings.TrimSpace(machineID)
+	if machineID == "" {
+		return "", fmt.Errorf("machine id required")
+	}
+	if err := ValidateMachineID(machineID); err != nil {
+		return "", err
+	}
+	return BlueprintBranchPrefix + machineID, nil
+}
+
+// EffectiveBlueprintBranch returns the branch used for push and remote probes.
+// Legacy installs may still have branch "main"; per-machine upstream is machine-<machine.id>.
+func EffectiveBlueprintBranch(spec Spec) string {
+	branch := strings.TrimSpace(spec.Blueprint.GitHub.Branch)
+	repo := strings.TrimSpace(spec.Blueprint.GitHub.Repository)
+	if repo != "" {
+		if upstream, err := BlueprintUpstreamBranch(spec.Machine.ID); err == nil {
+			if branch == "" || branch == "main" {
+				return upstream
+			}
+		}
+	}
+	if branch != "" {
+		return branch
+	}
+	if upstream, err := BlueprintUpstreamBranch(spec.Machine.ID); err == nil {
+		return upstream
+	}
+	return "main"
+}
+
 // NormalizeBlueprint fills defaults and clears the on-disk unlock hint.
 // Real unlock state lives only in controller memory.
 func NormalizeBlueprint(spec *Spec) {
@@ -50,8 +89,12 @@ func NormalizeBlueprint(spec *Spec) {
 	if spec.Blueprint.GitHub.Repository == "" {
 		return
 	}
-	if spec.Blueprint.GitHub.Branch == "" {
-		spec.Blueprint.GitHub.Branch = "main"
+	if spec.Blueprint.GitHub.Branch == "" || spec.Blueprint.GitHub.Branch == "main" {
+		if upstream, err := BlueprintUpstreamBranch(spec.Machine.ID); err == nil {
+			spec.Blueprint.GitHub.Branch = upstream
+		} else if spec.Blueprint.GitHub.Branch == "" {
+			spec.Blueprint.GitHub.Branch = "main"
+		}
 	}
 	switch spec.Blueprint.GitHub.SyncStatus {
 	case SyncIdle, SyncPending, SyncSynced, SyncFailed, SyncLocked, SyncPushPaused:

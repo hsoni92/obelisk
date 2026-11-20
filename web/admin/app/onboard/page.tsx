@@ -76,7 +76,6 @@ export default function OnboardPage() {
       } else {
         await onboard({
           repository: repo,
-          branch: "main",
           passphrase,
         }).unwrap();
       }
@@ -105,6 +104,13 @@ export default function OnboardPage() {
           autoComplete="off"
           placeholder="owner/obelisk-appliance"
         />
+        {!restoring && status?.default_upstream_branch && (
+          <p className="text-xs text-muted-foreground">
+            This machine will push to branch{" "}
+            <span className="font-mono">{status.default_upstream_branch}</span> (not{" "}
+            <span className="font-mono">main</span>).
+          </p>
+        )}
         <FieldPassword
           id="blueprint-pass"
           label="Passphrase"

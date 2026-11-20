@@ -178,6 +178,22 @@ func TestFailSkipsImportPersistWhenNeverSynced(t *testing.T) {
 	}
 }
 
+func TestSyncRefusesForeignMachineWhenNeverSynced(t *testing.T) {
+	remote := &memRemote{files: map[string][]byte{
+		FileManifest: []byte(`{"blueprint_schema_version":1,"generation":9,"content_sha256":"different","machine_id":"obelisk-other000"}`),
+		FilePublic:   []byte("apiVersion: obelisk.dev/v1\n"),
+		FileSecrets:  []byte("cipher"),
+	}}
+	s, _ := newTestSyncer(t, remote)
+	err := s.PushNow(context.Background())
+	if !errors.Is(err, ErrMachineIDClobber) {
+		t.Fatalf("err = %v", err)
+	}
+	if remote.pushCount() != 0 {
+		t.Fatal("push should not run")
+	}
+}
+
 func TestSyncOverwritesJunkRemoteWhenNeverSynced(t *testing.T) {
 	remote := &memRemote{files: map[string][]byte{
 		FileManifest: []byte(`{"blueprint_schema_version":1,"generation":9,"content_sha256":"different","machine_id":"obelisk-sync001"}`),
@@ -276,7 +292,7 @@ func TestImportUsesUnlockedSessionKeyWithoutPassphrase(t *testing.T) {
 	}
 	rt.Session.Set(key, kdf)
 
-	if err := rt.Import(context.Background(), "", "", ""); err != nil {
+	if err := rt.Import(context.Background(), "", "", "", ""); err != nil {
 		t.Fatalf("Import err = %v", err)
 	}
 	got, err := config.Load(path)
@@ -330,7 +346,7 @@ func TestImportRejectsEmptyPassphraseWhenKeyDiffers(t *testing.T) {
 	}
 	rt.Session.Set(localKey, kdf)
 
-	err = rt.Import(context.Background(), "", "", "")
+	err = rt.Import(context.Background(), "", "", "", "")
 	if !errors.Is(err, ErrWrongPassphrase) {
 		t.Fatalf("err = %v, want ErrWrongPassphrase", err)
 	}
