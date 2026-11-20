@@ -157,7 +157,7 @@ func Validate(spec *obelisk.Spec) error {
 		return fmt.Errorf("deployment.profile must be vps or local")
 	}
 	if spec.Deployment.Profile == "vps" && spec.Deployment.Tailscale.Enabled && !obelisk.IsGateway(*spec) {
-		return fmt.Errorf("tailscale cannot be enabled when deployment.profile is vps (use deployment.role: gateway for mesh backhaul)")
+		return fmt.Errorf("tailscale cannot be enabled when deployment.profile is vps and role is local (use deployment.role: gateway on the VPS, or deployment.profile: local for a home appliance)")
 	}
 	if obelisk.IsGateway(*spec) && !spec.Deployment.Tailscale.Enabled {
 		return fmt.Errorf("deployment.role gateway requires tailscale.enabled")

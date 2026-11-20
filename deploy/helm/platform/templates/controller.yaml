@@ -19,6 +19,10 @@ spec:
         - name: controller
           image: {{ .Values.obelisk.imageController }}
           imagePullPolicy: IfNotPresent
+          securityContext:
+            runAsUser: 0
+            capabilities:
+              add: ["SYS_ADMIN"]
           args:
             - -config={{ .Values.obelisk.configHostPath }}
             - -helm-root={{ .Values.obelisk.helmRoot }}
@@ -78,7 +82,6 @@ spec:
               readOnly: true
             - name: tailscale-socket
               mountPath: /var/run/tailscale
-              readOnly: true
       volumes:
         - name: obelisk-config
           hostPath:

@@ -43,9 +43,12 @@ func (s *Server) handleTailscaleConnect(w http.ResponseWriter, r *http.Request) 
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
-	if err := tailscale.Up(r.Context(), req.AuthKey); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
+	stBefore := tailscale.GetStatus(r.Context())
+	if !stBefore.Connected {
+		if err := tailscale.Up(r.Context(), req.AuthKey); err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 	}
 	cfg := config.EnsureReadablePath(s.ConfigPath)
 	if req.EnableInConfig || req.GatewayRole {

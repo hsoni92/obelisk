@@ -208,8 +208,9 @@ deploy_platform() {
   fi
   # shellcheck disable=SC2086
   local helm_history_max="${OBELISK_HELM_HISTORY_MAX:-10}"
+  log "applying helm release obelisk-platform (images ${OBELISK_IMAGE_TAG}); waiting for rollouts next"
   helm upgrade --install obelisk-platform "$OBELISK_ROOT/deploy/helm/platform" \
-    --namespace "$NAMESPACE" --create-namespace --wait --timeout 15m \
+    --namespace "$NAMESPACE" --create-namespace \
     --history-max "$helm_history_max" \
     --set obelisk.configHostPath="$CONFIG_PATH" \
     --set obelisk.helmRoot="$OBELISK_ROOT" \

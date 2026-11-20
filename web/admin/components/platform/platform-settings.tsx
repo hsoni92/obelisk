@@ -44,7 +44,7 @@ function subscribeSystem(onChange: () => void) {
 }
 
 const tabTriggerClass =
-  "flex w-full items-center justify-start gap-2 rounded-lg border-l-2 border-transparent bg-transparent px-3 py-2 text-left text-[13px] font-medium text-foreground shadow-none hover:bg-card/60 data-[state=active]:border-broadcast data-[state=active]:bg-card/60 data-[state=active]:text-foreground";
+  "group flex w-full outline-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none items-center justify-start gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-muted-foreground shadow-none transition-colors hover:bg-card/70 hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-rb-2";
 
 export function PlatformSettings() {
   const [tab, setTab] = useState<PlatformTab>("tailscale");
@@ -75,17 +75,16 @@ export function PlatformSettings() {
 
   return (
     <Tabs value={tab} onValueChange={onTabChange} className="max-w-3xl">
-      <div className="grid gap-8 md:grid-cols-[11rem_minmax(0,1fr)]">
+      <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8">
         <TabsList
           aria-label="Platform settings"
-          className="h-auto flex-col items-stretch gap-0 rounded-none bg-transparent p-0 shadow-none md:sticky md:top-4 md:self-start"
+          className="h-auto flex-row gap-1 rounded-none bg-transparent p-0 shadow-none md:sticky md:top-4 md:flex-col md:items-stretch md:self-start"
         >
-          <p className="mb-2 w-full px-3 text-eyebrow text-muted-foreground">Platform</p>
-          {PLATFORM_TABS.map((item) => {
+                    {PLATFORM_TABS.map((item) => {
             const Icon = item.icon;
             return (
               <TabsTrigger key={item.id} value={item.id} className={tabTriggerClass}>
-                <Icon className="size-4 shrink-0 text-muted-foreground" />
+                <Icon className="size-4 shrink-0 opacity-70 group-data-[state=active]:text-broadcast group-data-[state=active]:opacity-100" />
                 {item.label}
               </TabsTrigger>
             );

@@ -8,6 +8,7 @@ export type ToastRecord = {
   description?: string;
   variant: ToastVariant;
   open: boolean;
+  duration: number;
 };
 
 export type ToastInput = {
@@ -72,11 +73,9 @@ export function push(input: ToastInput) {
     description: input.description,
     variant: input.variant ?? "default",
     open: true,
+    duration: durationFor(input),
   };
   dispatch([record, ...memoryState].slice(0, TOAST_LIMIT));
-
-  const ms = durationFor(input);
-  window.setTimeout(() => dismiss(id), ms);
 }
 
 export const toast = {

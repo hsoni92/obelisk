@@ -50,13 +50,7 @@ func tailscaleEnv() []string {
 }
 
 func cli(ctx context.Context, args ...string) ([]byte, error) {
-	cmd := exec.CommandContext(ctx, "tailscale", args...)
-	cmd.Env = tailscaleEnv()
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return out, fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
-	}
-	return out, nil
+	return runCombined(ctx, "tailscale", args, tailscaleEnv())
 }
 
 // CLIInstalled reports whether the tailscale binary is on PATH.
@@ -119,6 +113,14 @@ func Up(ctx context.Context, authKey string) error {
 	}
 	cctx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
-	_, err := cli(cctx, "up", "--auth-key="+authKey, "--reset=false")
+	args := []string{"up", "--auth-key=" + authKey, "--reset=false"}
+	out, err := cli(cctx, args...)
+	if err == nil {
+		return nil
+	}
+	if !needsTailscaleElevation(out, err) {
+		return err
+	}
+	_, err = cliPrivileged(cctx, args...)
 	return err
 }

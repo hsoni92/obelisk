@@ -2,7 +2,7 @@
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { CardHeading } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "@/lib/toast";
@@ -16,6 +16,30 @@ import {
 import { ExternalLink, Network } from "lucide-react";
 import * as React from "react";
 
+const TAILSCALE_AUTH_KEYS_URL =
+  "https://login.tailscale.com/admin/settings/keys";
+const TAILSCALE_AUTH_KEYS_DOCS_URL = "https://tailscale.com/kb/1247/auth-keys";
+
+function TailscaleExternalLink({
+  href,
+  children,
+}: {
+  href: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      className="inline-flex items-center gap-0.5 text-broadcast underline"
+    >
+      {children}
+      <ExternalLink className="size-3" aria-hidden />
+    </a>
+  );
+}
+
 export function TailscaleFederationPanel() {
   const { data, isLoading, error } = useGetTailscaleStatusQuery(
     undefined,
@@ -28,10 +52,13 @@ export function TailscaleFederationPanel() {
   const st = data?.status;
   const connected = Boolean(st?.connected);
   const isGateway = data?.deployment_role === "gateway";
+  const profile = data?.deployment_profile ?? "vps";
+  const vpsBlocksTailscaleInConfig =
+    profile === "vps" && !isGateway;
 
   async function onConnect() {
     const key = authKey.trim();
-    if (!key) {
+    if (!key && !connected) {
       toast.error("Paste a Tailscale auth key first");
       return;
     }
@@ -62,83 +89,114 @@ export function TailscaleFederationPanel() {
 
   return (
     <section aria-labelledby="tailscale-heading">
-      <CardHeading
-        icon={Network}
-        title="Tailscale & gateway"
-        description="Join your tailnet from the console. Use an auth key from the Tailscale admin (Settings → Keys). Gateway role turns this box into the public front for home Obelisks."
-      />
-      <div className="mt-4 space-y-4 rounded-xl border border-border bg-card p-4 shadow-rb-2">
-        {error && !data ? (
-          <p className="text-sm text-destructive">{rtkErrorMessage(error)}</p>
-        ) : null}
-
-        <div className="flex flex-wrap items-center gap-2">
-          <Badge variant={connected ? "success" : "warning"}>
+      <Card className="divide-y divide-border/60 overflow-hidden">
+        {/* Header: identity + the one status that matters */}
+        <div className="flex items-start justify-between gap-4 p-6">
+          <div className="flex min-w-0 items-start gap-3">
+            <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-muted text-muted-foreground">
+              <Network className="size-4" aria-hidden />
+            </span>
+            <div className="min-w-0">
+              <h2 id="tailscale-heading" className="text-page-title">
+                Tailscale &amp; gateway
+              </h2>
+              <p className="mt-0.5 text-body text-muted-foreground">
+                Join your tailnet and optionally make this box the public front
+                for home Obelisks.
+              </p>
+            </div>
+          </div>
+          <Badge variant={connected ? "success" : "warning"} className="shrink-0">
             {connected ? "Connected" : "Not connected"}
           </Badge>
-          {data?.desired_enabled ? (
-            <Badge variant="info">enabled in config</Badge>
-          ) : (
-            <Badge variant="outline">not in config</Badge>
-          )}
-          {isGateway ? (
-            <Badge variant="warning">gateway</Badge>
-          ) : (
-            <Badge variant="outline">local role</Badge>
-          )}
         </div>
 
-        {st?.dns_name ? (
-          <p className="font-mono text-[13px] text-muted-foreground">
-            {st.dns_name}
-            {st.ips?.length ? ` · ${st.ips.join(", ")}` : ""}
-            {st.tailnet ? ` · ${st.tailnet}` : ""}
-          </p>
-        ) : null}
+        {/* Connection */}
+        <div className="space-y-4 p-6">
+          {error && !data ? (
+            <p className="text-sm text-destructive">{rtkErrorMessage(error)}</p>
+          ) : null}
 
-        {st?.auth_url ? (
-          <p className="text-sm">
-            <a
-              href={st.auth_url}
-              target="_blank"
-              rel="noreferrer"
-              className="inline-flex items-center gap-1 text-broadcast underline"
-            >
-              Open Tailscale login
-              <ExternalLink className="size-3.5" />
-            </a>
-          </p>
-        ) : null}
+          <div className="flex flex-wrap items-center gap-2">
+            {data?.desired_enabled ? (
+              <Badge variant="info">enabled in config</Badge>
+            ) : (
+              <Badge variant="outline">not in config</Badge>
+            )}
+            {isGateway ? (
+              <Badge variant="warning">gateway</Badge>
+            ) : (
+              <Badge variant="outline">local role</Badge>
+            )}
+            <Badge variant="outline">profile {profile}</Badge>
+          </div>
 
-        {st?.error ? (
-          <p className="text-sm text-muted-foreground">{st.error}</p>
-        ) : null}
+          {vpsBlocksTailscaleInConfig ? (
+            <p className="text-sm text-muted-foreground">
+              Standalone VPS profile keeps Tailscale off unless you enable{" "}
+              <span className="font-medium text-foreground">Gateway appliance</span>{" "}
+              below, or set{" "}
+              <span className="font-mono text-[12px]">deployment.profile: local</span>{" "}
+              for a home machine (e.g. dev/obelisk.yaml).
+            </p>
+          ) : null}
 
-        <div className="space-y-1">
-          <Label htmlFor="tailscale-auth-key">Auth key</Label>
-          <p className="text-[11px] text-muted-foreground">
-            One-time or reusable key; not stored in obelisk.yaml
-          </p>
-          <input
-            id="tailscale-auth-key"
-            type="password"
-            autoComplete="off"
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
-            placeholder="tskey-auth-…"
-            value={authKey}
-            onChange={(e) => setAuthKey(e.target.value)}
-          />
+          {st?.dns_name ? (
+            <p className="rounded-xl bg-muted px-4 py-3 font-mono text-[13px] text-muted-foreground">
+              {st.dns_name}
+              {st.ips?.length ? ` · ${st.ips.join(", ")}` : ""}
+              {st.tailnet ? ` · ${st.tailnet}` : ""}
+            </p>
+          ) : null}
+
+          {st?.auth_url ? (
+            <p className="text-sm">
+              <TailscaleExternalLink href={st.auth_url}>
+                Open Tailscale login
+              </TailscaleExternalLink>
+            </p>
+          ) : null}
+
+          {st?.error ? (
+            <p className="text-sm text-muted-foreground">{st.error}</p>
+          ) : null}
+
+          <div className="space-y-2">
+            <Label htmlFor="tailscale-auth-key">Auth key</Label>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <input
+                id="tailscale-auth-key"
+                type="password"
+                autoComplete="off"
+                className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+                placeholder="tskey-auth-…"
+                value={authKey}
+                onChange={(e) => setAuthKey(e.target.value)}
+              />
+              <Button
+                type="button"
+                disabled={connectState.isLoading || isLoading}
+                onClick={() => void onConnect()}
+              >
+                Connect tailnet
+              </Button>
+            </div>
+            <p className="text-metadata leading-relaxed text-muted-foreground">
+              One-time or reusable key, never stored in obelisk.yaml. Enable
+              pre-approval for headless VPS join.{" "}
+              <TailscaleExternalLink href={TAILSCALE_AUTH_KEYS_URL}>
+                Generate a key
+              </TailscaleExternalLink>
+              {" · "}
+              <TailscaleExternalLink href={TAILSCALE_AUTH_KEYS_DOCS_URL}>
+                How auth keys work
+              </TailscaleExternalLink>
+            </p>
+          </div>
         </div>
 
-        <Button
-          type="button"
-          disabled={connectState.isLoading || isLoading}
-          onClick={() => void onConnect()}
-        >
-          Connect tailnet
-        </Button>
-
-        <div className="flex items-center justify-between gap-3 border-t border-border pt-4">
+        {/* Gateway */}
+        <div className="flex items-center justify-between gap-4 p-6">
           <div>
             <p className="text-sm font-medium">Gateway appliance</p>
             <p className="text-metadata text-muted-foreground">
@@ -152,9 +210,7 @@ export function TailscaleFederationPanel() {
             aria-label="Gateway role"
           />
         </div>
-      </div>
+      </Card>
     </section>
   );
 }
-
-// framer-motion not needed — remove erroneous motion tag
