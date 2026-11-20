@@ -22,6 +22,8 @@ export type {
   DiagnosticInstanceResult,
 } from "@/lib/types";
 
+export { copyToClipboard } from "@/lib/copy-to-clipboard";
+
 export {
   obeliskApi,
   rtkErrorMessage,

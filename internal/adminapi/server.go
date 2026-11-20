@@ -145,10 +145,7 @@ func (s *Server) handleStatus(w http.ResponseWriter, r *http.Request) {
 		reconcileMode = "off"
 	}
 
-	var instances []instanceView
-	for _, inst := range spec.Instances {
-		instances = append(instances, enrichInstanceView(inst, states[inst.StateKey()], spec))
-	}
+	instances := listInstanceViews(cfg, spec, states)
 	bt := s.buildBackupTarget(cfg, spec)
 	writeJSON(w, map[string]any{
 		"machineId":     spec.BackupBucketName(),

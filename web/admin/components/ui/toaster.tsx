@@ -8,6 +8,7 @@ import {
   ToastTitle,
   ToastViewport,
 } from "@/components/ui/toast";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import {
   dismiss,
   getToasts,
@@ -54,11 +55,11 @@ function ToastBody({ t }: { t: ToastRecord }) {
   async function onCopy() {
     const text = t.description ? `${t.title}\n${t.description}` : t.title;
     try {
-      await navigator.clipboard.writeText(text);
+      await copyToClipboard(text);
       setCopied(true);
       window.setTimeout(() => setCopied(false), 1800);
     } catch {
-      /* clipboard unavailable (insecure context) */
+      /* copy failed */
     }
   }
 

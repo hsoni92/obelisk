@@ -2,13 +2,14 @@
 
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { toast } from "@/lib/toast";
 import { Copy } from "lucide-react";
 
-async function copyText(text: string) {
+async function copyText(text: string, label: string) {
   try {
-    await navigator.clipboard.writeText(text);
-    toast.success("Gateway advertise URL copied");
+    await copyToClipboard(text);
+    toast.success(`${label} URL copied`);
   } catch {
     toast.error("Could not copy to clipboard");
   }
@@ -52,7 +53,7 @@ function UrlRow({ label, url }: { label: string; url: string }) {
           type="button"
           variant={label === "Tailnet" ? "outline" : "default"}
           className="shrink-0"
-          onClick={() => void copyText(url)}
+          onClick={() => void copyText(url, label)}
         >
           <Copy className="size-4" aria-hidden />
           Copy

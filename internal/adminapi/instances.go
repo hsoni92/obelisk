@@ -89,6 +89,38 @@ func maskInstance(inst obelisk.ServiceInstance) obelisk.ServiceInstance {
 	return out
 }
 
+// listInstanceViews merges local yaml instances with federated peer catalog on gateways.
+func listInstanceViews(cfg string, spec obelisk.Spec, states map[string]string) []instanceView {
+	var list []instanceView
+	for _, inst := range spec.Instances {
+		v := enrichInstanceView(inst, states[inst.StateKey()], spec)
+		v.Origin = "local"
+		list = append(list, v)
+	}
+	if !obelisk.IsGateway(spec) {
+		return list
+	}
+	reg, err := peer.LoadRegistry(cfg)
+	if err != nil {
+		return list
+	}
+	for _, ft := range reg.FederatedTargets(spec, 0) {
+		st := "running"
+		reason := ""
+		if !ft.Reachable {
+			st = "degraded"
+			reason = "peer_unreachable"
+		}
+		v := enrichInstanceView(ft.Inst, st, spec)
+		v.Origin = "federated"
+		v.PeerID = ft.PeerID
+		v.ReasonCode = reason
+		v.Reason = reason
+		list = append(list, v)
+	}
+	return list
+}
+
 func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	cfg := config.EnsureReadablePath(s.ConfigPath)
 	spec, err := config.Load(cfg)
@@ -98,31 +130,7 @@ func (s *Server) handleListInstances(w http.ResponseWriter, r *http.Request) {
 	}
 	rec := s.reconciler(cfg)
 	states := rec.ObserveServiceStates(r.Context(), spec)
-	var list []instanceView
-	for _, inst := range spec.Instances {
-		v := enrichInstanceView(inst, states[inst.StateKey()], spec)
-		v.Origin = "local"
-		list = append(list, v)
-	}
-	if obelisk.IsGateway(spec) {
-		if reg, err := peer.LoadRegistry(cfg); err == nil {
-			for _, ft := range reg.FederatedTargets(spec, 0) {
-				st := "running"
-				reason := ""
-				if !ft.Reachable {
-					st = "degraded"
-					reason = "peer_unreachable"
-				}
-				v := enrichInstanceView(ft.Inst, st, spec)
-				v.Origin = "federated"
-				v.PeerID = ft.PeerID
-				v.ReasonCode = reason
-				v.Reason = reason
-				list = append(list, v)
-			}
-		}
-	}
-	writeJSON(w, list)
+	writeJSON(w, listInstanceViews(cfg, spec, states))
 }
 
 func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
