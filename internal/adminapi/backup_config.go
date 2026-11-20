@@ -158,6 +158,9 @@ func (s *Server) buildBackupConfig(cfg string, spec obelisk.Spec) backupConfigRe
 	if policy.IncludeConfig != nil {
 		inc = *policy.IncludeConfig
 	}
+	if views == nil {
+		views = []backupDestinationView{}
+	}
 	return backupConfigResponse{
 		MachineID: bucket,
 		Scope: backupScopeView{

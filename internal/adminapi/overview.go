@@ -147,6 +147,9 @@ func (s *Server) handleOverview(w http.ResponseWriter, r *http.Request) {
 
 	since := time.Now().UTC().Add(-time.Duration(hours * float64(time.Hour)))
 	events, _ := store.Since(since)
+	if events == nil {
+		events = []history.Event{}
+	}
 
 	bt := s.buildBackupTarget(cfg, spec)
 	var warnings []string

@@ -21,7 +21,8 @@ export function summarizeBackup(
   config: BackupConfigResponse | undefined,
 ): BackupSummary | null {
   if (!config) return null;
-  const enabled = config.destinations.filter((d) => d.enabled);
+  const destinations = config.destinations ?? [];
+  const enabled = destinations.filter((d) => d.enabled);
   const healthy = enabled.filter((d) => d.ready).length;
   const totalBytes = enabled.reduce((a, d) => a + (d.bytes ?? 0), 0);
   const totalObjects = enabled.reduce((a, d) => a + (d.objects ?? 0), 0);

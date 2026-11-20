@@ -293,7 +293,7 @@ function sortValue(row: VitalsRow, key: SortKey): number | string {
 /** Compact card footer: top consumers + CTA to the full sortable table. */
 function ServiceVitalsSummary({ vitals }: { vitals: VitalsSnapshot }) {
   const [open, setOpen] = React.useState(false);
-  const rows = vitals.rows;
+  const rows = vitals.rows ?? [];
   const running = rows.filter((r) => r.running).length;
   const top = rows.slice(0, 3);
 
@@ -346,14 +346,16 @@ function ServiceVitalsDialog({
   );
   const [query, setQuery] = React.useState("");
 
+  const baseRows = vitals.rows ?? [];
+
   const rows = React.useMemo(() => {
     const q = query.trim().toLowerCase();
     const filtered = q
-      ? vitals.rows.filter(
+      ? baseRows.filter(
           (r) =>
             r.name.toLowerCase().includes(q) || r.key.toLowerCase().includes(q),
         )
-      : vitals.rows;
+      : baseRows;
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       const av = sortValue(a, sort.key);
@@ -364,7 +366,7 @@ function ServiceVitalsDialog({
           : (av as number) - (bv as number);
       return c * dir || a.name.localeCompare(b.name);
     });
-  }, [vitals.rows, sort, query]);
+  }, [baseRows, sort, query]);
 
   function toggle(key: SortKey) {
     setSort((s) =>

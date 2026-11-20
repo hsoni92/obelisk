@@ -129,6 +129,9 @@ func (s *Store) Snapshot(meta rowMeta) *Snapshot {
 
 	snap.Machine = machineFromRing(s.machine)
 	snap.Rows = buildRows(s.rows, meta, snap.Machine)
+	if snap.Rows == nil {
+		snap.Rows = []RowVitals{}
+	}
 	snap.Scarce = scarceResource(snap.Machine)
 	rankRows(snap.Rows, snap.Scarce)
 	snap.Unaccounted = unaccounted(snap.Machine, snap.Rows)

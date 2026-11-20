@@ -82,7 +82,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
     if (config.backup_ready && config.replication_ready) {
       return <Badge variant="success">ready</Badge>;
     }
-    if (config.destinations.length === 0) {
+    if ((config.destinations ?? []).length === 0) {
       return <Badge variant="warning">add destination</Badge>;
     }
     return <Badge variant="warning">setup</Badge>;
@@ -123,7 +123,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
             <Button
               variant="outline"
               size="sm"
-              disabled={!!busyKey || config.destinations.length === 0}
+              disabled={!!busyKey || (config.destinations ?? []).length === 0}
               onClick={() =>
                 act("test-all", async () => {
                   await testAll().unwrap();
@@ -150,7 +150,7 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
           }
         />
         <DestinationsTable
-          rows={config.destinations}
+          rows={config.destinations ?? []}
           busyKey={busyKey}
           onTest={(id) =>
             act(`test-${id}`, async () => {
