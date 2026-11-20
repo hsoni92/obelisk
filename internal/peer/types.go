@@ -16,9 +16,12 @@ type AdvertiseRequest struct {
 }
 
 type AdvertisedInstance struct {
-	Type    string `json:"type"`
-	ID      string `json:"id"`
-	Enabled bool   `json:"enabled"`
+	Type        string                      `json:"type"`
+	ID          string                      `json:"id"`
+	Enabled     bool                        `json:"enabled"`
+	DisplayName string                      `json:"display_name,omitempty"`
+	Credentials obelisk.InstanceCredentials `json:"credentials,omitempty"`
+	Databases   []string                    `json:"databases,omitempty"`
 }
 
 // AdvertiseResponse may return a newly issued peer token.

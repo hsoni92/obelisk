@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
+	"github.com/hsoni92/obelisk/internal/credentials"
 	"github.com/hsoni92/obelisk/internal/tailscale"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
@@ -30,14 +31,18 @@ func ResolveTailnetHost() string {
 	return dns
 }
 
-// BuildAdvertiseRequest constructs a catalog snapshot from local spec.
-func BuildAdvertiseRequest(spec obelisk.Spec) AdvertiseRequest {
+// BuildAdvertiseRequest constructs a catalog snapshot from local spec (incl. credentials for gateway URLs).
+func BuildAdvertiseRequest(ctx context.Context, spec obelisk.Spec) AdvertiseRequest {
 	peerID := strings.TrimSpace(os.Getenv("OBELISK_PEER_ID"))
 	if peerID == "" {
 		peerID = strings.TrimSpace(spec.Machine.ID)
 	}
 	if peerID == "" {
 		peerID = "local"
+	}
+	ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE"))
+	if ns == "" {
+		ns = "obelisk"
 	}
 	req := AdvertiseRequest{
 		PeerID:         peerID,
@@ -46,11 +51,24 @@ func BuildAdvertiseRequest(spec obelisk.Spec) AdvertiseRequest {
 		DeploymentRole: strings.TrimSpace(spec.Deployment.Role),
 	}
 	for _, inst := range spec.Instances {
-		req.Instances = append(req.Instances, AdvertisedInstance{
-			Type:    inst.Type,
-			ID:      inst.ID,
-			Enabled: inst.Enabled,
-		})
+		if !inst.Enabled {
+			continue
+		}
+		creds := inst.Credentials
+		if ctx != nil {
+			creds = credentials.MergeInstanceCredentials(ctx, ns, inst)
+		}
+		ad := AdvertisedInstance{
+			Type:        inst.Type,
+			ID:          inst.ID,
+			Enabled:     true,
+			DisplayName: inst.DisplayName,
+			Credentials: creds,
+		}
+		if len(inst.Databases) > 0 {
+			ad.Databases = append([]string(nil), inst.Databases...)
+		}
+		req.Instances = append(req.Instances, ad)
 	}
 	return req
 }
@@ -81,7 +99,7 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 }
 
 func postAdvertiseOnce(ctx context.Context, configPath string, spec obelisk.Spec, url string) error {
-	reqBody := BuildAdvertiseRequest(spec)
+	reqBody := BuildAdvertiseRequest(ctx, spec)
 	if reqBody.TailnetHost == "" {
 		err := fmt.Errorf("tailnet host unknown (join Tailscale or set OBELISK_TAILNET_HOST)")
 		RecordAdvertiseAttempt(err)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -156,7 +157,7 @@ func subtleCompareBearer(bearer, hash string) bool {
 	return hashToken(bearer) == hash
 }
 
-// ListPeers returns all peer records.
+// ListPeers returns all peer records (newest last_seen first, then id).
 func (r *Registry) ListPeers() []PeerRecord {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
@@ -165,6 +166,13 @@ func (r *Registry) ListPeers() []PeerRecord {
 		cp := p
 		out = append(out, cp)
 	}
+	sort.Slice(out, func(i, j int) bool {
+		ti, tj := out[i].LastSeen, out[j].LastSeen
+		if !ti.Equal(tj) {
+			return ti.After(tj)
+		}
+		return out[i].ID < out[j].ID
+	})
 	return out
 }
 
@@ -191,7 +199,14 @@ func (r *Registry) FederatedTargets(spec obelisk.Spec, staleAfter time.Duration)
 				continue
 			}
 			fedID := obelisk.FederatedInstanceID(peerID, ad.ID)
-			inst := obelisk.ServiceInstance{Type: ad.Type, ID: fedID, Enabled: true}
+			inst := obelisk.ServiceInstance{
+				Type:        ad.Type,
+				ID:          fedID,
+				Enabled:     true,
+				DisplayName: ad.DisplayName,
+				Credentials: ad.Credentials,
+				Databases:   append([]string(nil), ad.Databases...),
+			}
 			nt, ntok := obelisk.NativeEdgeTypes[ad.Type]
 			ht, htok := obelisk.HTTPEdgeTypes[ad.Type]
 			if !ntok && !htok {

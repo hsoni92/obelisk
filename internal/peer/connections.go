@@ -13,18 +13,18 @@ func AppendFederatedConnections(spec obelisk.Spec, reg *Registry, base obelisk.C
 		if !ft.Inst.Enabled {
 			continue
 		}
-		ic := obelisk.InstanceConnection{
-			ID:       ft.Inst.ID,
-			Type:     ft.Inst.Type,
-			Origin:   "federated",
-			PeerID:   ft.PeerID,
-			RouteID:  ft.Inst.ID,
-			Reachable: boolPtr(ft.Reachable),
+		mini := obelisk.Spec{
+			Deployment: spec.Deployment,
+			Instances:  []obelisk.ServiceInstance{ft.Inst},
 		}
-		if h := obelisk.PublicEdgeHost(ft.Inst); h != "" {
-			ic.PublicPath = h
+		built := obelisk.BuildConnections(mini, nil)
+		if len(built.Instances) == 0 {
+			continue
 		}
-		mergeFederatedURLs(spec, ft.Inst, &ic)
+		ic := built.Instances[0]
+		ic.Origin = "federated"
+		ic.PeerID = ft.PeerID
+		ic.Reachable = boolPtr(ft.Reachable)
 		base.Instances = append(base.Instances, ic)
 	}
 	if len(base.Instances) > 0 && obelisk.ConnectionEdgeEnabled(spec) {
@@ -34,24 +34,3 @@ func AppendFederatedConnections(spec obelisk.Spec, reg *Registry, base obelisk.C
 }
 
 func boolPtr(v bool) *bool { return &v }
-
-func mergeFederatedURLs(spec obelisk.Spec, inst obelisk.ServiceInstance, ic *obelisk.InstanceConnection) {
-	_ = spec
-	host := obelisk.PublicEdgeHost(inst)
-	if host == "" {
-		return
-	}
-	switch inst.Type {
-	case "postgres":
-		ic.Postgres = "postgresql://USER:PASSWORD@" + host + ":" + obelisk.NativeEdgeTLSPort() + "/DATABASE"
-	case "redis":
-		ic.Redis = "rediss://:PASSWORD@" + host + ":" + obelisk.NativeEdgeTLSPort() + "/0"
-	case "rustfs":
-		ic.S3HTTP = obelisk.PublicHTTPEdgeURL(inst)
-	case "redpanda":
-		ic.KafkaBootstrap = host + ":9092"
-		ic.SchemaRegistryHTTP = obelisk.PublicHTTPEdgeURL(inst)
-	case "unimeter":
-		ic.UnimeterAPI = host + ":7001"
-	}
-}

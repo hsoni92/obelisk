@@ -21,6 +21,15 @@ function instanceCount(peer: FederationPeerRecord): number {
   return Object.values(peer.instances).filter((i) => i.enabled).length;
 }
 
+function sortPeers(list: FederationPeerRecord[]): FederationPeerRecord[] {
+  return [...list].sort((a, b) => {
+    const ta = a.last_seen ? Date.parse(a.last_seen) : 0;
+    const tb = b.last_seen ? Date.parse(b.last_seen) : 0;
+    if (tb !== ta) return tb - ta;
+    return a.id.localeCompare(b.id);
+  });
+}
+
 export function FederationPeersPanel({
   isGateway,
 }: {
@@ -40,7 +49,10 @@ export function FederationPeersPanel({
     }
   }, [data?.advertise_url]);
 
-  const peers = data?.peers ?? [];
+  const peers = React.useMemo(
+    () => sortPeers(data?.peers ?? []),
+    [data?.peers],
+  );
   const advertise = data?.advertise_status;
 
   async function onSaveGatewayURL() {
