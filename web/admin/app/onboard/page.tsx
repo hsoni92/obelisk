@@ -34,7 +34,11 @@ export default function OnboardPage() {
       router.replace("/login");
       return;
     }
-    if (status.repository) {
+    if (
+      status.repository &&
+      !status.needs_onboarding &&
+      !status.import_required
+    ) {
       router.replace("/overview");
       return;
     }

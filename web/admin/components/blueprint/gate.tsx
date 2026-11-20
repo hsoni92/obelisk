@@ -37,7 +37,10 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
       router.replace("/login");
       return;
     }
-    if (!data.repository) {
+    const onboard =
+      data.needs_onboarding ||
+      (!data.repository && (data.bundle_present || data.import_required));
+    if (onboard) {
       router.replace("/onboard");
     }
   }, [data, router]);
@@ -69,9 +72,15 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
 
   // Only block on the first load (no cached data). Do not use isFetching here:
   // unmounting the console aborts child RTK queries and retriggers fetches → reload loop.
+  const needsOnboard =
+    data &&
+    data.authenticated &&
+    (data.needs_onboarding ||
+      (!data.repository && (data.bundle_present || data.import_required)));
   if (
     (!data && (isLoading || (isError && !showFatal))) ||
-    (data && (!data.authenticated || !data.repository))
+    (data && !data.authenticated) ||
+    needsOnboard
   ) {
     return <ConsoleShellSkeleton />;
   }

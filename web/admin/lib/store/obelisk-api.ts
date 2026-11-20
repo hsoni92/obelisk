@@ -620,6 +620,16 @@ export const obeliskApi = createApi({
         body,
       }),
       invalidatesTags: ["Blueprint", "Status"],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            obeliskApi.util.upsertQueryData("getBlueprintStatus", undefined, data),
+          );
+        } catch {
+          /* keep prior cache on failure */
+        }
+      },
     }),
     unlockBlueprint: builder.mutation<BlueprintStatus, { passphrase: string }>({
       query: (body) => ({
@@ -628,6 +638,16 @@ export const obeliskApi = createApi({
         body,
       }),
       invalidatesTags: ["Blueprint"],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            obeliskApi.util.upsertQueryData("getBlueprintStatus", undefined, data),
+          );
+        } catch {
+          /* keep prior cache on failure */
+        }
+      },
     }),
     lockBlueprint: builder.mutation<BlueprintStatus, void>({
       query: () => ({
@@ -654,6 +674,16 @@ export const obeliskApi = createApi({
         "OpenRouter",
         "Mail",
       ],
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(
+            obeliskApi.util.upsertQueryData("getBlueprintStatus", undefined, data),
+          );
+        } catch {
+          /* keep prior cache on failure */
+        }
+      },
     }),
     pushBlueprint: builder.mutation<BlueprintStatus, { force?: boolean } | void>({
       query: (body) => ({
