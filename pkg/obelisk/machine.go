@@ -1,8 +1,6 @@
 package obelisk
 
 import (
-	"crypto/rand"
-	"encoding/hex"
 	"fmt"
 	"regexp"
 	"strings"
@@ -29,15 +27,8 @@ func EnsureMachineIdentity(spec *Spec) bool {
 		spec.Machine.ID = id
 		return false
 	}
-	spec.Machine.ID = NewMachineID()
+	spec.Machine.ID = MintMachineID()
 	return true
-}
-
-// NewMachineID returns a DNS-safe S3 bucket name for this appliance.
-func NewMachineID() string {
-	b := make([]byte, 6)
-	_, _ = rand.Read(b)
-	return "obelisk-" + hex.EncodeToString(b)
 }
 
 // ValidateMachineID checks the stored identity.

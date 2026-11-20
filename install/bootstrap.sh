@@ -123,6 +123,7 @@ maybe_tailscale() {
 ensure_lib_paths() {
   mkdir -p /var/lib/obelisk/credentials
   chmod 700 /var/lib/obelisk /var/lib/obelisk/credentials 2>/dev/null || true
+  # appliance-id (mode 0600) is written on first machine.id mint; keep /var/lib/obelisk on reinstall when possible.
 }
 
 write_config() {

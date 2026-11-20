@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"sync"
 
+	"github.com/hsoni92/obelisk/internal/hostidentity"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 	"gopkg.in/yaml.v3"
 )
@@ -67,8 +69,14 @@ func load(path string, opt Options) (obelisk.Spec, error) {
 	}
 	if obelisk.EnsureMachineIdentity(&spec) {
 		if saveErr := SaveQuiet(path, spec); saveErr == nil {
+			if id := strings.TrimSpace(spec.Machine.ID); id != "" {
+				hostidentity.EnsurePersistedID(id)
+			}
 			return spec, nil
 		}
+	}
+	if id := strings.TrimSpace(spec.Machine.ID); id != "" {
+		hostidentity.EnsurePersistedID(id)
 	}
 	return spec, nil
 }

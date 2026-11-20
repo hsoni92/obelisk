@@ -31,6 +31,7 @@ __debug_bin*
 # Local cluster + controller dev state (see docs/runbooks/install.md)
 /dev/kubeconfig
 /dev/obelisk.yaml
+/dev/appliance-id
 /dev/state-history.jsonl
 /dev/credentials/
 /dev/*.credentials.json
