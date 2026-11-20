@@ -12,7 +12,8 @@ import { relativeTime } from "@/lib/overview-series";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
-import { Loader2, LogOut, Server } from "lucide-react";
+import { Fingerprint, Loader2, LogOut, Server } from "lucide-react";
+import { CopyableId } from "@/components/ui/copyable-id";
 import { useRouter } from "next/navigation";
 import * as React from "react";
 
@@ -30,6 +31,7 @@ function useSidebarStatus() {
     pollingInterval: 5000,
   });
   const { data: status } = useGetStatusQuery(undefined, statusPollOptions);
+  const machineId = status?.machineId;
 
   let tone: Tone = "idle";
   let label = "Not connected";
@@ -53,7 +55,7 @@ function useSidebarStatus() {
   const profile = status?.profile
     ? status.profile.charAt(0).toUpperCase() + status.profile.slice(1)
     : "—";
-  return { data, tone, label, profile };
+  return { data, tone, label, profile, machineId };
 }
 
 function useSignOut() {
@@ -88,7 +90,7 @@ function Avatar({ login, className }: { login?: string; className?: string }) {
 }
 
 export function SidebarFooter({ rail }: { rail: boolean }) {
-  const { data, tone, label, profile } = useSidebarStatus();
+  const { data, tone, label, profile, machineId } = useSidebarStatus();
   const { signOut, busy } = useSignOut();
 
   return (
@@ -130,7 +132,7 @@ export function SidebarFooter({ rail }: { rail: boolean }) {
               </button>
             </div>
 
-            <dl className="mt-4 space-y-2.5 rounded-2xl bg-white/10 px-3.5 py-3 text-xs">
+            <dl className="mt-4 space-y-3 border-t border-white/15 pt-4 text-xs">
               <div>
                 <dt className="text-eyebrow text-[10px] text-white/55">
                   Blueprint
@@ -152,13 +154,24 @@ export function SidebarFooter({ rail }: { rail: boolean }) {
                       : "Connect GitHub to sync"}
                 </dd>
               </div>
-              <div className="flex items-center justify-between gap-2 border-t border-white/10 pt-2.5">
+              <div className="flex items-center justify-between gap-2">
                 <dt className="flex items-center gap-1.5 text-white/60">
                   <Server className="size-3" aria-hidden />
                   Deployment
                 </dt>
-                <dd className="font-medium">{profile}</dd>
+                <dd className="font-medium uppercase tracking-wide">{profile}</dd>
               </div>
+              {machineId ? (
+                <div>
+                  <dt className="flex items-center gap-1.5 text-white/60">
+                    <Fingerprint className="size-3" aria-hidden />
+                    Machine ID
+                  </dt>
+                  <dd className="mt-1">
+                    <CopyableId value={machineId} label="machine ID" variant="onDark" />
+                  </dd>
+                </div>
+              ) : null}
             </dl>
           </motion.div>
         ) : (
@@ -171,7 +184,7 @@ export function SidebarFooter({ rail }: { rail: boolean }) {
           >
             <span
               className="relative"
-              title={`${data?.login ? `@${data.login} · ` : ""}${label} · ${profile}`}
+              title={`${data?.login ? `@${data.login} · ` : ""}${label} · ${profile}${machineId ? ` · ${machineId}` : ""}`}
             >
               <Avatar login={data?.login} className="size-8 text-xs" />
               <span

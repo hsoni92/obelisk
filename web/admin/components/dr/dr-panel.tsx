@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyableId } from "@/components/ui/copyable-id";
 import { DRSkeleton } from "@/components/skeletons";
 import { BackupPolicyCard } from "@/components/dr/backup-policy-card";
 import { DestinationsTable } from "@/components/dr/destinations-table";
@@ -227,8 +228,8 @@ export function DRPanel({ onBusy }: { onBusy: (key: string | null) => void }) {
               />
               <p className="text-metadata text-muted-foreground">
                 Bucket name is{" "}
-                <span className="font-mono">{config.machine_id}</span> (machine
-                ID). Keys are stored in{" "}
+                <CopyableId value={config.machine_id} label="machine ID" className="align-middle" />{" "}
+                (machine ID). Keys are stored in{" "}
                 <span className="font-mono">{config.credentials_secret}</span>{" "}
                 on disk beside the config in dev.
               </p>

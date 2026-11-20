@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyableId } from "@/components/ui/copyable-id";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardHeading } from "@/components/ui/card";
@@ -143,9 +144,7 @@ export function OverviewPanel({
         )}
         {data?.tailscale && <Badge variant="info">tailscale</Badge>}
         {data?.machineId && (
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {data.machineId}
-          </span>
+          <CopyableId value={data.machineId} label="machine ID" />
         )}
         <span className="ml-auto hidden items-center gap-1 text-metadata text-muted-foreground sm:flex">
           <Clock className="size-3.5" />

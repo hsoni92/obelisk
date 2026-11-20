@@ -1,5 +1,6 @@
 "use client";
 
+import { CopyableId } from "@/components/ui/copyable-id";
 import { Badge } from "@/components/ui/badge";
 import { CardHeading } from "@/components/ui/card";
 import { ServerCog } from "lucide-react";
@@ -146,11 +147,13 @@ export function BackupRemotePanel({
         }
       />
 
-      <div className="rounded-lg bg-muted/60 p-3 space-y-2">
+      <div className="space-y-2">
         <p className="text-eyebrow text-muted-foreground">Machine identity</p>
-        <p className="font-mono text-sm break-all">
-          {target?.machine_id ?? "—"}
-        </p>
+        {target?.machine_id ? (
+          <CopyableId value={target.machine_id} label="machine ID" variant="block" />
+        ) : (
+          <p className="font-mono text-sm">—</p>
+        )}
         <p className="text-metadata text-muted-foreground">
           Assigned at first boot and stored in obelisk.yaml. Test connection
           creates an S3/R2 bucket with this name when it does not exist yet

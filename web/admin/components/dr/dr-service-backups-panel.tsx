@@ -206,7 +206,7 @@ export function DRServiceBackupsPanel() {
               from off-site storage and the local index. This cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="px-1 pb-2">
+          <div className="px-6 pb-6">
             <p className="mb-2 text-metadata text-muted-foreground">
               Type{" "}
               <span className="font-mono uppercase">

@@ -146,10 +146,9 @@ func mongoMongoshTLSFlags(edgeTLS bool) string {
 	if !edgeTLS {
 		return ""
 	}
-	return fmt.Sprintf(
-		"--tls --tlsCertificateKeyFile=%s --tlsCAFile=%s --tlsAllowInvalidCertificates ",
-		mongoEdgePEM, mongoEdgePEM,
-	)
+	// Server allows connections without client certs; do not present the edge
+	// server cert to mongod or handshake fails (unsupported certificate purpose).
+	return fmt.Sprintf("--tls --tlsCAFile=%s --tlsAllowInvalidCertificates ", mongoEdgePEM)
 }
 
 func pgQuoteIdent(s string) string {
