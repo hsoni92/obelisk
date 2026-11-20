@@ -33,8 +33,12 @@ func (s *Server) handleTailscaleStatus(w http.ResponseWriter, r *http.Request) {
 			"deployment_profile": spec.Deployment.Profile,
 		}
 		if obelisk.IsGateway(spec) {
-			if ep := gatewayAdvertiseEndpoint(spec); ep != "" {
-				resp["gateway_advertise_endpoint"] = ep
+			pub, tail := gatewayAdvertiseEndpoints(spec)
+			if pub != "" {
+				resp["gateway_advertise_endpoint"] = pub
+			}
+			if tail != "" {
+				resp["gateway_advertise_endpoint_tailnet"] = tail
 			}
 		}
 		writeJSON(w, resp)

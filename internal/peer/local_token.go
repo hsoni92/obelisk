@@ -34,6 +34,11 @@ func ReadLocalToken(configPath string) string {
 	return strings.TrimSpace(c.Token)
 }
 
+// ClearLocalToken removes a stale peer token so the next advertise may re-admit.
+func ClearLocalToken(configPath string) {
+	_ = os.Remove(localCredPath(configPath))
+}
+
 // WriteLocalToken stores the peer bearer token from the gateway.
 func WriteLocalToken(configPath, token string) error {
 	dir := config.CredentialsDir(configPath)

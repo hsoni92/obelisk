@@ -157,6 +157,8 @@ export type TailscaleStatusResponse = {
   deployment_profile?: string;
   /** Present when deployment_role is gateway — locals POST catalog here. */
   gateway_advertise_endpoint?: string;
+  /** Same path on the gateway Tailscale IP/DNS (use if public URL fails). */
+  gateway_advertise_endpoint_tailnet?: string;
   error?: string;
 };
 
@@ -189,6 +191,7 @@ export type FederationResponse = {
   tailnet_host?: string;
   auto_admit?: boolean;
   gateway_advertise_endpoint?: string;
+  gateway_advertise_endpoint_tailnet?: string;
   peers?: FederationPeerRecord[];
   advertise_status?: FederationAdvertiseStatus;
   advertise_configured?: boolean;

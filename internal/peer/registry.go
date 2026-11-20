@@ -112,7 +112,16 @@ func (r *Registry) ApplyAdvertisement(req AdvertiseRequest, bearer string, autoA
 	}
 	if rec.TokenHash != "" && issuedToken == "" {
 		if !subtleCompareBearer(bearer, rec.TokenHash) {
-			return AdvertiseResponse{}, fmt.Errorf("invalid peer token")
+			if !autoAdmit {
+				return AdvertiseResponse{}, fmt.Errorf("invalid peer token")
+			}
+			// Local lost peer.local.json; re-issue under auto_admit (OQ2).
+			plain, h, err := newToken()
+			if err != nil {
+				return AdvertiseResponse{}, err
+			}
+			rec.TokenHash = h
+			issuedToken = plain
 		}
 	}
 

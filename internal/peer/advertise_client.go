@@ -65,8 +65,22 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 		url = strings.TrimSpace(os.Getenv("OBELISK_GATEWAY_ADVERTISE_URL"))
 	}
 	if url == "" {
+		return fmt.Errorf("no gateway advertise URL configured")
+	}
+	err := postAdvertiseOnce(ctx, configPath, spec, url)
+	if err == nil {
 		return nil
 	}
+	if strings.Contains(err.Error(), "invalid peer token") {
+		ClearLocalToken(configPath)
+		if err2 := postAdvertiseOnce(ctx, configPath, spec, url); err2 == nil {
+			return nil
+		}
+	}
+	return err
+}
+
+func postAdvertiseOnce(ctx context.Context, configPath string, spec obelisk.Spec, url string) error {
 	reqBody := BuildAdvertiseRequest(spec)
 	if reqBody.TailnetHost == "" {
 		err := fmt.Errorf("tailnet host unknown (join Tailscale or set OBELISK_TAILNET_HOST)")
@@ -87,9 +101,10 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 	if tok := ReadLocalToken(configPath); tok != "" {
 		httpReq.Header.Set("Authorization", "Bearer "+tok)
 	}
-	client := &http.Client{Timeout: 30 * time.Second}
+	client := &http.Client{Timeout: 45 * time.Second}
 	resp, err := client.Do(httpReq)
 	if err != nil {
+		err = fmt.Errorf("advertise request to gateway: %w", err)
 		RecordAdvertiseAttempt(err)
 		return err
 	}
@@ -102,7 +117,11 @@ func PostAdvertise(ctx context.Context, configPath string, spec obelisk.Spec) er
 	}
 	var ar AdvertiseResponse
 	if json.Unmarshal(body, &ar) == nil && ar.Token != "" {
-		_ = WriteLocalToken(configPath, ar.Token)
+		if werr := WriteLocalToken(configPath, ar.Token); werr != nil {
+			err := fmt.Errorf("save peer token: %w", werr)
+			RecordAdvertiseAttempt(err)
+			return err
+		}
 	}
 	RecordAdvertiseAttempt(nil)
 	return nil

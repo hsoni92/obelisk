@@ -19,26 +19,8 @@ type federationPatchRequest struct {
 	AdvertiseURL *string `json:"advertise_url,omitempty"`
 }
 
-func gatewayAdvertiseEndpoint(spec obelisk.Spec) string {
-	port := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT"))
-	if port == "" {
-		port = "9080"
-	}
-	host := strings.TrimSpace(os.Getenv("OBELISK_PUBLIC_HOST"))
-	if host == "" {
-		host = strings.TrimSpace(obelisk.PublicHost())
-	}
-	if host == "" {
-		st := tailscale.GetStatus(context.Background())
-		if len(st.IPs) > 0 {
-			host = strings.TrimSpace(st.IPs[0])
-		} else {
-			dns := strings.TrimSuffix(strings.TrimSpace(st.DNSName), ".")
-			if dns != "" {
-				host = dns
-			}
-		}
-	}
+func advertiseURLForHost(host, port string) string {
+	host = strings.TrimSpace(host)
 	if host == "" {
 		return ""
 	}
@@ -46,6 +28,40 @@ func gatewayAdvertiseEndpoint(spec obelisk.Spec) string {
 		return fmt.Sprintf("http://%s/api/v1/peers/advertise", host)
 	}
 	return fmt.Sprintf("http://%s:%s/api/v1/peers/advertise", host, port)
+}
+
+func gatewayAdvertiseEndpoint(spec obelisk.Spec) string {
+	public, _ := gatewayAdvertiseEndpoints(spec)
+	return public
+}
+
+func gatewayAdvertiseEndpoints(_ obelisk.Spec) (publicURL, tailnetURL string) {
+	port := strings.TrimSpace(os.Getenv("OBELISK_HTTP_PORT"))
+	if port == "" {
+		port = "9080"
+	}
+	pub := strings.TrimSpace(os.Getenv("OBELISK_PUBLIC_HOST"))
+	if pub == "" {
+		pub = strings.TrimSpace(obelisk.PublicHost())
+	}
+	publicURL = advertiseURLForHost(pub, port)
+
+	st := tailscale.GetStatus(context.Background())
+	tailHost := ""
+	if len(st.IPs) > 0 {
+		tailHost = strings.TrimSpace(st.IPs[0])
+	} else {
+		tailHost = strings.TrimSuffix(strings.TrimSpace(st.DNSName), ".")
+	}
+	tailnetURL = advertiseURLForHost(tailHost, port)
+
+	if publicURL == "" {
+		publicURL = tailnetURL
+		tailnetURL = ""
+	} else if tailnetURL == publicURL {
+		tailnetURL = ""
+	}
+	return publicURL, tailnetURL
 }
 
 func (s *Server) handleGetFederation(w http.ResponseWriter, r *http.Request) {
@@ -65,7 +81,11 @@ func (s *Server) handleGetFederation(w http.ResponseWriter, r *http.Request) {
 		"auto_admit":        obelisk.PeerGatewayAutoAdmit(spec),
 	}
 	if obelisk.IsGateway(spec) {
-		out["gateway_advertise_endpoint"] = gatewayAdvertiseEndpoint(spec)
+		pub, tail := gatewayAdvertiseEndpoints(spec)
+		out["gateway_advertise_endpoint"] = pub
+		if tail != "" {
+			out["gateway_advertise_endpoint_tailnet"] = tail
+		}
 		reg, err := peer.LoadRegistry(cfg)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -146,7 +166,10 @@ func (s *Server) handleFederationAdvertiseNow(w http.ResponseWriter, r *http.Req
 	defer cancel()
 	err = peer.PostAdvertise(cctx, cfg, spec)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		writeJSONStatus(w, http.StatusBadRequest, map[string]string{
+			"error":   "advertise_failed",
+			"message": err.Error(),
+		})
 		return
 	}
 	writeJSON(w, map[string]any{"ok": true, "advertise_status": peer.GetAdvertiseStatus()})

@@ -218,6 +218,7 @@ export function TailscaleFederationPanel() {
             <div className="px-6 pb-2">
               <GatewayAdvertiseUrlCopy
                 endpoint={data?.gateway_advertise_endpoint}
+                tailnetEndpoint={data?.gateway_advertise_endpoint_tailnet}
               />
             </div>
             <FederationPeersPanel isGateway />

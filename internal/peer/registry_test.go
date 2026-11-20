@@ -34,6 +34,16 @@ func TestApplyAdvertisementAutoAdmit(t *testing.T) {
 	if err != nil || !resp2.Accepted {
 		t.Fatalf("second advertise: %+v err=%v", resp2, err)
 	}
+	resp3, err := r.ApplyAdvertisement(AdvertiseRequest{
+		PeerID:      "home",
+		TailnetHost: "100.64.0.1",
+		Instances: []AdvertisedInstance{
+			{Type: "postgres", ID: "default", Enabled: true},
+		},
+	}, "", true)
+	if err != nil || !resp3.Accepted || resp3.Token == "" {
+		t.Fatalf("re-admit after lost token: %+v err=%v", resp3, err)
+	}
 	spec := obelisk.DefaultSpec("vps")
 	spec.Deployment.Role = obelisk.DeploymentRoleGateway
 	targets := r.FederatedTargets(spec, 0)

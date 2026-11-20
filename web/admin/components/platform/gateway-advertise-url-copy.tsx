@@ -16,32 +16,46 @@ async function copyText(text: string) {
 
 export function GatewayAdvertiseUrlCopy({
   endpoint,
+  tailnetEndpoint,
 }: {
   endpoint: string | undefined;
+  tailnetEndpoint?: string;
 }) {
   if (!endpoint) {
     return <AdvertiseUrlMissingHint />;
   }
 
   return (
-    <div className="space-y-2 rounded-xl border border-broadcast/30 bg-broadcast-tint/40 p-4">
+    <div className="space-y-3 rounded-xl border border-broadcast/30 bg-broadcast-tint/40 p-4">
       <Label className="text-foreground">Gateway advertise URL</Label>
       <p className="text-metadata text-muted-foreground">
         Paste this on each local Obelisk under Platform → Register with
-        gateway.
+        gateway. Prefer the tailnet URL if the public one times out.
       </p>
+      <UrlRow label="Public" url={endpoint} />
+      {tailnetEndpoint ? (
+        <UrlRow label="Tailnet" url={tailnetEndpoint} />
+      ) : null}
+    </div>
+  );
+}
+
+function UrlRow({ label, url }: { label: string; url: string }) {
+  return (
+    <div className="space-y-1">
+      <span className="text-eyebrow text-muted-foreground">{label}</span>
       <div className="flex flex-col gap-2 sm:flex-row">
         <code className="min-w-0 flex-1 rounded-lg border border-border bg-background px-3 py-2.5 font-mono text-[12px] leading-snug break-all">
-          {endpoint}
+          {url}
         </code>
         <Button
           type="button"
-          variant="default"
+          variant={label === "Tailnet" ? "outline" : "default"}
           className="shrink-0"
-          onClick={() => void copyText(endpoint)}
+          onClick={() => void copyText(url)}
         >
           <Copy className="size-4" aria-hidden />
-          Copy URL
+          Copy
         </Button>
       </div>
     </div>

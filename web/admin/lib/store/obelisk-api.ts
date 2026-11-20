@@ -852,7 +852,9 @@ export function rtkErrorMessage(error: unknown): string {
   if (!error || typeof error !== "object") return "request failed";
   if ("data" in error) {
     const data = (error as { data?: unknown }).data;
-    if (typeof data === "string" && data.trim()) return data;
+    if (typeof data === "string" && data.trim()) {
+      return data.trim();
+    }
     if (typeof data === "object" && data) {
       if ("error" in data && (data as { error: unknown }).error === "duplicate_key") {
         const d = data as { message?: string; existing_label?: string; key_tail?: string };
