@@ -19,6 +19,9 @@ import (
 	"github.com/hsoni92/obelisk/internal/config"
 )
 
+// DefaultGitHubOAuthScope is requested on authorize (repo for git push; read:user for /user login lookup).
+const DefaultGitHubOAuthScope = "repo read:user"
+
 // OAuthConfig is the GitHub OAuth App used for login and git transport.
 type OAuthConfig struct {
 	ClientID     string
@@ -38,7 +41,7 @@ func LoadOAuthConfig(configPath string) OAuthConfig {
 		ClientID:     strings.TrimSpace(os.Getenv("OBELISK_GITHUB_CLIENT_ID")),
 		ClientSecret: strings.TrimSpace(os.Getenv("OBELISK_GITHUB_CLIENT_SECRET")),
 		RedirectURI:  strings.TrimSpace(os.Getenv("OBELISK_GITHUB_REDIRECT_URI")),
-		Scope:        "repo",
+		Scope:        DefaultGitHubOAuthScope,
 	}
 	path := filepath.Join(config.CredentialsDir(configPath), "github-oauth.client.json")
 	data, err := os.ReadFile(path)
@@ -307,7 +310,23 @@ func (o *OAuth) postForm(ctx context.Context, endpoint string, form url.Values, 
 		return err
 	}
 	if resp.StatusCode >= 300 {
-		return fmt.Errorf("github oauth http %d", resp.StatusCode)
+		msg := fmt.Sprintf("github oauth http %d", resp.StatusCode)
+		if b := strings.TrimSpace(string(body)); b != "" {
+			var er struct {
+				Error            string `json:"error"`
+				ErrorDescription string `json:"error_description"`
+			}
+			if json.Unmarshal(body, &er) == nil {
+				if er.ErrorDescription != "" {
+					msg += ": " + er.ErrorDescription
+				} else if er.Error != "" {
+					msg += ": " + er.Error
+				}
+			} else if len(b) < 200 {
+				msg += ": " + b
+			}
+		}
+		return fmt.Errorf("%s", msg)
 	}
 	if err := json.Unmarshal(body, out); err != nil {
 		return fmt.Errorf("github oauth response: %w", err)

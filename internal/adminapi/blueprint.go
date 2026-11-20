@@ -29,7 +29,7 @@ func (s *Server) handleBlueprintGitHubConfig(w http.ResponseWriter, _ *http.Requ
 	}
 	writeJSON(w, map[string]any{
 		"client_configured": s.Blueprint.OAuth.Config.Configured(),
-		"scope":             "repo",
+		"scope":             blueprint.DefaultGitHubOAuthScope,
 	})
 }
 
@@ -220,11 +220,26 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, id string) {
 }
 
 func writeBlueprintErr(w http.ResponseWriter, err error) {
-	switch {
-	case errors.Is(err, blueprint.ErrClientNotConfigured):
+	if errors.Is(err, blueprint.ErrClientNotConfigured) {
 		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
-	case errors.Is(err, credentials.ErrLoginNotAllowed):
-		writeJSONStatus(w, http.StatusForbidden, map[string]string{"error": err.Error()})
+		return
+	}
+	if errors.Is(err, credentials.ErrLoginNotAllowed) {
+		writeJSONStatus(w, http.StatusForbidden, map[string]any{
+			"error": err.Error(),
+			"hint":  "On the VPS run: sudo obelisk admin allow add --login YOUR_GITHUB_USER (or sudo obelisk admin allow clear to disable enforcement).",
+		})
+		return
+	}
+	var gh *blueprint.StatusError
+	if errors.As(err, &gh) && gh.Code == http.StatusForbidden {
+		writeJSONStatus(w, http.StatusForbidden, map[string]any{
+			"error": gh.Error(),
+			"hint":  "Open github.com → Settings → Applications → Authorized OAuth Apps, authorize SSO for this app if your org requires it, then sign in again. If you upgraded Obelisk, sign out and sign in again so the token includes read:user scope.",
+		})
+		return
+	}
+	switch {
 	case errors.Is(err, blueprint.ErrWrongPassphrase), errors.Is(err, blueprint.ErrMachineChoice),
 		errors.Is(err, blueprint.ErrMachineIDClobber):
 		writeJSONStatus(w, http.StatusConflict, map[string]string{"error": err.Error()})
