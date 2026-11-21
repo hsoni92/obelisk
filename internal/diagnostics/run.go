@@ -172,6 +172,11 @@ func probeInstance(ctx context.Context, inst obelisk.ServiceInstance, ic obelisk
 			return nil, fmt.Errorf("missing unimeter health url")
 		}
 		return probeUnimeter(ctx, ic.UnimeterHealthHTTP)
+	case "bunqueue":
+		if ic.BunqueueHealthHTTP == "" {
+			return nil, fmt.Errorf("missing bunqueue health url")
+		}
+		return probeBunqueue(ctx, ic.BunqueueHealthHTTP)
 	default:
 		return nil, fmt.Errorf("unsupported type %q", inst.Type)
 	}

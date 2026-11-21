@@ -83,6 +83,21 @@ export function BackupPolicyCard({ config, busy, onSave }: Props) {
           )
         }
       />
+      {config.implementation_status === "scheduled" ? (
+        <p className="text-metadata text-muted-foreground">
+          Global schedule <span className="font-mono">{p.schedule}</span> runs
+          automatically (UTC). Per-service overrides use their own cron.
+        </p>
+      ) : config.implementation_status === "unconfigured" ? (
+        <p className="text-metadata text-amber-600 dark:text-amber-500">
+          Schedule is saved but backups will not run until DR destinations and
+          credentials are ready.
+        </p>
+      ) : config.implementation_status === "invalid_schedule" ? (
+        <p className="text-metadata text-destructive">
+          Cron expression is invalid — fix the schedule below.
+        </p>
+      ) : null}
       <p className="text-metadata text-muted-foreground">
         Machine bucket <span className="font-mono">{config.machine_id}</span> —
         data backups for{" "}

@@ -92,7 +92,8 @@ var HTTPEdgeTypes = map[string]int{
 	"rustfs":  9000,
 	"qdrant":  6333,
 	"searxng": 8080,
-	"redpanda": 8081,
+	"redpanda":  8081,
+	"bunqueue":  6790,
 }
 
 func nativeEdgePort(typ string) (int, bool) {

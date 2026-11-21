@@ -83,6 +83,9 @@ export function resolveConnection(
     unimeter_api: inner.unimeter_api ?? conn.unimeter_api,
     unimeter_health_http:
       inner.unimeter_health_http ?? conn.unimeter_health_http,
+    bunqueue_tcp: inner.bunqueue_tcp ?? conn.bunqueue_tcp,
+    bunqueue_health_http:
+      inner.bunqueue_health_http ?? conn.bunqueue_health_http,
     public_path: inner.host ?? conn.public_path,
   };
 }
@@ -116,6 +119,10 @@ export function connectionEntries(
     out.push({ label: "Unimeter API", value: view.unimeter_api });
   if (view.unimeter_health_http)
     out.push({ label: "Unimeter health", value: view.unimeter_health_http });
+  if (view.bunqueue_tcp)
+    out.push({ label: "bunqueue TCP", value: view.bunqueue_tcp });
+  if (view.bunqueue_health_http)
+    out.push({ label: "bunqueue health", value: view.bunqueue_health_http });
   if (audience === "in_cluster" && conn?.in_cluster?.host) {
     out.unshift({ label: "Service DNS", value: conn.in_cluster.host });
   }

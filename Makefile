@@ -32,6 +32,7 @@ helm-lint:
 	helm lint deploy/helm/services/searxng
 	helm lint deploy/helm/services/redpanda
 	helm lint deploy/helm/services/unimeter
+	helm lint deploy/helm/services/bunqueue
 
 ci: check-go test-go build-cli build-controller helm-lint
 	cd web/admin && npm ci && npm run build

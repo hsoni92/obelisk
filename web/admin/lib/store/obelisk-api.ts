@@ -305,6 +305,21 @@ export const obeliskApi = createApi({
         { type: "BackupLineage", id: `${arg.type}/${arg.id}` },
       ],
     }),
+    restartInstance: builder.mutation<
+      {
+        status: string;
+        method: string;
+        message: string;
+        state_key?: string;
+      },
+      { id: string; type: string }
+    >({
+      query: ({ id, type }) => ({
+        url: `/instances/${encodeURIComponent(id)}/restart?type=${encodeURIComponent(type)}`,
+        method: "POST",
+      }),
+      invalidatesTags: ["Status", "Connections", "Overview"],
+    }),
     runInstanceBackup: builder.mutation<
       { status: string; backups?: string[]; message?: string },
       { id: string; type: string }
@@ -826,6 +841,7 @@ export const {
   useAddInstanceDatabaseMutation,
   useRemoveInstanceDatabaseMutation,
   usePatchInstanceMutation,
+  useRestartInstanceMutation,
   useDeleteInstanceMutation,
   useGetInstanceBackupLineageQuery,
   useRunInstanceBackupMutation,

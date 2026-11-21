@@ -126,8 +126,12 @@ func (c Collector) CollectMinute(ctx context.Context, store *Store, in collectIn
 			DiskTotal:         diskTotal,
 			DiskKnown:         diskKnown,
 			DiskObserved:      diskObs,
-			RestartCount:      pi.RestartCount,
+			RestartCount:          pi.RestartCount,
 			LastTerminationReason: pi.LastReason,
+			PodPhase:              pi.Phase,
+			RunningSince:          pi.RunningSince,
+			PodReady:              pi.Ready,
+			WaitingReason:         pi.WaitingReason,
 		}
 		if !def.Running {
 			slot.MemoryKnown = false
@@ -265,6 +269,8 @@ func dataMounts(typ string) []diskMount {
 		return []diskMount{{Container: "redpanda", Path: "/var/lib/redpanda/data", Label: "data"}}
 	case "unimeter":
 		return []diskMount{{Container: "unimeter", Path: "/data", Label: "data"}}
+	case "bunqueue":
+		return []diskMount{{Container: "bunqueue", Path: "/app/data", Label: "data"}}
 	default:
 		return nil
 	}

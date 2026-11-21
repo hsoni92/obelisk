@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/hsoni92/obelisk/internal/controller"
 )
@@ -129,6 +130,9 @@ type podInspect struct {
 	RestartCount int
 	LastReason   string
 	Phase        string
+	RunningSince time.Time
+	Ready        bool
+	WaitingReason string
 }
 
 func kubectlPodInspect(ctx context.Context, ns, pod string) (podInspect, error) {
@@ -140,10 +144,24 @@ func kubectlPodInspect(ctx context.Context, ns, pod string) (podInspect, error) 
 	}
 	var doc struct {
 		Status struct {
-			Phase string `json:"phase"`
+			Phase     string `json:"phase"`
+			StartTime string `json:"startTime"`
+			Conditions []struct {
+				Type   string `json:"type"`
+				Status string `json:"status"`
+			} `json:"conditions"`
 			ContainerStatuses []struct {
-				RestartCount int `json:"restartCount"`
-				LastState    struct {
+				RestartCount int  `json:"restartCount"`
+				Ready        bool `json:"ready"`
+				State        struct {
+					Waiting struct {
+						Reason string `json:"reason"`
+					} `json:"waiting"`
+					Running struct {
+						StartedAt string `json:"startedAt"`
+					} `json:"running"`
+				} `json:"state"`
+				LastState struct {
 					Terminated struct {
 						Reason string `json:"reason"`
 					} `json:"terminated"`
@@ -155,11 +173,34 @@ func kubectlPodInspect(ctx context.Context, ns, pod string) (podInspect, error) 
 		return podInspect{}, err
 	}
 	pi := podInspect{Phase: doc.Status.Phase}
+	for _, cond := range doc.Status.Conditions {
+		if cond.Type == "Ready" && cond.Status == "True" {
+			pi.Ready = true
+			break
+		}
+	}
+	if t, err := time.Parse(time.RFC3339, doc.Status.StartTime); err == nil {
+		pi.RunningSince = t
+	}
+	var earliestRunning time.Time
 	for _, c := range doc.Status.ContainerStatuses {
 		pi.RestartCount += c.RestartCount
 		if r := c.LastState.Terminated.Reason; r != "" {
 			pi.LastReason = r
 		}
+		if !c.Ready && pi.WaitingReason == "" && c.State.Waiting.Reason != "" {
+			pi.WaitingReason = c.State.Waiting.Reason
+		}
+		if started := c.State.Running.StartedAt; started != "" {
+			if t, err := time.Parse(time.RFC3339, started); err == nil {
+				if earliestRunning.IsZero() || t.Before(earliestRunning) {
+					earliestRunning = t
+				}
+			}
+		}
+	}
+	if !earliestRunning.IsZero() {
+		pi.RunningSince = earliestRunning
 	}
 	return pi, nil
 }

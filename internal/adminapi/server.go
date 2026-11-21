@@ -73,6 +73,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/instances", s.handleCreateInstance)
 	mux.HandleFunc("PATCH /api/v1/instances/{id}", s.handlePatchInstance)
 	mux.HandleFunc("DELETE /api/v1/instances/{id}", s.handleDeleteInstance)
+	mux.HandleFunc("POST /api/v1/instances/{id}/restart", s.handlePostInstanceRestart)
 	mux.HandleFunc("GET /api/v1/instances/{id}/databases", s.handleGetInstanceDatabases)
 	mux.HandleFunc("POST /api/v1/instances/{id}/databases", s.handlePostInstanceDatabase)
 	mux.HandleFunc("DELETE /api/v1/instances/{id}/databases/{dbname}", s.handleDeleteInstanceDatabase)

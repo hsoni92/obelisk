@@ -21,7 +21,7 @@ type InstanceCredentials struct {
 type ServiceInstance struct {
 	// ID is the immutable route slug (e.g. calm-otter) used in edge hostnames and Helm release names.
 	ID          string                 `yaml:"id" json:"id"`
-	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng | redpanda | unimeter
+	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng | redpanda | unimeter | bunqueue
 	DisplayName string                 `yaml:"display_name,omitempty" json:"display_name,omitempty"`
 	Enabled     bool                   `yaml:"enabled" json:"enabled"`
 	Backup      InstanceBackupSettings `yaml:"backup,omitempty" json:"backup,omitempty"`
@@ -128,10 +128,10 @@ func SlugID(s string) string {
 
 func ValidateServiceType(typ string) error {
 	switch typ {
-	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng", "redpanda", "unimeter":
+	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng", "redpanda", "unimeter", "bunqueue":
 		return nil
 	default:
-		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, searxng, redpanda, or unimeter")
+		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, searxng, redpanda, unimeter, or bunqueue")
 	}
 }
 
@@ -204,6 +204,9 @@ func NormalizeInstances(spec *Spec) {
 		}
 		if spec.Services.Unimeter.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("unimeter", "default", spec))
+		}
+		if spec.Services.Bunqueue.Enabled {
+			spec.Instances = append(spec.Instances, legacyInstance("bunqueue", "default", spec))
 		}
 	}
 	for i := range spec.Instances {
@@ -293,6 +296,8 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		enabled = spec.Services.Redpanda.Enabled
 	case "unimeter":
 		enabled = spec.Services.Unimeter.Enabled
+	case "bunqueue":
+		enabled = spec.Services.Bunqueue.Enabled
 	}
 	return ServiceInstance{
 		ID:          id,
@@ -315,6 +320,7 @@ func SyncLegacyServiceFlags(spec *Spec) {
 	spec.Services.SearXNG.Enabled = anyInstanceEnabled(spec, "searxng")
 	spec.Services.Redpanda.Enabled = anyInstanceEnabled(spec, "redpanda")
 	spec.Services.Unimeter.Enabled = anyInstanceEnabled(spec, "unimeter")
+	spec.Services.Bunqueue.Enabled = anyInstanceEnabled(spec, "bunqueue")
 }
 
 func anyInstanceEnabled(spec *Spec, typ string) bool {

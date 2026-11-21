@@ -17,6 +17,7 @@ export const SERVICE_TYPES = [
   "searxng",
   "redpanda",
   "unimeter",
+  "bunqueue",
 ] as const;
 
 export const SERVICE_STATES = [
@@ -40,6 +41,7 @@ export const SERVICE_TYPE_LABEL: Record<(typeof SERVICE_TYPES)[number], string> 
     searxng: "SearXNG",
     redpanda: "Redpanda",
     unimeter: "Unimeter",
+    bunqueue: "bunqueue",
   };
 
 export function defaultServicesFilters(): SurfaceFilterState {

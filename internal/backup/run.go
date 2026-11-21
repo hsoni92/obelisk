@@ -32,12 +32,20 @@ type runArtifact struct {
 	plannedNode  lineage.Node
 }
 
-// RunNow uploads data dumps for all eligible instances.
+// RunNow uploads data dumps for all eligible instances (manual trigger).
 func (r *Runner) RunNow(ctx context.Context) (RunOutcome, error) {
-	return r.runScoped(ctx, InstanceFilter{})
+	return r.runScoped(ctx, InstanceFilter{}, lineage.TriggerManual, nil)
 }
 
-func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutcome, error) {
+// RunScheduledFor runs scheduled backups for only the instances in only (empty = all).
+func (r *Runner) RunScheduledFor(ctx context.Context, only InstanceSet) (RunOutcome, error) {
+	return r.runScoped(ctx, InstanceFilter{}, lineage.TriggerScheduled, only)
+}
+
+func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter, trigger string, only InstanceSet) (RunOutcome, error) {
+	if trigger == "" {
+		trigger = lineage.TriggerManual
+	}
 	if ctx == nil {
 		ctx = context.Background()
 	}
@@ -57,6 +65,9 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 		dumps = CollectDataDumpsForInstance(ctx, spec, r.InstanceStates, filter.ServiceType, filter.InstanceID)
 	} else {
 		dumps = CollectDataDumps(ctx, spec, r.InstanceStates)
+		if len(only) > 0 {
+			dumps = filterDumpsBySet(dumps, only)
+		}
 	}
 
 	rf := requiredReplication(spec, filter, dumps)
@@ -88,7 +99,7 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 			InstanceID:  d.InstanceID,
 			ObjectKey:   d.ObjectKey,
 			Size:        int64(len(d.Body)),
-			Trigger:     lineage.TriggerManual,
+			Trigger:     trigger,
 			Witness:     witness,
 		})
 		if err != nil {
@@ -112,7 +123,7 @@ func (r *Runner) runScoped(ctx context.Context, filter InstanceFilter) (RunOutco
 		})
 	}
 
-	wantData := countEligibleDataInstances(spec, r.InstanceStates)
+	wantData := countEligibleDataInstancesInSet(spec, r.InstanceStates, only)
 	if filter.active() {
 		wantData = 0
 		for _, inst := range spec.Instances {

@@ -27,6 +27,8 @@ type ConnectionBlock struct {
 	SearXNGHTTP        string               `json:"searxng_http,omitempty"`
 	UnimeterAPI        string               `json:"unimeter_api,omitempty"`
 	UnimeterHealthHTTP string               `json:"unimeter_health_http,omitempty"`
+	BunqueueTCP        string               `json:"bunqueue_tcp,omitempty"`
+	BunqueueHealthHTTP string               `json:"bunqueue_health_http,omitempty"`
 	KafkaBootstrap     string               `json:"kafka_bootstrap,omitempty"`
 	SchemaRegistryHTTP string               `json:"schema_registry_http,omitempty"`
 	Databases          []DatabaseConnection `json:"databases,omitempty"`
@@ -108,6 +110,9 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 	case "unimeter":
 		b.UnimeterAPI = fmt.Sprintf("%s:7001", host)
 		b.UnimeterHealthHTTP = fmt.Sprintf("http://%s:9090/health", host)
+	case "bunqueue":
+		b.BunqueueTCP = fmt.Sprintf("%s:6789", host)
+		b.BunqueueHealthHTTP = fmt.Sprintf("http://%s:6790/health", host)
 	}
 
 	if IsRelationalEngine(inst.Type) {

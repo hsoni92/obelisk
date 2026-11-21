@@ -33,6 +33,8 @@ type InstanceConnection struct {
 	SearXNGHTTP        string `json:"searxng_http,omitempty"`
 	UnimeterAPI        string `json:"unimeter_api,omitempty"`
 	UnimeterHealthHTTP string `json:"unimeter_health_http,omitempty"`
+	BunqueueTCP        string `json:"bunqueue_tcp,omitempty"`
+	BunqueueHealthHTTP string `json:"bunqueue_health_http,omitempty"`
 	KafkaBootstrap     string `json:"kafka_bootstrap,omitempty"`
 	SchemaRegistryHTTP string `json:"schema_registry_http,omitempty"`
 	Databases          []DatabaseConnection `json:"databases,omitempty"`
@@ -183,6 +185,23 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			}
 			ic.UnimeterAPI = fmt.Sprintf("%s:7001", apiHost)
 			ic.UnimeterHealthHTTP = fmt.Sprintf("http://%s:9090/health", healthHost)
+		case "bunqueue":
+			queueHost := host
+			healthHost := host
+			if vpsEdge {
+				queueHost = PublicEdgeHost(inst)
+				healthHost = PublicEdgeHost(inst)
+				if u := PublicHTTPEdgeURL(inst); u != "" {
+					ic.BunqueueHealthHTTP = strings.TrimSuffix(u, "/") + "/health"
+				}
+			} else if h := PublicEdgeHost(inst); h != "" && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
+				queueHost = h
+				healthHost = h
+			}
+			ic.BunqueueTCP = fmt.Sprintf("%s:6789", queueHost)
+			if ic.BunqueueHealthHTTP == "" {
+				ic.BunqueueHealthHTTP = fmt.Sprintf("http://%s:6790/health", healthHost)
+			}
 		}
 		if IsRelationalEngine(inst.Type) {
 			for _, name := range DesiredDatabaseNames(inst) {
@@ -270,6 +289,15 @@ func instanceUse(spec Spec, inst ServiceInstance, ic InstanceConnection) string 
 		lines := []string{fmt.Sprintf("UNIMETER_ADDR=%s", ic.UnimeterAPI)}
 		if ic.UnimeterHealthHTTP != "" {
 			lines = append(lines, fmt.Sprintf("UNIMETER_HEALTH_URL=%s", ic.UnimeterHealthHTTP))
+		}
+		return strings.Join(lines, "\n")
+	case "bunqueue":
+		if ic.BunqueueTCP == "" {
+			return ""
+		}
+		lines := []string{fmt.Sprintf("BUNQUEUE_ADDR=%s", ic.BunqueueTCP)}
+		if ic.BunqueueHealthHTTP != "" {
+			lines = append(lines, fmt.Sprintf("BUNQUEUE_HEALTH_URL=%s", ic.BunqueueHealthHTTP))
 		}
 		return strings.Join(lines, "\n")
 	default:

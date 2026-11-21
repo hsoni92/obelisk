@@ -263,7 +263,7 @@ obelisk — middleware appliance CLI
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
   status [--api URL] [--config path]
-  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter>
+  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter|bunqueue>
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push
   restore --chain [--adopt-machine-id | --keep-machine-id]

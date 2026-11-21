@@ -50,6 +50,7 @@ export {
   useLazyGetStatusQuery,
   usePatchBackupTargetMutation,
   usePatchInstanceMutation,
+  useRestartInstanceMutation,
   useDeleteInstanceMutation,
   useGetInstanceBackupLineageQuery,
   useRunInstanceBackupMutation,

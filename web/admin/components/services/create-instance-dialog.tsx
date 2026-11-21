@@ -31,6 +31,7 @@ import {
   Search,
   Server,
   Activity,
+  ListOrdered,
 } from "lucide-react";
 import * as React from "react";
 
@@ -104,6 +105,12 @@ const TYPES: {
     label: "Unimeter",
     hint: "Usage metering & billing events (not in DR data backups)",
     icon: Activity,
+  },
+  {
+    id: "bunqueue",
+    label: "bunqueue",
+    hint: "Bun job queue · TCP 6789 / HTTP 6790 (not in DR data backups)",
+    icon: ListOrdered,
   },
 ];
 

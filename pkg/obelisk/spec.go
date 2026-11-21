@@ -60,7 +60,8 @@ type ServiceFlags struct {
 	Qdrant   ServiceToggle `yaml:"qdrant"`
 	SearXNG  ServiceToggle `yaml:"searxng"`
 	Redpanda ServiceToggle `yaml:"redpanda"`
-	Unimeter ServiceToggle `yaml:"unimeter"`
+	Unimeter  ServiceToggle `yaml:"unimeter"`
+	Bunqueue  ServiceToggle `yaml:"bunqueue"`
 }
 
 type ServiceToggle struct {
@@ -135,7 +136,8 @@ func DefaultSpec(profile string) Spec {
 			Qdrant:   ServiceToggle{Enabled: false},
 			SearXNG:  ServiceToggle{Enabled: false},
 			Redpanda: ServiceToggle{Enabled: false},
-			Unimeter: ServiceToggle{Enabled: false},
+			Unimeter:  ServiceToggle{Enabled: false},
+			Bunqueue:  ServiceToggle{Enabled: false},
 		},
 		Exposure: Exposure{
 			Funnel: FunnelExposure{

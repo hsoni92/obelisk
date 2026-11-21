@@ -6,6 +6,14 @@ import (
 	"time"
 )
 
+// validRunningSince rejects unset/zero pod start times that JSON encodes as year 0001.
+func validRunningSince(t time.Time) (time.Time, bool) {
+	if t.IsZero() || t.Year() < 2000 {
+		return time.Time{}, false
+	}
+	return t.UTC(), true
+}
+
 func scarceResource(m MachineVitals) string {
 	mem := sharePct(m.MemoryUsed, m.MemoryTotal)
 	disk := sharePct(m.DiskUsed, m.DiskTotal)
@@ -47,11 +55,21 @@ func buildRows(rings map[string]*Ring, meta rowMeta, machine MachineVitals) []Ro
 			out = append(out, row)
 			continue
 		}
-		latest, _ := r.Latest()
+		latest, hasLatest := r.Latest()
 		ordered := r.Ordered()
 		row.Memory = meterFromRing(ordered, machine.MemoryTotal, def.Running, "memory")
 		row.CPU = cpuMeterFromRing(ordered, def.Running)
 		row.Disk = meterFromRing(ordered, machine.DiskTotal, def.Running, "disk")
+		if hasLatest {
+			if t, ok := validRunningSince(latest.RunningSince); ok {
+				row.RunningSince = t
+			}
+			row.PodPhase = latest.PodPhase
+			row.RestartCount = latest.RestartCount
+			row.LastTerminationReason = latest.LastTerminationReason
+			row.PodReady = latest.PodReady
+			row.WaitingReason = latest.WaitingReason
+		}
 		if !def.Running {
 			row.Memory.NotRunning = true
 			row.CPU.NotRunning = true
@@ -60,7 +78,6 @@ func buildRows(rings map[string]*Ring, meta rowMeta, machine MachineVitals) []Ro
 			row.Memory.Known = true
 			row.CPU.Known = true
 		}
-		_ = latest
 		out = append(out, row)
 	}
 	return out

@@ -44,6 +44,13 @@ type RowVitals struct {
 	Memory       Meter  `json:"memory"`
 	CPU          Meter  `json:"cpu"`
 	Disk         Meter  `json:"disk"`
+	// Pod health from kubectl (latest sample).
+	RunningSince          time.Time `json:"running_since,omitempty"`
+	PodPhase              string    `json:"pod_phase,omitempty"`
+	RestartCount          int       `json:"restart_count,omitempty"`
+	LastTerminationReason string    `json:"last_termination_reason,omitempty"`
+	PodReady              bool      `json:"pod_ready,omitempty"`
+	WaitingReason         string    `json:"waiting_reason,omitempty"`
 }
 
 type Meter struct {

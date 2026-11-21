@@ -200,6 +200,7 @@ func (s *Server) handleBackupTest(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	resp.BackupReady = true
+	backup.ReloadGlobalSchedule()
 	writeJSON(w, resp)
 }
 

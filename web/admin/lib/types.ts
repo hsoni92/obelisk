@@ -103,7 +103,8 @@ export type ServiceInstance = {
     | "qdrant"
     | "searxng"
     | "redpanda"
-    | "unimeter";
+    | "unimeter"
+    | "bunqueue";
   display_name?: string;
   enabled: boolean;
   state?: string;
@@ -338,6 +339,8 @@ export type ConnectionBlock = {
   schema_registry_http?: string;
   unimeter_api?: string;
   unimeter_health_http?: string;
+  bunqueue_tcp?: string;
+  bunqueue_health_http?: string;
   databases?: { name: string; url: string }[];
 };
 
@@ -364,6 +367,8 @@ export type ConnectionsResponse = {
     schema_registry_http?: string;
     unimeter_api?: string;
     unimeter_health_http?: string;
+  bunqueue_tcp?: string;
+  bunqueue_health_http?: string;
     in_cluster?: ConnectionBlock;
   }[];
   notes?: string;
@@ -540,6 +545,12 @@ export type VitalsRow = {
   memory: VitalsMeter;
   cpu: VitalsMeter;
   disk: VitalsMeter;
+  running_since?: string;
+  pod_phase?: string;
+  restart_count?: number;
+  last_termination_reason?: string;
+  pod_ready?: boolean;
+  waiting_reason?: string;
 };
 
 export type VitalsSnapshot = {

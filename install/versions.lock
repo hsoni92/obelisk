@@ -10,5 +10,6 @@ QDRANT_IMAGE=qdrant/qdrant:v1.12.5
 SEARXNG_IMAGE=docker.io/searxng/searxng:latest
 REDPANDA_IMAGE=docker.redpanda.com/redpandadata/redpanda:v26.2.7
 UNIMETER_IMAGE=ghcr.io/unimeter/unimeter:latest
+BUNQUEUE_IMAGE=egeominotti/bunqueue:2.9.22
 RUSTFS_CHART=0.1.0
 NEXTJS=16.x

@@ -192,7 +192,7 @@ func (s *Server) buildBackupConfig(cfg string, spec obelisk.Spec) backupConfigRe
 		ReplicationReady:        replicationReady,
 		ReadyDestinationCount:   readyCount,
 		EnabledDestinationCount: enabledCount,
-		ImplementationStatus:    "stub",
+		ImplementationStatus:    backup.ImplementationStatus(),
 		LastRunAt:               status.LastRunAt,
 		LastBackupByInstance:    status.Instances,
 		CredentialsSecret:       secret,
@@ -268,6 +268,12 @@ func (s *Server) handlePatchBackupPolicy(w http.ResponseWriter, r *http.Request)
 	p := spec.Backup.Policy
 	if req.Schedule != nil {
 		p.Schedule = strings.TrimSpace(*req.Schedule)
+		if p.Schedule != "" {
+			if err := backup.ValidateCronSchedule(p.Schedule); err != nil {
+				http.Error(w, "invalid backup schedule cron", http.StatusBadRequest)
+				return
+			}
+		}
 	}
 	if req.ReplicationFactor != nil {
 		p.ReplicationFactor = *req.ReplicationFactor
@@ -570,6 +576,7 @@ func (s *Server) handleTestBackupDestination(w http.ResponseWriter, r *http.Requ
 			_ = backup.UpdateDestinationInventory(cfg, id, b, n)
 		}
 	}
+	backup.ReloadGlobalSchedule()
 	writeJSON(w, s.buildBackupConfig(cfg, spec))
 }
 
@@ -603,5 +610,6 @@ func (s *Server) handleTestAllBackupDestinations(w http.ResponseWriter, r *http.
 			}
 		}
 	}
+	backup.ReloadGlobalSchedule()
 	writeJSON(w, s.buildBackupConfig(cfg, spec))
 }

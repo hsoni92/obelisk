@@ -142,7 +142,13 @@ export function BackupRemotePanel({
               <Badge variant="warning">setup required</Badge>
             )}
             {target?.implementation_status === "stub" && (
-              <Badge variant="outline">upload worker stub</Badge>
+              <Badge variant="outline">scheduler not running</Badge>
+            )}
+            {target?.implementation_status === "unconfigured" && (
+              <Badge variant="outline">schedule paused</Badge>
+            )}
+            {target?.implementation_status === "scheduled" && (
+              <Badge variant="outline">schedule active</Badge>
             )}
           </>
         }

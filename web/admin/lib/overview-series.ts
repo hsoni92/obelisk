@@ -68,6 +68,23 @@ export function relativeTime(iso: string, now = Date.now()): string {
   return `${Math.round(s / 86400)}d ago`;
 }
 
+const MIN_UPTIME_MS = Date.UTC(2000, 0, 1);
+
+/** Elapsed time since an ISO timestamp (uptime-style, no "ago" suffix). */
+export function formatDuration(iso: string, now = Date.now()): string {
+  const started = new Date(iso).getTime();
+  if (!Number.isFinite(started) || started < MIN_UPTIME_MS) return "—";
+  const s = Math.max(0, Math.floor((now - started) / 1000));
+  if (!Number.isFinite(s) || s <= 0) return "—";
+  if (s < 60) return `${s}s`;
+  if (s < 3600) return `${Math.floor(s / 60)}m`;
+  if (s < 86400) return `${Math.floor(s / 3600)}h`;
+  const d = Math.floor(s / 86400);
+  const h = Math.floor((s % 86400) / 3600);
+  if (d < 14 && h > 0) return `${d}d ${h}h`;
+  return `${d}d`;
+}
+
 const SEVERITY: Record<string, number> = {
   degraded: 0,
   pending: 1,

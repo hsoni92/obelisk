@@ -23,8 +23,12 @@ type Slot struct {
 	DiskKnown     bool      `json:"disk_known"`
 	DiskObserved  time.Time `json:"disk_observed_at"`
 
-	RestartCount             int    `json:"restart_count,omitempty"`
-	LastTerminationReason    string `json:"last_termination_reason,omitempty"`
+	RestartCount             int       `json:"restart_count,omitempty"`
+	LastTerminationReason    string    `json:"last_termination_reason,omitempty"`
+	PodPhase                 string    `json:"pod_phase,omitempty"`
+	RunningSince             time.Time `json:"running_since,omitempty"`
+	PodReady                 bool      `json:"pod_ready,omitempty"`
+	WaitingReason            string    `json:"waiting_reason,omitempty"`
 }
 
 // Ring is a fixed-size circular buffer of slots.

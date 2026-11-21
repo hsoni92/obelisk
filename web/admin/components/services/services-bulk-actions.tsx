@@ -12,23 +12,71 @@ import {
 import { toast } from "@/lib/toast";
 import { startStopTarget, type ServiceRow } from "@/lib/service-rows";
 import type { ServiceInstance } from "@/lib/api";
-import { Activity, ChevronDown, Play, Square, Trash2 } from "lucide-react";
+import { Activity, ChevronDown, Play, RotateCcw, Square, Trash2 } from "lucide-react";
 import { useMemo } from "react";
 
 export type RowPending = { from: string; to: "start" | "stop" };
+
+export function restartEligible(row: ServiceRow): boolean {
+  return (
+    row.instance.enabled &&
+    row.instance.origin !== "federated"
+  );
+}
 
 export function useBulkActionCounts(rows: ServiceRow[], selected: Set<string>) {
   return useMemo(() => {
     let start = 0;
     let stop = 0;
+    let restart = 0;
     for (const row of rows) {
       if (!selected.has(row.rowKey)) continue;
       const t = startStopTarget(row.state);
       if (t === "start") start += 1;
       if (t === "stop") stop += 1;
+      if (restartEligible(row)) restart += 1;
     }
-    return { start, stop };
+    return { start, stop, restart };
   }, [rows, selected]);
+}
+
+export async function runServicesBulkRestart(
+  rows: ServiceRow[],
+  selected: Set<string>,
+  restartOne: (inst: ServiceInstance) => Promise<boolean>,
+  onClearSelection: () => void,
+): Promise<void> {
+  const eligible = rows.filter(
+    (r) => selected.has(r.rowKey) && restartEligible(r),
+  );
+  if (eligible.length === 0) {
+    const chosen = rows.filter((r) => selected.has(r.rowKey));
+    toast.warning(
+      "Nothing to restart",
+      chosen.length === 0
+        ? "Select one or more services in the table first."
+        : "Restart applies to enabled local services only (not federated peers).",
+    );
+    return;
+  }
+  let ok = 0;
+  let fail = 0;
+  for (const row of eligible) {
+    const success = await restartOne(row.instance);
+    if (success) ok += 1;
+    else fail += 1;
+  }
+  if (fail === 0) {
+    toast.success(
+      "Restart queued",
+      `${ok} instance${ok === 1 ? "" : "s"} — workloads will roll and reconcile.`,
+    );
+    onClearSelection();
+  } else if (ok === 0) {
+    toast.error("Restart failed", "Could not restart the selected instances.");
+  } else {
+    toast.warning("Partially applied", `${ok} restarted, ${fail} failed.`);
+  }
 }
 
 export async function runServicesBulkAction(
@@ -73,11 +121,13 @@ type ServicesBulkActionsMenuProps = {
   selectedCount: number;
   startCount: number;
   stopCount: number;
+  restartCount?: number;
   diagnoseCount?: number;
   disabled?: boolean;
   busy?: boolean;
   onStart: () => void;
   onStop: () => void;
+  onRestart?: () => void;
   onTerminate?: () => void;
   onDiagnose?: () => void;
   onClear: () => void;
@@ -91,9 +141,11 @@ export function ServicesBulkActionsMenu({
   busy = false,
   onStart,
   onStop,
+  onRestart,
   onTerminate,
   onDiagnose,
   onClear,
+  restartCount = 0,
   diagnoseCount = 0,
 }: ServicesBulkActionsMenuProps) {
   const locked = disabled || busy;
@@ -142,6 +194,16 @@ export function ServicesBulkActionsMenu({
           <Square className="size-3.5" aria-hidden />
           Stop{stopCount > 0 ? ` (${stopCount})` : ""}
         </DropdownMenuItem>
+        {onRestart ? (
+          <DropdownMenuItem
+            disabled={locked || restartCount === 0}
+            onSelect={() => onRestart()}
+          >
+            <RotateCcw className="size-3.5" aria-hidden />
+            Restart
+            {restartCount > 0 ? ` (${restartCount})` : ""}
+          </DropdownMenuItem>
+        ) : null}
         {onDiagnose ? (
           <DropdownMenuItem
             disabled={locked || diagnoseCount === 0}

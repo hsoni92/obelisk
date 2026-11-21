@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/adminapi"
+	"github.com/hsoni92/obelisk/internal/backup"
 	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
@@ -55,7 +56,13 @@ func main() {
 		log.Fatal(err)
 	}
 	bp.Start(ctx)
-	config.SetAfterSave(func(string) { bp.Sync.Enqueue() })
+	ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE"))
+	backupSched := backup.NewScheduleRunner(cfgFile, *helmRoot, ns)
+	backupSched.Start(ctx)
+	config.SetAfterSave(func(string) {
+		bp.Sync.Enqueue()
+		backupSched.Reload()
+	})
 	vitalsStore := vitals.NewStore()
 	api := &adminapi.Server{
 		ConfigPath:            cfgFile,
@@ -68,7 +75,6 @@ func main() {
 		Restore:               restore.New(),
 		Vitals:                vitalsStore,
 	}
-	ns := strings.TrimSpace(os.Getenv("OBELISK_NAMESPACE"))
 	vitals.StartSamplerLogged(ctx, vitalsStore, vitals.SamplerConfig{
 		ConfigPath: cfgFile,
 		HelmRoot:   *helmRoot,

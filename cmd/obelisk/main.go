@@ -73,7 +73,7 @@ Commands:
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
   status [--json] [--config path] [--helm-root path]
-  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter> [--config path] [--helm-root path]
+  service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter|bunqueue> [--config path] [--helm-root path]
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
   restore --chain [--api URL] [--config path] [--passphrase secret] [--adopt-machine-id | --keep-machine-id]

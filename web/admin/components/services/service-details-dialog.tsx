@@ -13,7 +13,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import type { ServiceInstance } from "@/lib/api";
-import { relativeTime } from "@/lib/overview-series";
+import { formatBytes } from "@/lib/format-bytes";
+import { formatDuration, relativeTime } from "@/lib/overview-series";
 import { ConnectionCredentialsPanel } from "@/components/services/connection-credentials";
 import { BackupLineagePanel } from "@/components/services/backup-lineage-panel";
 import { InstanceDatabasesPanel } from "@/components/services/instance-databases-panel";
@@ -199,6 +200,89 @@ export function ServiceDetailsDialog({
                       </div>
                     </>
                   )}
+                </dl>
+              </Section>
+
+              <Section title="Pod health">
+                <dl>
+                  <Field
+                    label="Workload state"
+                    value={
+                      <StateStatus state={row.state} className="text-sm" />
+                    }
+                  />
+                  <Field
+                    label="Pod phase"
+                    value={row.vitals?.pod_phase || "—"}
+                  />
+                  <Field
+                    label="Uptime"
+                    value={
+                      row.state === "running" && row.vitals?.running_since
+                        ? (() => {
+                            const up = formatDuration(row.vitals.running_since);
+                            return up === "—"
+                              ? "—"
+                              : `${up} · ${new Date(row.vitals.running_since).toLocaleString()}`;
+                          })()
+                        : "—"
+                    }
+                  />
+                  <Field
+                    label="Restarts"
+                    value={
+                      row.vitals?.restart_count != null
+                        ? String(row.vitals.restart_count)
+                        : "—"
+                    }
+                  />
+                  {row.vitals?.last_termination_reason ? (
+                    <Field
+                      label="Last exit"
+                      value={row.vitals.last_termination_reason}
+                      mono
+                    />
+                  ) : null}
+                  {row.vitals?.waiting_reason ? (
+                    <Field
+                      label="Waiting"
+                      value={row.vitals.waiting_reason}
+                      mono
+                    />
+                  ) : null}
+                  <Field
+                    label="Containers ready"
+                    value={
+                      row.vitals?.pod_ready == null
+                        ? "—"
+                        : row.vitals.pod_ready
+                          ? "Yes"
+                          : "No"
+                    }
+                  />
+                  {row.vitals?.cpu?.known && !row.vitals.cpu.not_running ? (
+                    <Field
+                      label="CPU share"
+                      value={`${row.vitals.cpu.percent < 10 ? row.vitals.cpu.percent.toFixed(1) : Math.round(row.vitals.cpu.percent)}% of node`}
+                    />
+                  ) : null}
+                  {row.vitals?.memory?.known &&
+                  !row.vitals.memory.not_running ? (
+                    <Field
+                      label="Memory"
+                      value={
+                        row.vitals.memory.total_bytes
+                          ? `${formatBytes(row.vitals.memory.used_bytes ?? 0)} of ${formatBytes(row.vitals.memory.total_bytes)}`
+                          : formatBytes(row.vitals.memory.used_bytes ?? 0)
+                      }
+                    />
+                  ) : null}
+                  {row.vitals?.disk?.known && row.vitals.disk.total_bytes ? (
+                    <Field
+                      label="Data volume"
+                      value={`${formatBytes(row.vitals.disk.used_bytes ?? 0)} of ${formatBytes(row.vitals.disk.total_bytes)}`}
+                    />
+                  ) : null}
                 </dl>
               </Section>
 

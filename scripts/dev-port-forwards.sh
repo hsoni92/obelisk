@@ -53,6 +53,10 @@ forward_release() {
       ensure_forward "$svc" 7001 7001
       ensure_forward "$svc" 9090 9090
       ;;
+    obelisk-bunqueue-*)
+      ensure_forward "$svc" 6789 6789
+      ensure_forward "$svc" 6790 6790
+      ;;
     obelisk-redpanda-*)
       # Host bootstrap is *:9092; broker external listener is pod :19092 (see redpanda chart devAdvertiseHost).
       ensure_forward "$svc" 9092 19092

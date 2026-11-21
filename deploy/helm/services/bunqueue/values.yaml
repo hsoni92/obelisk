@@ -1,0 +1,12 @@
+replicas: 1
+image: egeominotti/bunqueue:2.9.22
+storage:
+  size: 2Gi
+credentials: {}
+resources:
+  requests:
+    cpu: 100m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 512Mi

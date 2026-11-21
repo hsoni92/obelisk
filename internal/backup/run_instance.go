@@ -3,6 +3,8 @@ package backup
 import (
 	"context"
 	"strings"
+
+	"github.com/hsoni92/obelisk/internal/backup/lineage"
 )
 
 // InstanceFilter limits backup to one instance when both fields are set.
@@ -17,5 +19,5 @@ func (f InstanceFilter) active() bool {
 
 // RunForInstance uploads one instance (both type and id required).
 func (r *Runner) RunForInstance(ctx context.Context, serviceType, instanceID string) (RunOutcome, error) {
-	return r.runScoped(ctx, InstanceFilter{ServiceType: serviceType, InstanceID: instanceID})
+	return r.runScoped(ctx, InstanceFilter{ServiceType: serviceType, InstanceID: instanceID}, lineage.TriggerManual, nil)
 }

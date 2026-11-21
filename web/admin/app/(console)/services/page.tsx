@@ -9,6 +9,7 @@ import { ServicesFilters } from "@/components/services/services-filters";
 import { DiagnosticsResultsDialog } from "@/components/services/diagnostics-results-dialog";
 import {
   runServicesBulkAction,
+  runServicesBulkRestart,
   ServicesBulkActionsMenu,
   useBulkActionCounts,
 } from "@/components/services/services-bulk-actions";
@@ -43,6 +44,7 @@ import {
   useRunDiagnosticsMutation,
   useDeleteInstanceMutation,
   usePatchInstanceMutation,
+  useRestartInstanceMutation,
   type ServiceInstance,
 } from "@/lib/api";
 import type { DiagnosticInstanceResult } from "@/lib/types";
@@ -67,6 +69,7 @@ const TYPES = [
   "searxng",
   "redpanda",
   "unimeter",
+  "bunqueue",
 ] as const;
 
 function ServicesPageContent() {
@@ -132,6 +135,7 @@ function ServicesPageContent() {
 
   const [createInstance] = useCreateInstanceMutation();
   const [patchInstance] = usePatchInstanceMutation();
+  const [restartInstance] = useRestartInstanceMutation();
   const [deleteInstance] = useDeleteInstanceMutation();
   const [runDiagnostics] = useRunDiagnosticsMutation();
 
@@ -211,6 +215,29 @@ function ServicesPageContent() {
         selected,
         action,
         setEnabled,
+        () => setSelected(new Set()),
+      );
+    } finally {
+      setBulkBusy(false);
+    }
+  }
+
+  async function restartOne(inst: ServiceInstance): Promise<boolean> {
+    try {
+      const res = await restartInstance({ id: inst.id, type: inst.type }).unwrap();
+      return res.status === "accepted" || res.status === "skipped";
+    } catch {
+      return false;
+    }
+  }
+
+  async function runBulkRestart() {
+    setBulkBusy(true);
+    try {
+      await runServicesBulkRestart(
+        tableRows,
+        selected,
+        restartOne,
         () => setSelected(new Set()),
       );
     } finally {
@@ -431,11 +458,13 @@ function ServicesPageContent() {
               selectedCount={selected.size}
               startCount={bulkCounts.start}
               stopCount={bulkCounts.stop}
+              restartCount={bulkCounts.restart}
               diagnoseCount={diagnoseCount}
               busy={bulkBusy}
               disabled={busy !== null}
               onStart={() => void runBulk("start")}
               onStop={() => void runBulk("stop")}
+              onRestart={() => void runBulkRestart()}
               onDiagnose={() => void runConnectionDiagnostics()}
               onTerminate={() => void runBulkTerminate()}
               onClear={() => setSelected(new Set())}

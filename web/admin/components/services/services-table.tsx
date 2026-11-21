@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/tooltip";
 import { StateStatus } from "@/components/ui/status-dot";
 import type { ServiceRow } from "@/lib/service-rows";
-import { relativeTime } from "@/lib/overview-series";
+import { formatDuration, relativeTime } from "@/lib/overview-series";
 import { formatBytes } from "@/lib/format-bytes";
 import { cn } from "@/lib/utils";
 import type { ServiceInstance } from "@/lib/api";
@@ -40,6 +40,7 @@ import {
   Server,
   SlidersHorizontal,
   Activity,
+  ListOrdered,
 } from "lucide-react";
 import * as React from "react";
 
@@ -53,10 +54,11 @@ const TYPE_ICONS = {
   searxng: Search,
   redpanda: Radio,
   unimeter: Activity,
+  bunqueue: ListOrdered,
 } as const;
 
 const GRID =
-  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_96px_104px_minmax(120px,1fr)_44px] items-center gap-2";
+  "grid grid-cols-[40px_minmax(150px,1fr)_80px_76px_92px_72px_96px_104px_minmax(120px,1fr)_44px] items-center gap-2";
 
 const ROW_HEIGHT = 56;
 
@@ -84,6 +86,7 @@ const SKELETON_HEADERS = [
   "Type",
   "CPU",
   "Memory",
+  "Uptime",
   "Last backup",
   "Status",
   "Endpoint",
@@ -132,6 +135,7 @@ export function ServicesTableSkeleton({ rows = 6 }: { rows?: number }) {
           <Skeleton className="h-4 w-14" />
           <UsageSkeleton />
           <UsageSkeleton />
+          <Skeleton className="h-4 w-10" />
           <Skeleton className="h-4 w-14" />
           <Skeleton className="h-5 w-16 rounded-full" />
           <Skeleton className="h-4 w-40 max-w-full" />
@@ -280,6 +284,17 @@ export function ServicesTable({
         header: "Memory",
         sortUndefined: "last",
         cell: ({ row }) => <UsageCell row={row.original} kind="memory" />,
+      },
+      {
+        id: "uptime",
+        accessorFn: (r) => {
+          const since = r.vitals?.running_since;
+          if (!since || r.state !== "running") return -1;
+          return new Date(since).getTime();
+        },
+        header: "Uptime",
+        sortUndefined: "last",
+        cell: ({ row }) => <UptimeCell row={row.original} />,
       },
       {
         id: "backup",
@@ -664,5 +679,31 @@ function UsageSkeleton() {
       <Skeleton className="h-3.5 w-10" />
       <Skeleton className="mt-1.5 h-[3px] w-full" />
     </div>
+  );
+}
+
+function UptimeCell({ row }: { row: ServiceRow }) {
+  const v = row.vitals;
+  const since = v?.running_since;
+  if (row.state !== "running" || !since) {
+    return <span className="text-[13px] text-muted-foreground">—</span>;
+  }
+  const label = formatDuration(since);
+  if (label === "—") {
+    return <span className="text-[13px] text-muted-foreground">—</span>;
+  }
+  const restarts = v?.restart_count ?? 0;
+  const title = [
+    `Up since ${new Date(since).toLocaleString()}`,
+  ]
+    .concat(restarts > 0 ? [`${restarts} restart(s)`] : [])
+    .join(" · ");
+  return (
+    <span className="text-[13px] tabular-nums" title={title}>
+      {label}
+      {restarts > 0 ? (
+        <span className="ml-1 text-muted-foreground">({restarts}↺)</span>
+      ) : null}
+    </span>
   );
 }

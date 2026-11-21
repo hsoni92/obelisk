@@ -309,6 +309,12 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 			po := inst.Backup.PolicyOverride
 			if req.Backup.PolicyOverride.Schedule != nil {
 				s := strings.TrimSpace(*req.Backup.PolicyOverride.Schedule)
+				if s != "" {
+					if err := backup.ValidateCronSchedule(s); err != nil {
+						http.Error(w, "invalid backup schedule cron", http.StatusBadRequest)
+						return
+					}
+				}
 				po.Schedule = &s
 			}
 			if req.Backup.PolicyOverride.ReplicationFactor != nil {
@@ -363,6 +369,54 @@ func (s *Server) handlePatchInstance(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, map[string]any{
 		"instance": enrichInstanceView(inst, interim, spec),
 		"accepted": true,
+	})
+}
+
+func lookupInstance(spec *obelisk.Spec, typ, id string) (obelisk.ServiceInstance, bool) {
+	if strings.TrimSpace(typ) != "" {
+		inst, _, ok := obelisk.FindInstanceByTypeAndID(spec, typ, id)
+		return inst, ok
+	}
+	inst, _, ok := obelisk.FindInstance(spec, id)
+	return inst, ok
+}
+
+func (s *Server) handlePostInstanceRestart(w http.ResponseWriter, r *http.Request) {
+	id := r.PathValue("id")
+	typ := strings.TrimSpace(r.URL.Query().Get("type"))
+	cfg := config.EnsureReadablePath(s.ConfigPath)
+	spec, err := config.Load(cfg)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	inst, ok := lookupInstance(&spec, typ, id)
+	if !ok {
+		http.Error(w, "instance not found", http.StatusNotFound)
+		return
+	}
+	ctx := r.Context()
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	rec := s.reconciler(cfg)
+	out := rec.RestartInstanceWorkload(ctx, inst)
+	detail := inst.StateKey() + ": " + out.Message
+	if out.Method == "skipped" {
+		writeJSON(w, map[string]any{
+			"status":    "skipped",
+			"method":    out.Method,
+			"message":   out.Message,
+			"state_key": inst.StateKey(),
+		})
+		return
+	}
+	s.recordAudit("Instance", "restart", detail)
+	writeJSON(w, map[string]any{
+		"status":    "accepted",
+		"method":    out.Method,
+		"message":   out.Message,
+		"state_key": inst.StateKey(),
 	})
 }
 
