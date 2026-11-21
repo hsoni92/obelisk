@@ -14,6 +14,9 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { RadioGroup } from "@/components/ui/radio-group";
+import { cn } from "@/lib/utils";
+import * as RadioGroupPrimitive from "radix-ui/radio-group";
 import { SelectField } from "@/components/ui/select";
 import type { CreateInstanceFromBackupResult, ServiceInstance } from "@/lib/api";
 import { useGetBackupCatalogQuery } from "@/lib/api";
@@ -21,6 +24,7 @@ import { relativeTime } from "@/lib/overview-series";
 import { toast } from "@/lib/toast";
 import {
   AlertTriangle,
+  Check,
   CheckCircle2,
   Database,
   Box,
@@ -30,6 +34,8 @@ import {
   Radio,
   Search,
   Server,
+  ShieldCheck,
+  X,
   Activity,
   ListOrdered,
 } from "lucide-react";
@@ -46,72 +52,33 @@ const BACKUP_RESTORE_TYPES: InstanceType[] = [
   "qdrant",
 ];
 
+type Category = "Databases" | "Vector & search" | "Object storage" | "Cache & messaging" | "Metering";
+
+const CATEGORY_ORDER: Category[] = [
+  "Databases",
+  "Vector & search",
+  "Object storage",
+  "Cache & messaging",
+  "Metering",
+];
+
 const TYPES: {
   id: InstanceType;
   label: string;
-  hint: string;
+  desc: string;
+  category: Category;
   icon: typeof Database;
 }[] = [
-  {
-    id: "postgres",
-    label: "PostgreSQL",
-    hint: "Relational · included in DR backups",
-    icon: Database,
-  },
-  {
-    id: "mysql",
-    label: "MySQL",
-    hint: "Relational · included in DR backups",
-    icon: Server,
-  },
-  {
-    id: "mongodb",
-    label: "MongoDB",
-    hint: "Document store · included in DR backups",
-    icon: Database,
-  },
-  {
-    id: "redis",
-    label: "Redis",
-    hint: "Cache & queues (not in DR data backups)",
-    icon: Layers,
-  },
-  {
-    id: "rustfs",
-    label: "RustFS",
-    hint: "S3-compatible · DR backups (when worker ships)",
-    icon: HardDrive,
-  },
-  {
-    id: "qdrant",
-    label: "Qdrant",
-    hint: "Vector search · DR backups (when worker ships)",
-    icon: Box,
-  },
-  {
-    id: "searxng",
-    label: "SearXNG",
-    hint: "Privacy-respecting metasearch",
-    icon: Search,
-  },
-  {
-    id: "redpanda",
-    label: "Redpanda",
-    hint: "Kafka-compatible streaming (not in DR data backups)",
-    icon: Radio,
-  },
-  {
-    id: "unimeter",
-    label: "Unimeter",
-    hint: "Usage metering & billing events (not in DR data backups)",
-    icon: Activity,
-  },
-  {
-    id: "bunqueue",
-    label: "bunqueue",
-    hint: "Bun job queue · TCP 6789 / HTTP 6790 (not in DR data backups)",
-    icon: ListOrdered,
-  },
+  { id: "postgres", label: "PostgreSQL", desc: "Relational database for transactional workloads.", category: "Databases", icon: Database },
+  { id: "mysql", label: "MySQL", desc: "Popular relational database, wide ecosystem support.", category: "Databases", icon: Server },
+  { id: "mongodb", label: "MongoDB", desc: "Flexible document store for JSON-shaped data.", category: "Databases", icon: Database },
+  { id: "qdrant", label: "Qdrant", desc: "Vector database for embeddings and similarity search.", category: "Vector & search", icon: Box },
+  { id: "searxng", label: "SearXNG", desc: "Privacy-respecting metasearch engine.", category: "Vector & search", icon: Search },
+  { id: "rustfs", label: "RustFS", desc: "S3-compatible object storage.", category: "Object storage", icon: HardDrive },
+  { id: "redis", label: "Redis", desc: "In-memory cache, queues and pub/sub.", category: "Cache & messaging", icon: Layers },
+  { id: "redpanda", label: "Redpanda", desc: "Kafka-compatible streaming platform.", category: "Cache & messaging", icon: Radio },
+  { id: "bunqueue", label: "bunqueue", desc: "Bun job queue · TCP 6789 / HTTP 6790.", category: "Cache & messaging", icon: ListOrdered },
+  { id: "unimeter", label: "Unimeter", desc: "Usage metering and billing events.", category: "Metering", icon: Activity },
 ];
 
 export type CreateInstanceInput = {
@@ -142,7 +109,7 @@ export function CreateInstanceDialog({
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-h-[min(92vh,880px)] max-w-3xl">
         {/* Content unmounts on close, so this body's state resets each time. */}
         <CreateInstanceBody
           open={open}
@@ -169,6 +136,7 @@ function CreateInstanceBody({
 }) {
   const [type, setType] = React.useState<InstanceType>("postgres");
   const [name, setName] = React.useState("");
+  const [query, setQuery] = React.useState("");
   const [bootstrap, setBootstrap] = React.useState(false);
   const [sourceKey, setSourceKey] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
@@ -180,6 +148,17 @@ function CreateInstanceBody({
   });
 
   const bootstrapEligible = BACKUP_RESTORE_TYPES.includes(type);
+  const selectedType = TYPES.find((t) => t.id === type);
+  const grouped = React.useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const match = (t: (typeof TYPES)[number]) =>
+      !q ||
+      `${t.label} ${t.id} ${t.desc} ${t.category}`.toLowerCase().includes(q);
+    return CATEGORY_ORDER.map((category) => ({
+      category,
+      items: TYPES.filter((t) => t.category === category && match(t)),
+    })).filter((g) => g.items.length > 0);
+  }, [query]);
 
   const backupSources = React.useMemo(() => {
     if (!bootstrapEligible || !catalog?.rows) return [];
@@ -324,106 +303,227 @@ function CreateInstanceBody({
         </div>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="contents">
-          <DialogHeader>
-            <DialogTitle>New instance</DialogTitle>
+          <DialogHeader className="pl-8">
+            <DialogTitle className="text-lg font-normal">New instance</DialogTitle>
             <DialogDescription>
-              Pick a service and a display name you can rename later. Obelisk
-              assigns a permanent endpoint slug (used in URLs) and credentials
-              automatically.
+              Choose a service, give it a name you can change later. Obelisk
+              assigns the endpoint slug and credentials automatically.
             </DialogDescription>
           </DialogHeader>
-          <DialogBody className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="instance-type">Service type</Label>
-              <SelectField
-                id="instance-type"
+          <DialogBody className="space-y-8 px-8 py-6">
+            <section aria-labelledby="step-service">
+              <StepTitle n={1} id="step-service" title="Choose a service" />
+              <div className="mt-4 flex h-10 items-center gap-2 rounded-full bg-muted px-4 text-muted-foreground focus-within:ring-2 focus-within:ring-ring">
+                <Search className="size-3.5 shrink-0" aria-hidden />
+                <input
+                  type="search"
+                  value={query}
+                  onChange={(e) => setQuery(e.target.value)}
+                  placeholder="Search services, e.g. vector, queue, S3…"
+                  aria-label="Search services"
+                  className="min-w-0 flex-1 bg-transparent text-sm text-foreground outline-none placeholder:text-muted-foreground"
+                />
+                {query ? (
+                  <button
+                    type="button"
+                    aria-label="Clear search"
+                    onClick={() => setQuery("")}
+                    className="flex size-6 items-center justify-center rounded-full hover:bg-card hover:text-foreground"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                ) : null}
+              </div>
+
+              <RadioGroup
                 value={type}
                 onValueChange={(v) => {
                   setType(v as InstanceType);
                   setBootstrap(false);
                   setSourceKey("");
                 }}
-                options={TYPES.map((t) => ({ value: t.id, label: t.label }))}
-              />
-              <p className="text-metadata text-muted-foreground">
-                {TYPES.find((t) => t.id === type)?.hint}
-              </p>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="instance-name">Display name</Label>
-              <Input
-                id="instance-name"
-                autoFocus
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={`e.g. analytics (default: ${type})`}
-                autoComplete="off"
-              />
-            </div>
-
-            {bootstrapEligible ? (
-              <div className="space-y-3 rounded-lg border border-border p-3">
-                <label className="flex cursor-pointer items-start gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-1"
-                    checked={bootstrap}
-                    onChange={(e) => setBootstrap(e.target.checked)}
-                    disabled={backupSources.length === 0}
-                  />
-                  <span>
-                    <span className="font-medium">Bootstrap from backup</span>
-                    <span className="mt-0.5 block text-metadata text-muted-foreground">
-                      {backupSources.length === 0
-                        ? "No backups for this service type yet — create empty, or run a backup on an existing instance first."
-                        : "Deploy a new instance and restore the active snapshot from another entry of the same type."}
-                    </span>
-                  </span>
-                </label>
-                {bootstrap && backupSources.length > 0 ? (
-                  <div className="space-y-2">
-                    <Label htmlFor="backup-source">Backup source</Label>
-                    <SelectField
-                      id="backup-source"
-                      value={effectiveSourceKey}
-                      onValueChange={setSourceKey}
-                      options={backupSources.map((r) => {
-                        const label = r.display_name?.trim() || r.instance_id;
-                        const when = r.active_backup_at ?? r.last_upload_at;
-                        const suffix = when ? ` · ${relativeTime(when)}` : "";
-                        const orphan = r.orphan && !r.instance_live ? " · orphan" : "";
-                        return {
-                          value: catalogSourceKey(r.service_type, r.instance_id),
-                          label: `${label}${orphan}${suffix}`,
-                        };
-                      })}
-                    />
+                aria-label="Service type"
+                className="mt-5 gap-6"
+              >
+                {grouped.map((g) => (
+                  <div key={g.category}>
+                    <p className="mb-2.5 flex items-center gap-2 text-eyebrow text-muted-foreground">
+                      {g.category}
+                      <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] tabular-nums">
+                        {g.items.length}
+                      </span>
+                    </p>
+                    <div className="grid gap-3 sm:grid-cols-2">
+                      {g.items.map((t) => (
+                        <ServiceTile key={t.id} t={t} selected={t.id === type} />
+                      ))}
+                    </div>
+                  </div>
+                ))}
+                {grouped.length === 0 ? (
+                  <div className="flex flex-col items-center gap-2 rounded-2xl bg-muted/60 px-4 py-10 text-center">
+                    <Search className="size-5 text-muted-foreground" aria-hidden />
+                    <p className="text-sm font-medium">No service matches “{query}”</p>
+                    <Button type="button" size="sm" variant="outline" onClick={() => setQuery("")}>
+                      Clear search
+                    </Button>
                   </div>
                 ) : null}
+              </RadioGroup>
+            </section>
+
+            <section aria-labelledby="step-details">
+              <StepTitle n={2} id="step-details" title="Name it" />
+              <div className="mt-4 space-y-2">
+                <Label htmlFor="instance-name">Display name</Label>
+                <Input
+                  id="instance-name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder={`e.g. analytics (default: ${type})`}
+                  autoComplete="off"
+                />
               </div>
-            ) : null}
+
+              {bootstrapEligible ? (
+                <div className="mt-5 space-y-3 rounded-2xl border border-border p-4">
+                  <label className="flex cursor-pointer items-start gap-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={bootstrap}
+                      onChange={(e) => setBootstrap(e.target.checked)}
+                      disabled={backupSources.length === 0}
+                    />
+                    <span>
+                      <span className="font-medium">Bootstrap from backup</span>
+                      <span className="mt-0.5 block text-metadata text-muted-foreground">
+                        {backupSources.length === 0
+                          ? "No backups for this service type yet — create empty, or run a backup on an existing instance first."
+                          : "Deploy a new instance and restore the active snapshot from another entry of the same type."}
+                      </span>
+                    </span>
+                  </label>
+                  {bootstrap && backupSources.length > 0 ? (
+                    <div className="space-y-2">
+                      <Label htmlFor="backup-source">Backup source</Label>
+                      <SelectField
+                        id="backup-source"
+                        value={effectiveSourceKey}
+                        onValueChange={setSourceKey}
+                        options={backupSources.map((r) => {
+                          const label = r.display_name?.trim() || r.instance_id;
+                          const when = r.active_backup_at ?? r.last_upload_at;
+                          const suffix = when ? ` · ${relativeTime(when)}` : "";
+                          const orphan = r.orphan && !r.instance_live ? " · orphan" : "";
+                          return {
+                            value: catalogSourceKey(r.service_type, r.instance_id),
+                            label: `${label}${orphan}${suffix}`,
+                          };
+                        })}
+                      />
+                    </div>
+                  ) : null}
+                </div>
+              ) : null}
+            </section>
           </DialogBody>
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={submitting || (bootstrap && !selectedSource)}
-            >
-              {submitting
-                ? bootstrap
-                  ? "Creating & restoring…"
-                  : "Creating…"
-                : bootstrap
-                  ? "Create & restore"
-                  : "Create instance"}
-            </Button>
+          <DialogFooter className="justify-between px-8">
+            <p className="hidden min-w-0 items-center gap-2 truncate text-sm text-muted-foreground sm:flex">
+              {selectedType ? (
+                <>
+                  <selectedType.icon className="size-4 shrink-0" aria-hidden />
+                  <span className="truncate">
+                    <span className="font-medium text-foreground">{selectedType.label}</span>
+                    {" · "}
+                    {BACKUP_RESTORE_TYPES.includes(selectedType.id)
+                      ? "included in DR backups"
+                      : "not in DR data backups"}
+                  </span>
+                </>
+              ) : null}
+            </p>
+            <div className="flex items-center gap-2">
+              <Button type="button" variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={submitting || (bootstrap && !selectedSource)}
+              >
+                {submitting
+                  ? bootstrap
+                    ? "Creating & restoring…"
+                    : "Creating…"
+                  : bootstrap
+                    ? "Create & restore"
+                    : "Create instance"}
+              </Button>
+            </div>
           </DialogFooter>
         </form>
       )}
     </>
+  );
+}
+
+function StepTitle({ n, id, title }: { n: number; id: string; title: string }) {
+  return (
+    <h3 id={id} className="flex items-center gap-2.5 text-[15px] font-medium">
+      <span className="flex size-6 items-center justify-center rounded-full bg-ink text-xs font-semibold text-ink-foreground">
+        {n}
+      </span>
+      {title}
+    </h3>
+  );
+}
+
+function ServiceTile({ t, selected }: { t: (typeof TYPES)[number]; selected: boolean }) {
+  const Icon = t.icon;
+  const dr = BACKUP_RESTORE_TYPES.includes(t.id);
+  return (
+    <RadioGroupPrimitive.Item
+      value={t.id}
+      className={cn(
+        "group relative flex items-start gap-3 rounded-2xl p-4 text-left outline-none ring-1 transition-all",
+        "focus-visible:ring-2 focus-visible:ring-ring",
+        selected
+          ? "bg-muted ring-2 ring-ink"
+          : "bg-card ring-border hover:-translate-y-px hover:bg-muted/50 hover:shadow-rb-1",
+      )}
+    >
+      <span
+        className={cn(
+          "flex size-10 shrink-0 items-center justify-center rounded-xl transition-colors",
+          selected ? "bg-ink text-ink-foreground" : "bg-muted text-muted-foreground group-hover:text-foreground",
+        )}
+      >
+        <Icon className="size-5" aria-hidden />
+      </span>
+      <span className="min-w-0 flex-1 pr-6">
+        <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+          <span className="text-sm font-medium">{t.label}</span>
+          {dr ? (
+            <span className="inline-flex items-center gap-1 rounded-full bg-success-tint px-1.5 py-0.5 text-[10px] font-medium text-success">
+              <ShieldCheck className="size-3" aria-hidden />
+              DR backups
+            </span>
+          ) : null}
+        </span>
+        <span className="mt-1 block text-metadata leading-relaxed text-muted-foreground">
+          {t.desc}
+        </span>
+      </span>
+      <span
+        aria-hidden
+        className={cn(
+          "absolute right-3 top-3 flex size-5 items-center justify-center rounded-full transition-all",
+          selected ? "scale-100 bg-ink text-ink-foreground" : "scale-90 bg-transparent ring-1 ring-border",
+        )}
+      >
+        {selected ? <Check className="size-3" strokeWidth={3} /> : null}
+      </span>
+    </RadioGroupPrimitive.Item>
   );
 }
 
