@@ -1,0 +1,25 @@
+---
+description: Cursor Task usage for EGM Goldfish reviewers (model inherit, limit fallback).
+alwaysApply: true
+---
+
+Apply when running any EGM skill (`egm-brainstorm`, `egm-draft`, `egm-review`, or related).
+
+## Task model (required)
+
+- Dispatch EGM reviewers with the native `Task` tool and registered types (`egm-design`, `egm-zoom-out`, etc.).
+- **Do not set the `model` argument** on `Task` unless the user explicitly names a model for that review.
+- Plugin reviewers use `model: inherit`; children must use the **same model as the parent chat** (e.g. Composer 2.5 Fast).
+- **Never** pick premium or third-party slugs (Claude, Opus, Sonnet, GPT, Grok, etc.) for Goldfish tasks by default—they bill a different usage pool and often fail with “usage limit” while parent Composer still works.
+
+## Parallel reviewers and limits
+
+- Brainstorm may launch up to seven reviewers in parallel when usage headroom is likely sufficient.
+- If **any** reviewer fails to start or returns a **usage limit** (or similar quota) error:
+  1. Stop launching further parallel tasks.
+  2. Retry **one reviewer at a time**, still **without** `model`.
+  3. If limits persist, stop the Goldfish stage, note incomplete review in the artifact, and continue in the parent only with user consent—do not simulate reviewers in-thread.
+
+## Evidence
+
+- Record incomplete stages honestly (same as `EGM_ROOT/docs/cursor.md`).

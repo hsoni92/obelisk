@@ -10,6 +10,16 @@ EGM artifact directory: docs/designs
 
 Approved specifications live under `docs/designs/`. Before running EGM review skills, read `EGM_ROOT/docs/cursor.md`.
 
+### Cursor: Goldfish subagents and usage limits
+
+EGM reviews spawn isolated `Task` subagents. They bill **per subagent** and may use a **different usage pool** than the parent chat model unless they inherit it.
+
+- **Never pass `model` on `Task`** for EGM reviewers unless the user explicitly requests a model. Omit `model` so subagents inherit the parent (e.g. Composer 2.5 Fast).
+- **Do not** default Goldfish tasks to Claude, Opus, Sonnet, or other premium slugs—that pattern burns “Other Models” quota and fails with usage limits while direct Composer chat still works.
+- On usage-limit failure: stop parallel launches, retry reviewers **sequentially** without `model`, then mark the stage incomplete in the artifact if tasks still cannot start (see `EGM_ROOT/docs/cursor.md`).
+
+Workspace rule: `.cursor/rules/egm-cursor-usage.mdc`.
+
 Typical workflow:
 
 1. `/egm-brainstorm` — explore a feature idea → `concepts_brief.md`

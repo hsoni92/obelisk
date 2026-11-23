@@ -20,7 +20,13 @@ func TestGitHubPush_existingBranch(t *testing.T) {
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/ref/heads/main"):
 			_ = json.NewEncoder(w).Encode(map[string]any{"object": map[string]string{"sha": parentSHA}})
 		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/commits/"+parentSHA):
-			_ = json.NewEncoder(w).Encode(map[string]any{"tree": map[string]string{"sha": "base-tree"}})
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"tree":      map[string]string{"sha": "base-tree"},
+				"parents":   []any{},
+				"committer": map[string]string{"date": "2020-01-01T00:00:00Z"},
+			})
+		case r.Method == http.MethodGet && strings.Contains(r.URL.Path, "/git/trees/"):
+			_ = json.NewEncoder(w).Encode(map[string]any{"tree": []any{}})
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git/blobs"):
 			_ = json.NewEncoder(w).Encode(map[string]string{"sha": "blob-sha"})
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/git/trees"):

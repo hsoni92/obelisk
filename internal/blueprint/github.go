@@ -262,7 +262,6 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 		} `json:"object"`
 	}
 	parent := ""
-	baseTree := ""
 	emptyBranch := false
 	if err := g.do(ctx, http.MethodGet, refGetURL, nil, &ref); err != nil {
 		var se *StatusError
@@ -272,16 +271,16 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 			return "", err
 		}
 	} else {
-		parent = ref.Object.SHA
-		var commit struct {
-			Tree struct {
-				SHA string `json:"sha"`
-			} `json:"tree"`
+		tip := ref.Object.SHA
+		manifest := files[FileManifest]
+		if manifest == nil {
+			manifest = []byte{}
 		}
-		if err := g.do(ctx, http.MethodGet, fmt.Sprintf("%s/repos/%s/%s/git/commits/%s", g.api(), url.PathEscape(owner), url.PathEscape(name), parent), nil, &commit); err != nil {
+		p, err := g.resolveRetentionParent(ctx, repository, tip, manifest)
+		if err != nil {
 			return "", err
 		}
-		baseTree = commit.Tree.SHA
+		parent = p
 	}
 	type treeEntry struct {
 		Path string `json:"path"`
@@ -307,9 +306,6 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 		SHA string `json:"sha"`
 	}
 	treeBody := map[string]any{"tree": entries}
-	if baseTree != "" {
-		treeBody["base_tree"] = baseTree
-	}
 	if err := g.do(ctx, http.MethodPost, fmt.Sprintf("%s/repos/%s/%s/git/trees", g.api(), url.PathEscape(owner), url.PathEscape(name)), treeBody, &tree); err != nil {
 		return "", err
 	}

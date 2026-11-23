@@ -135,3 +135,7 @@ Use **one private repo** (default `obelisk-appliance`). Each appliance pushes to
 - A second machine must not share another machine’s branch; push is refused if the remote bundle’s `machine_id` does not match this host.
 - Upgrades from an older single-machine install on `main` auto-repoint to `machine-<id>` when the remote manifest matches this host, then push once to the new branch.
 - To copy another machine’s settings once, use **Import** from the admin UI and specify that machine’s branch (REST/CLI `branch` on import when supported).
+
+## Branch history retention
+
+Each blueprint push keeps at most **one commit per UTC day** on the upstream branch: additional pushes the same day replace that day’s commit instead of appending. The branch keeps up to **30 commits** (about 30 daily snapshots); older commits drop off the branch over time. The tip is always the latest verified push. Import normally uses the branch tip; older commits within the window remain in `git log` for manual recovery.
