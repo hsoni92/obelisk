@@ -116,6 +116,48 @@ func probeQdrant(ctx context.Context, baseURL, apiKey string) ([]Check, error) {
 }
 
 func probeSearXNG(ctx context.Context, baseURL string) ([]Check, error) {
-	url := strings.TrimRight(baseURL, "/") + "/"
-	return probeHTTPEdge(ctx, url, nil)
+	base := strings.TrimRight(strings.TrimSpace(baseURL), "/")
+	if base == "" {
+		return nil, fmt.Errorf("empty searxng url")
+	}
+	checks, err := probeHTTPEdge(ctx, base+"/", nil)
+	if err != nil {
+		return checks, err
+	}
+	jsonCheck, err := probeSearXNGJSON(ctx, base+"/search?q=obelisk&format=json")
+	checks = append(checks, jsonCheck)
+	if err != nil {
+		return checks, err
+	}
+	return checks, nil
+}
+
+func probeSearXNGJSON(ctx context.Context, endpoint string) (Check, error) {
+	u, err := url.Parse(strings.TrimSpace(endpoint))
+	if err != nil {
+		return Check{Name: "search_json", OK: false, Detail: err.Error()}, err
+	}
+	ctx, cancel := context.WithTimeout(ctx, 20*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, endpoint, nil)
+	if err != nil {
+		return Check{Name: "search_json", OK: false, Detail: err.Error()}, err
+	}
+	req.Host = u.Host
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return Check{Name: "search_json", OK: false, Detail: err.Error()}, err
+	}
+	defer resp.Body.Close()
+	_, _ = io.Copy(io.Discard, resp.Body)
+	detail := fmt.Sprintf("HTTP %d", resp.StatusCode)
+	if resp.StatusCode == http.StatusForbidden {
+		detail += " (enable search.formats json in SearXNG settings)"
+	}
+	ok := resp.StatusCode == http.StatusOK
+	ch := Check{Name: "search_json", OK: ok, Detail: detail}
+	if !ok {
+		return ch, fmt.Errorf("searxng json search: %s", detail)
+	}
+	return ch, nil
 }

@@ -15,6 +15,31 @@ spec:
     spec:
       securityContext:
         fsGroup: 977
+      initContainers:
+        - name: seed-config
+          image: alpine:3.20
+          command:
+            - sh
+            - -ec
+            - |
+              set -e
+              cfg=/etc/searxng/settings.yml
+              seed=/seed/settings.yml
+              if [ ! -f "$cfg" ]; then
+                cp "$seed" "$cfg"
+              elif ! grep -qE '(^|[[:space:]]*-[[:space:]]*)json[[:space:]]*$' "$cfg"; then
+                printf '\n# obelisk: enable JSON search API for connected clients\nsearch:\n  formats:\n    - html\n    - json\n' >> "$cfg"
+              fi
+              chown 977:977 "$cfg"
+              chmod 644 "$cfg"
+          securityContext:
+            runAsUser: 0
+          volumeMounts:
+            - name: config
+              mountPath: /etc/searxng
+            - name: config-seed
+              mountPath: /seed
+              readOnly: true
       containers:
         - name: searxng
           image: {{ .Values.image }}
@@ -50,6 +75,10 @@ spec:
               mountPath: /etc/searxng
             - name: data
               mountPath: /var/cache/searxng
+      volumes:
+        - name: config-seed
+          configMap:
+            name: {{ .Release.Name }}-config
   volumeClaimTemplates:
     - metadata:
         name: config

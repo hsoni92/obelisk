@@ -1,6 +1,7 @@
 package controller
 
 import (
+	"fmt"
 	"os"
 	"strings"
 
@@ -44,6 +45,15 @@ func writeInstanceValues(vpsEdge, edgeTLSReady bool, inst obelisk.ServiceInstanc
 	if inst.Type == "redpanda" && inst.Enabled && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
 		if h := obelisk.PublicEdgeHost(inst); h != "" {
 			vals["devAdvertiseHost"] = h
+		}
+	}
+	if inst.Type == "searxng" && inst.Enabled {
+		if vpsEdge {
+			if u := obelisk.PublicHTTPEdgeURL(inst); u != "" {
+				vals["baseUrl"] = strings.TrimRight(u, "/") + "/"
+			}
+		} else {
+			vals["baseUrl"] = fmt.Sprintf("http://%s:8080/", inst.ReleaseName())
 		}
 	}
 	if inst.Type == "unimeter" && inst.Enabled && strings.TrimSpace(os.Getenv("OBELISK_DEV")) != "" {
