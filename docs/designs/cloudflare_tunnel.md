@@ -10,7 +10,7 @@
 
 Obelisk on a **standalone local Linux box** (`deployment.profile: local`, `deployment.role: local`) gives operators LAN-oriented connection hints. **Per-instance HTTP hostnames** through Kong—what VPS appliances use for RustFS, Qdrant, and similar services—only activate when the profile is `vps` or the appliance acts as a **gateway** for tailnet peers. That leaves two expensive or heavy options for internet clients: rent a VPS as a public front, or run the gateway federation design with Tailscale backhaul.
 
-This design adds an **optional Cloudflare Tunnel** for the standalone local case. The operator turns it on from the **Exposure** admin UI. Obelisk stores tunnel credentials in the same sidecar/blueprint pattern as other secrets, installs and supervises **`cloudflared` on the host** (similar in spirit to host Tailscale integration), and when the connector is healthy publishes **`https://` URLs** on the operator's Cloudflare zone for the admin UI, admin API, and Kong-fronted HTTP services used by projects. **Native TCP edge** (Postgres, Redis, MySQL, Mongo on port 9443) does not go on the public internet in v1.
+This design adds an **optional Cloudflare Tunnel** for the standalone local case. The operator turns it on from a new admin console page, **Connectivity** (dedicated tab beside Tailscale—not on Exposure). Obelisk stores tunnel credentials in the same sidecar/blueprint pattern as other secrets, installs and supervises **`cloudflared` on the host** (similar in spirit to host Tailscale integration), and when the connector is healthy publishes **`https://` URLs** on the operator's Cloudflare zone for the admin UI, admin API, and Kong-fronted HTTP services used by projects. **Native TCP edge** (Postgres, Redis, MySQL, Mongo on port 9443) does not go on the public internet in v1.
 
 The feature does **not** change gateway federation, Tailscale, or Tailscale Funnel. [`peer_gateway.md`](./peer_gateway.md) NG3 rejects Cloudflare Tunnel for **mesh backhaul**; this design is **single-node ingress only**.
 
@@ -35,18 +35,18 @@ The feature does **not** change gateway federation, Tailscale, or Tailscale Funn
 
 4. **Manual Cloudflare setup drifts:** Running `cloudflared` by hand without tying it to `obelisk.yaml`, reconcile, and restore leaves public ingress on after disaster recovery or out of sync with Kong routes.
 
-**Proposed direction:** `exposure.cloudflare_tunnel` in desired state, Exposure UI + admin API, host `cloudflared` lifecycle, `HTTPEdgeEnabled` gating for Kong HTTP routes, HTTPS connection strings when tunnel is active, and restore forcing tunnel off until the operator re-enables it.
+**Proposed direction:** `exposure.cloudflare_tunnel` in desired state, **Connectivity** console UI + admin API, host `cloudflared` lifecycle, `HTTPEdgeEnabled` gating for Kong HTTP routes, HTTPS connection strings when tunnel is active, and restore forcing tunnel off until the operator re-enables it.
 
 ## Goals
 
 * **G1 — Spec and validation:** `exposure.cloudflare_tunnel` in `obelisk.yaml`, JSON Schema, defaults off; allowed only on `profile: local` and `role: local`.
-* **G2 — Exposure UI and API:** Dedicated panel under Exposure (not Platform/Tailscale); status polling; enable/disable; write-only tunnel token entry.
+* **G2 — Connectivity UI and API:** New top-level **Connectivity** page with separate tabs for **Cloudflare Tunnel** and **Tailscale & gateway** (Tailscale panel moved from Platform); status polling; enable/disable; write-only tunnel token entry. Tabs are visually independent—no shared enable switch or single form.
 * **G3 — Host lifecycle:** Obelisk can install, ensure, and report status for `cloudflared` (CLI parity: `obelisk cloudflare-tunnel install|ensure|status`).
 * **G4 — HTTP edge when healthy:** When enabled and connector healthy, set public host (`base_domain` + controller `OBELISK_PUBLIC_HOST`), reconcile Kong HTTP routes, emit **`https://`** client URLs (no `:9080` in operator-facing strings).
 * **G5 — Public surfaces in v1:** Admin UI (GitHub OAuth), admin API, `HTTPEdgeTypes` instances, and project-related Kong paths (OpenRouter/Mail members) reachable through the tunnel.
 * **G6 — Operator DNS:** Document wildcard CNAME to the Cloudflare tunnel hostname; Obelisk does not manage DNS via API in v1.
 * **G7 — Restore safety:** Blueprint/restore chain sets tunnel `enabled: false`, stops `cloudflared`, requires explicit re-enable.
-* **G8 — Independence:** No dependency on `deployment.tailscale.enabled`; no shared UI with Tailscale federation.
+* **G8 — Independence:** No dependency on `deployment.tailscale.enabled`; no reconcile or validation coupling between tunnel and Tailscale. Sharing the Connectivity **page** is allowed; sharing **controls** is not.
 
 ## Non-Goals
 
@@ -63,6 +63,12 @@ The feature does **not** change gateway federation, Tailscale, or Tailscale Funn
 * **OQ1 — Admin public hostname:** Should the admin UI use `admin.{base_domain}`, the zone apex with a path prefix, or a dedicated subdomain the operator types in? (Affects Kong routes, `cloudflared` ingress rules, and cookie origin.) Options documented in Technical Plan; author choice required before implementation section is locked.
 * **OQ2 — Tunnel + Funnel both enabled:** UI warning only, or validation error on save?
 * **OQ3 — Predicate naming:** `HTTPEdgeEnabled` vs extending `ConnectionEdgeEnabled` with a native-edge sub-flag.
+
+### Locked: console information architecture
+
+* **IA1 — Connectivity page:** Add top-level nav **Connectivity** (`/connectivity`) for public reachability. **Exposure** (`/exposure`) remains OpenRouter and Mail gateways only. **Platform** (`/platform`) keeps Appearance and Blueprint; Tailscale tab moves to Connectivity.
+* **IA2 — Tab copy:** Cloudflare tab leads with *standalone local, internet clients without Tailscale or ingress VPS*; Tailscale tab leads with *tailnet and optional gateway federation*. Each tab hidden or read-only with explanation when `deployment.profile` makes the path invalid (e.g. tunnel on `profile: vps`).
+* **IA3 — Deep links:** `hashchange` routing like Platform today (`/connectivity#cloudflare`, `/connectivity#tailscale`). Optional redirect `/platform#tailscale` → `/connectivity#tailscale` for bookmarks.
 
 ## Technical Plan (Architecture)
 
@@ -149,13 +155,22 @@ exposure:
 
 Handlers follow `internal/adminapi/tailscale.go`: load spec under mutex, validate, save, activity audit (no token in audit), trigger reconcile.
 
-### Admin UI
+### Admin UI (Connectivity page)
 
-- New **Cloudflare Tunnel** card on `web/admin/app/(console)/exposure/page.tsx` (Exposure, not Platform).
-- RTK endpoints in `web/admin/lib/store/obelisk-api.ts`; types in `web/admin/lib/types.ts`.
-- Setup hints: link to Cloudflare Zero Trust tunnel docs (distinct from R2 backup hints).
-- Status polling interval similar to `tailscalePollOptions`.
-- Toggle off → API disables spec + stops connector.
+**Route:** `web/admin/app/(console)/connectivity/page.tsx` renders `ConnectivitySettings` (tab shell modeled on `platform-settings.tsx`).
+
+| Tab | Component | Notes |
+| --- | --- | --- |
+| **Cloudflare Tunnel** | `web/admin/components/connectivity/cloudflare-tunnel-panel.tsx` | Enable, `base_domain`, write-only token, status badge, DNS/CNAME hints (not R2 docs). Poll `GET /api/v1/cloudflare-tunnel/status` ~8s. |
+| **Tailscale & gateway** | Move `TailscaleFederationPanel` from Platform (path: `components/connectivity/` or re-export from `platform/` to avoid churn) | Unchanged behavior; federation peers stay on this tab. |
+
+**Nav (`web/admin/lib/nav.ts`, `app-shell.tsx`):** Add `connectivity` to `NavId`, `NAV_ROUTES`, `PAGE_TITLES` (e.g. title *Connectivity*, subtitle *Public reachability—Cloudflare Tunnel for standalone local, Tailscale for mesh and gateway*). Remove Tailscale from Platform tab list and Platform page subtitle Tailscale mention.
+
+**Exposure page:** No tunnel card; subtitle updated to HTTP gateways only.
+
+**RTK:** Endpoints in `web/admin/lib/store/obelisk-api.ts`; types in `web/admin/lib/types.ts`. Invalidate `Tailscale`, `Deployment`, `Status`, `Overview`, `Connections`, and tunnel-specific tags on either tab’s mutations—tabs do not share form state.
+
+Toggle off (tunnel tab) → API disables spec + stops connector.
 
 ### Restore and blueprint
 
@@ -184,7 +199,7 @@ Handlers follow `internal/adminapi/tailscale.go`: load spec under mutex, validat
 | **Security** | Tokens in sidecar + encrypted blueprint; force off on restore; no TCP tunnel mappings in v1 |
 | **Reliability** | Status distinguishes Kong healthy vs tunnel down; reconcile retries on unit restart |
 | **Compatibility** | Old specs without `cloudflare_tunnel` block behave as today |
-| **Rollout** | Feature off by default; enable only via Exposure UI or yaml after validation |
+| **Rollout** | Feature off by default; enable only via Connectivity UI or yaml after validation |
 
 ### Related docs
 
@@ -256,7 +271,7 @@ Handlers follow `internal/adminapi/tailscale.go`: load spec under mutex, validat
 
 ## Critical User Journeys (CUJs)
 
-### CUJ 1: Enable tunnel from Exposure UI
+### CUJ 1: Enable tunnel from Connectivity UI
 
 * **Given:** Appliance on `profile: local`, `role: local`; operator has Cloudflare zone, tunnel created, wildcard CNAME in place.
 * **When:** Operator enters `base_domain`, pastes tunnel token, toggles enable, saves.
@@ -271,7 +286,7 @@ Handlers follow `internal/adminapi/tailscale.go`: load spec under mutex, validat
 ### CUJ 3: Disable tunnel
 
 * **Given:** Tunnel was connected.
-* **When:** Operator toggles off in Exposure UI.
+* **When:** Operator toggles off on Connectivity → Cloudflare Tunnel tab.
 * **Then:** Spec `enabled: false`; `cloudflared` stopped; `/connections` reverts to LAN-oriented notes; Kong HTTP edge routes no longer keyed for public hostnames via tunnel predicate.
 
 ### CUJ 4: Disaster restore
@@ -375,17 +390,22 @@ Implementation assumes **OQ1** is resolved by the author before coding admin-spe
 | `install/bootstrap.sh` | Modify | Optional ensure on first enable only (document). |
 | `deploy/helm/platform/templates/controller.yaml` | Modify | Volume/mount for tunnel creds secret if using in-cluster path; host socket pattern if mirroring tailscale. |
 | `Dockerfile.controller` | Modify | Install `cloudflared` binary or document host-only execution. |
-| `README.md` | Modify | Exposure row for Cloudflare Tunnel on local. |
+| `README.md` | Modify | Connectivity / local profile row for Cloudflare Tunnel. |
 
 #### Web admin
 
 | File | Action | Changes |
 | --- | --- | --- |
-| `web/admin/app/(console)/exposure/page.tsx` | Modify | Add Cloudflare tunnel panel to grid. |
-| `web/admin/components/exposure/cloudflare-tunnel-panel.tsx` | **Create** | Toggle, base domain, token field, status, DNS hint. |
-| `web/admin/lib/store/obelisk-api.ts` | Modify | Queries/mutations + tag invalidation. |
+| `web/admin/app/(console)/connectivity/page.tsx` | **Create** | Page shell + `ConnectivitySettings`. |
+| `web/admin/components/connectivity/connectivity-settings.tsx` | **Create** | Tabs: Cloudflare Tunnel, Tailscale & gateway; hash routing. |
+| `web/admin/components/connectivity/cloudflare-tunnel-panel.tsx` | **Create** | Toggle, base domain, token field, status, DNS hint. |
+| `web/admin/components/platform/platform-settings.tsx` | Modify | Remove Tailscale tab; Appearance + Blueprint only. |
+| `web/admin/components/platform/tailscale-federation-panel.tsx` | Modify | Optional relocate to `connectivity/` or import from Platform. |
+| `web/admin/components/layout/app-shell.tsx` | Modify | Add Connectivity nav item (icon e.g. `Globe` or `Radio`). |
+| `web/admin/lib/nav.ts` | Modify | `connectivity` id; update Exposure and Platform subtitles. |
+| `web/admin/lib/store/obelisk-api.ts` | Modify | Tunnel queries/mutations + tag invalidation. |
 | `web/admin/lib/types.ts` | Modify | Response types for tunnel status. |
-| `web/admin/lib/nav.ts` | Modify | Exposure subtitle mentions optional CF Tunnel. |
+| `web/admin/app/(console)/platform/page.tsx` | Modify | If needed, drop Tailscale-only layout assumptions. |
 
 #### Documentation
 
@@ -399,7 +419,7 @@ Implementation assumes **OQ1** is resolved by the author before coding admin-spe
 1. **T0:** Spec, schema, `HTTPEdgeEnabled`, validation, URL builders + unit tests.
 2. **T1:** Kong + helmvalues + endpoints wired to predicate; no cloudflared yet (feature flag off).
 3. **T2:** `internal/cloudflare` + `ApplyCloudflareTunnel` + controller public host sync.
-4. **T3:** Admin API + Exposure UI + overview status.
+4. **T3:** Admin API + Connectivity console page + overview status.
 5. **T4:** CLI + versions.lock + bootstrap notes.
 6. **T5:** Restore force-off + blueprint sidecar + orchestrator tests.
 

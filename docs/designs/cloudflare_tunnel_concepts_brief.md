@@ -33,7 +33,7 @@ flowchart LR
 ```
 
 1. Operator creates a tunnel in Cloudflare Zero Trust and maps DNS (wildcard recommended; see below).
-2. Operator saves the tunnel token via Exposure UI (sidecar secret, not in git-tracked yaml).
+2. Operator saves the tunnel token via Connectivity UI (Cloudflare tab; sidecar secret, not in git-tracked yaml).
 3. Obelisk sets `exposure.cloudflare_tunnel.enabled: true`, persists `base_domain` / public host, updates controller `OBELISK_PUBLIC_HOST`, reconciles Kong HTTP routes, starts or ensures `cloudflared`.
 4. Services and Projects show externally valid `https://{type}-{id}.{base_domain}/...` strings.
 
@@ -148,7 +148,7 @@ Public admin increases attack surface vs base `obelisk.md` Funnel non-goals. v1 
 **In-scope goals**
 
 - **G1:** `exposure.cloudflare_tunnel` in spec, schema, defaults off.
-- **G2:** Exposure UI panel + admin API + status polling (independent of Platform Tailscale UI).
+- **G2:** Top-level **Connectivity** console page (Cloudflare Tunnel tab + Tailscale tab moved from Platform); admin API; status polling. Tabs independent—no shared enable switch.
 - **G3:** Host `cloudflared` install/ensure/status managed by Obelisk.
 - **G4:** When enabled and healthy: set public host, enable HTTP Kong routes, emit HTTPS connection strings for admin UI and HTTP services.
 - **G5:** Operator wildcard DNS workflow documented in UI hints.
@@ -212,7 +212,7 @@ Public admin increases attack surface vs base `obelisk.md` Funnel non-goals. v1 
 | T0 | Spec + schema + validation + `HTTPEdgeEnabled` + URL builder |
 | T1 | Kong/endpoints/helm wiring when tunnel on |
 | T2 | `internal/cloudflare` + reconcile `ApplyCloudflareTunnel` |
-| T3 | Admin API + Exposure UI + status |
+| T3 | Admin API + Connectivity page + status |
 | T4 | CLI install/ensure/status; bootstrap hook |
 | T5 | Restore force-off + blueprint sidecar + E2E |
 

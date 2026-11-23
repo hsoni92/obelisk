@@ -25,5 +25,5 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [projects_discovery.md](./projects_discovery.md) | Proposed | GET /discover/v1/projects/{id} with scoped bearer; Services UI Projects |
 | [peer_gateway.md](./peer_gateway.md) | Proposed | Gateway role: VPS fronts clients; locals advertise over tailnet; federated proxy |
 | [cloudflare_tunnel_concepts_brief.md](./cloudflare_tunnel_concepts_brief.md) | Ideation | Standalone local: CF Tunnel UI, HTTPS Kong edge, no Tailscale/gateway |
-| [cloudflare_tunnel.md](./cloudflare_tunnel.md) | Proposed | Cloudflare Tunnel local ingress: HTTPEdgeEnabled, cloudflared lifecycle, Exposure UI |
+| [cloudflare_tunnel.md](./cloudflare_tunnel.md) | Proposed | Cloudflare Tunnel local ingress; Connectivity nav page; HTTPEdgeEnabled; cloudflared lifecycle |
 | [../concepts_brief.md](../concepts_brief.md) | Ideation | Peer gateway brainstorm brief (repo root) |
