@@ -28,6 +28,14 @@ require_root() {
 preflight() {
   require_root
   command -v curl >/dev/null || die "curl required"
+  # git is needed by helm (plugin installs) and by the platform's source tooling.
+  if ! command -v git >/dev/null 2>&1; then
+    log "git missing; installing git"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y git
+    command -v git >/dev/null 2>&1 || die "git still missing after install"
+  fi
   if [[ "$PROFILE" != "vps" && "$PROFILE" != "local" ]]; then
     die "OBELISK_PROFILE must be vps or local"
   fi

@@ -8,7 +8,7 @@ RUN for i in 1 2 3 4 5; do go mod tidy && break; [ "$i" -eq 5 ] && exit 1; echo 
 
 FROM debian:bookworm-slim
 RUN apt-get update \
-	&& apt-get install -y --no-install-recommends ca-certificates curl gnupg \
+	&& apt-get install -y --no-install-recommends ca-certificates curl gnupg git \
 	&& curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash \
 	&& curl -fsSL -o /usr/local/bin/kubectl "https://dl.k8s.io/release/v1.30.7/bin/linux/amd64/kubectl" \
 	&& chmod +x /usr/local/bin/kubectl \
