@@ -3,6 +3,8 @@ import type {
   BackupTargetResponse,
   BlueprintAuthorizeResponse,
   BlueprintStatus,
+  GitHubHealth,
+  SystemHealthReport,
   ConnectionsResponse,
   DiagnosticsRunResponse,
   CreateInstanceResponse,
@@ -669,6 +671,9 @@ export const obeliskApi = createApi({
       query: () => "/blueprint/status",
       providesTags: ["Blueprint"],
     }),
+    getSystemHealth: builder.query<SystemHealthReport, { fresh?: boolean } | void>({
+      query: (arg) => (arg && arg.fresh ? "/system/health?fresh=1" : "/system/health"),
+    }),
     getBlueprintGitHubConfig: builder.query<{ client_configured: boolean; scope: string }, void>({
       query: () => "/blueprint/github/config",
     }),
@@ -867,6 +872,8 @@ export const {
   useDeleteMailAccountMutation,
   useTestMailMutation,
   useGetBlueprintStatusQuery,
+  useGetSystemHealthQuery,
+  useLazyGetSystemHealthQuery,
   useGetBlueprintGitHubConfigQuery,
   useAuthorizeGitHubMutation,
   useCompleteGitHubCallbackMutation,
@@ -950,4 +957,19 @@ export function rtkErrorMessage(error: unknown): string {
     return `HTTP ${String((error as { status: unknown }).status)}`;
   }
   return "request failed";
+}
+/**
+ * Extracts the classified GitHub failure (rate limit, 401/402/403, outage, no
+ * network) the admin API attaches to blueprint errors, or null for any other
+ * error. Callers use it to show the GitHub error screen instead of a toast.
+ */
+export function githubHealthFromError(error: unknown): GitHubHealth | null {
+  if (!error || typeof error !== "object" || !("data" in error)) return null;
+  const data = (error as { data?: unknown }).data;
+  if (!data || typeof data !== "object" || !("github" in data)) return null;
+  const gh = (data as { github?: unknown }).github;
+  if (!gh || typeof gh !== "object" || typeof (gh as { state?: unknown }).state !== "string") {
+    return null;
+  }
+  return gh as GitHubHealth;
 }

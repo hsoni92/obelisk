@@ -360,3 +360,42 @@
   .iso-float, .iso-pulse, .iso-led { animation: none; }
   .iso-orbit { display: none; }
 }
+
+/* ---- Sign-in stage ---- */
+@keyframes auth-rise {
+  0% { transform: translateY(0) scale(0.5); opacity: 0; }
+  12% { opacity: 0.9; }
+  100% { transform: translateY(calc(var(--rise, 220px) * -1)) scale(1); opacity: 0; }
+}
+@keyframes auth-dash {
+  to { stroke-dashoffset: -40; }
+}
+@keyframes auth-sheen {
+  from { transform: translateX(-130%) skewX(-18deg); }
+  to { transform: translateX(260%) skewX(-18deg); }
+}
+@keyframes auth-dot {
+  0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-2px); }
+}
+.auth-particle { animation: auth-rise 10s linear infinite; will-change: transform, opacity; }
+.auth-dash { animation: auth-dash 2.4s linear infinite; }
+.auth-dot { animation: auth-dot 1.2s ease-in-out infinite; }
+.auth-dot:nth-child(2) { animation-delay: 0.15s; }
+.auth-dot:nth-child(3) { animation-delay: 0.3s; }
+/* Button shine: a soft band that crosses on hover/focus. */
+.auth-cta { position: relative; overflow: hidden; isolation: isolate; }
+.auth-cta::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  background: linear-gradient(100deg, transparent 30%, rgb(255 255 255 / 0.22) 50%, transparent 70%);
+  transform: translateX(-130%) skewX(-18deg);
+}
+.auth-cta:hover::after,
+.auth-cta:focus-visible::after { animation: auth-sheen 0.9s ease-out; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-particle, .auth-dash, .auth-dot { animation: none; }
+  .auth-cta:hover::after, .auth-cta:focus-visible::after { animation: none; }
+}

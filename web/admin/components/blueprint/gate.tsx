@@ -1,5 +1,7 @@
 "use client";
 
+import { GitHubErrorScreen } from "@/components/blueprint/github-error-screen";
+import { GitHubStatusBanner } from "@/components/blueprint/github-status-banner";
 import { ConsoleShellSkeleton } from "@/components/skeletons";
 import { rtkErrorMessage, useGetBlueprintStatusQuery } from "@/lib/api";
 import { useRouter } from "next/navigation";
@@ -31,8 +33,25 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     return port === "3000";
   }, []);
 
+  // A GitHub failure (rate limit, 401/402/403, outage) must never be read as
+  // "new appliance": the sign-in and onboarding flows would only fail the same
+  // way. Show the failure instead of redirecting into them. Without a
+  // blueprint repository the console is not meaningful either, so it stays
+  // closed rather than presenting an empty appliance.
+  const github = data?.github_api;
+  const githubBlocked = Boolean(github?.blocking);
+  const needsOnboard =
+    data &&
+    data.authenticated &&
+    (data.needs_onboarding ||
+      (!data.repository && (data.bundle_present || data.import_required)));
+  const showGitHubError =
+    Boolean(data) &&
+    githubBlocked &&
+    (!data?.authenticated || !data.repository || Boolean(needsOnboard));
+
   useEffect(() => {
-    if (!data) return;
+    if (!data || showGitHubError) return;
     if (!data.authenticated) {
       router.replace("/login");
       return;
@@ -43,7 +62,7 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     if (onboard) {
       router.replace("/onboard");
     }
-  }, [data, router]);
+  }, [data, router, showGitHubError]);
 
   const showFatal =
     isError && !isFetching && errorStreak >= 3 && !bootGrace;
@@ -70,13 +89,12 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     );
   }
 
+  if (showGitHubError && github) {
+    return <GitHubErrorScreen health={github} context="console" />;
+  }
+
   // Only block on the first load (no cached data). Do not use isFetching here:
   // unmounting the console aborts child RTK queries and retriggers fetches → reload loop.
-  const needsOnboard =
-    data &&
-    data.authenticated &&
-    (data.needs_onboarding ||
-      (!data.repository && (data.bundle_present || data.import_required)));
   if (
     (!data && (isLoading || (isError && !showFatal))) ||
     (data && !data.authenticated) ||
@@ -85,5 +103,12 @@ export function BlueprintGate({ children }: { children: React.ReactNode }) {
     return <ConsoleShellSkeleton />;
   }
 
-  return children;
+  return (
+    <>
+      {children}
+      {githubBlocked && github && data?.authenticated && (
+        <GitHubStatusBanner health={github} />
+      )}
+    </>
+  );
 }

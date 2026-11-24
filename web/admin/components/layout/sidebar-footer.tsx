@@ -12,6 +12,7 @@ import { relativeTime } from "@/lib/overview-series";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { AnimatePresence, motion } from "framer-motion";
+import { GITHUB_SHORT_LABEL, STATE_META } from "@/components/blueprint/github-health-shared";
 import { StatusDot, type StatusTone } from "@/components/ui/status-dot";
 import { Fingerprint, Loader2, LogOut, Server } from "lucide-react";
 import { CopyableId } from "@/components/ui/copyable-id";
@@ -29,7 +30,11 @@ function useSidebarStatus() {
 
   let tone: Tone = "idle";
   let label = "Not connected";
-  if (data?.repository) {
+  if (data?.github_api?.blocking) {
+    // A stale "Synced" would hide that GitHub is refusing us right now.
+    tone = STATE_META[data.github_api.state]?.tone === "bad" ? "bad" : "warn";
+    label = GITHUB_SHORT_LABEL[data.github_api.state] ?? "GitHub unavailable";
+  } else if (data?.repository) {
     const s = data.crypto_unlocked ? data.sync_status : "push_paused";
     if (s === "synced") {
       tone = "ok";

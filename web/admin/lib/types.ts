@@ -485,6 +485,61 @@ export type BlueprintStatus = {
   needs_onboarding: boolean;
   discovered_repository?: string;
   key_id?: string;
+  /** Whether GitHub can be used right now; blocking states replace sign-in/onboarding. */
+  github_api?: GitHubHealth;
+  /** The blueprint repo could not be read, so bundle_present/needs_onboarding are unknown. */
+  remote_check_failed?: boolean;
+};
+
+export type GitHubHealthState =
+  | "ok"
+  | "rate_limited"
+  | "forbidden"
+  | "unauthorized"
+  | "payment_required"
+  | "unavailable"
+  | "unreachable"
+  | "error";
+
+export type GitHubHealth = {
+  state: GitHubHealthState;
+  /** Sign-in, onboarding and blueprint sync cannot work while this is set. */
+  blocking: boolean;
+  http_status?: number;
+  title: string;
+  message?: string;
+  hint?: string;
+  steps?: string[];
+  reset_at?: string;
+  retry_after_seconds?: number;
+  limit?: number;
+  remaining?: number;
+  sso_url?: string;
+  request_id?: string;
+  token_present: boolean;
+  latency_ms?: number;
+  checked_at: string;
+};
+
+export type SystemCheckState = "ok" | "warn" | "fail" | "off";
+
+export type SystemCheck = {
+  id: string;
+  group: "github" | "platform";
+  name: string;
+  state: SystemCheckState;
+  summary: string;
+  detail?: string;
+  hint?: string;
+  latency_ms?: number;
+  blocking?: boolean;
+  github?: GitHubHealth;
+};
+
+export type SystemHealthReport = {
+  checked_at: string;
+  overall: SystemCheckState;
+  checks: SystemCheck[];
 };
 
 export type BlueprintAuthorizeResponse = {

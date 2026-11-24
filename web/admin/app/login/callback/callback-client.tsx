@@ -1,7 +1,13 @@
 "use client";
 
+import { GitHubErrorScreen } from "@/components/blueprint/github-error-screen";
 import { AuthSkeleton } from "@/components/skeletons";
-import { rtkErrorMessage, useCompleteGitHubCallbackMutation } from "@/lib/api";
+import {
+  githubHealthFromError,
+  rtkErrorMessage,
+  useCompleteGitHubCallbackMutation,
+  type GitHubHealth,
+} from "@/lib/api";
 import { toast } from "@/lib/toast";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
@@ -35,6 +41,7 @@ export function CallbackClient() {
   const router = useRouter();
   const [complete] = useCompleteGitHubCallbackMutation();
   const [asyncFailed, setAsyncFailed] = useState(false);
+  const [githubError, setGithubError] = useState<GitHubHealth | null>(null);
   const toasted = useRef(false);
 
   const code = params.get("code");
@@ -56,6 +63,14 @@ export function CallbackClient() {
     let cancelled = false;
     void finishGitHubOAuth(complete, router, code, state).catch((e) => {
       if (!cancelled) {
+        // GitHub refused the sign-in (rate limit, 401/402/403, SSO, outage):
+        // show the real reason on a dedicated screen instead of a generic toast.
+        const gh = githubHealthFromError(e);
+        if (gh?.blocking) {
+          setGithubError(gh);
+          setAsyncFailed(true);
+          return;
+        }
         if (!toasted.current) {
           toasted.current = true;
           toast.error(rtkErrorMessage(e));
@@ -69,6 +84,18 @@ export function CallbackClient() {
   }, [syncFailed, code, state, complete, router]);
 
   const failed = syncFailed || asyncFailed;
+
+  if (githubError) {
+    // The authorization code is single use, so recovery means signing in again.
+    return (
+      <GitHubErrorScreen
+        health={githubError}
+        context="callback"
+        backHref="/login"
+        onRecovered={() => router.replace("/login")}
+      />
+    );
+  }
 
   if (failed) {
     return (

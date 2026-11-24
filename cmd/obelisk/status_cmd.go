@@ -10,9 +10,11 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
 	"github.com/hsoni92/obelisk/internal/credentials"
+	"github.com/hsoni92/obelisk/internal/syshealth"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
@@ -25,7 +27,10 @@ type statusReport struct {
 	Blueprint blueprintStatus     `json:"blueprint"`
 	Backup    backupStatus        `json:"backup"`
 	Platform  []platformComponent `json:"platform"`
-	Instances []instanceStatus    `json:"instances"`
+	// Health lists GitHub and the other supporting services and APIs, with
+	// what is wrong and what to do about it.
+	Health    syshealth.Report `json:"health"`
+	Instances []instanceStatus `json:"instances"`
 }
 
 type blueprintStatus struct {
@@ -60,6 +65,7 @@ func cmdStatus(args []string) {
 	cfgPath := fs.String("config", config.ResolvePath(), "config path")
 	helmRoot := fs.String("helm-root", config.ResolveHelmRoot(), "helm charts root")
 	asJSON := fs.Bool("json", false, "emit JSON instead of a table")
+	offline := fs.Bool("offline", false, "skip network probes (GitHub, Tailscale, backup storage, OpenRouter)")
 	_ = fs.Parse(args)
 
 	cfg := config.EnsureReadablePath(*cfgPath)
@@ -70,7 +76,7 @@ func cmdStatus(args []string) {
 	}
 
 	ctx := context.Background()
-	report, err := buildStatusReport(ctx, cfg, *helmRoot, spec)
+	report, err := buildStatusReport(ctx, cfg, *helmRoot, spec, *offline)
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
@@ -85,7 +91,7 @@ func cmdStatus(args []string) {
 	printStatusReport(report)
 }
 
-func buildStatusReport(ctx context.Context, cfg, helmRoot string, spec obelisk.Spec) (statusReport, error) {
+func buildStatusReport(ctx context.Context, cfg, helmRoot string, spec obelisk.Spec, offline bool) (statusReport, error) {
 	adminURL := credentials.DefaultAdminPublicURL(ctx)
 	if adminURL == "" {
 		adminURL = fmt.Sprintf("http://127.0.0.1:%s", obelisk.AdminHTTPPortString())
@@ -136,6 +142,14 @@ func buildStatusReport(ctx context.Context, cfg, helmRoot string, spec obelisk.S
 		})
 	}
 
+	health := syshealth.Collect(ctx, syshealth.Options{
+		ConfigPath: cfg,
+		Spec:       spec,
+		OAuth:      blueprint.LoadOAuthConfig(cfg),
+		LocalView:  true,
+		Offline:    offline,
+	})
+
 	return statusReport{
 		AdminURL:  adminURL,
 		AdminAPI:  strings.TrimRight(adminURL, "/") + "/api/v1",
@@ -148,6 +162,7 @@ func buildStatusReport(ctx context.Context, cfg, helmRoot string, spec obelisk.S
 			PolicySchedule:      sched,
 		},
 		Platform:  platformComponents(ctx, rec.SimulateMode()),
+		Health:    health,
 		Instances: instOut,
 	}, nil
 }
@@ -248,6 +263,8 @@ func printStatusReport(r statusReport) {
 	}
 	_ = tw.Flush()
 
+	printHealth(r.Health)
+
 	if len(r.Instances) == 0 {
 		fmt.Println("\nServices:  none configured")
 		return
@@ -280,4 +297,83 @@ func kubeconfigPath() string {
 		return "/etc/rancher/k3s/k3s.yaml"
 	}
 	return ""
+}
+
+// printHealth renders the supporting services and APIs, each failing row
+// followed by its detail and the next step, so `obelisk status` answers
+// "what is wrong?" without digging through logs.
+func printHealth(h syshealth.Report) {
+	if len(h.Checks) == 0 {
+		return
+	}
+	fmt.Printf("\nSupporting services & APIs  %s\n", healthBadge(h.Overall))
+	tw := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	for _, c := range h.Checks {
+		fmt.Fprintf(tw, "%s\t%s\t%s\n", healthMark(c.State), c.Name, c.Summary)
+	}
+	_ = tw.Flush()
+
+	var notes []syshealth.Check
+	for _, c := range h.Checks {
+		if (c.State == syshealth.StateFail || c.State == syshealth.StateWarn) && (c.Detail != "" || c.Hint != "") {
+			notes = append(notes, c)
+		}
+	}
+	if len(notes) == 0 {
+		return
+	}
+	fmt.Println("\nNeeds attention")
+	for _, c := range notes {
+		fmt.Printf("  %s %s\n", healthMark(c.State), c.Name)
+		if c.Detail != "" {
+			fmt.Printf("      %s\n", c.Detail)
+		}
+		if c.Hint != "" {
+			fmt.Printf("      → %s\n", c.Hint)
+		}
+		if c.GitHub != nil {
+			for _, step := range c.GitHub.Steps {
+				fmt.Printf("        • %s\n", step)
+			}
+			if c.GitHub.RequestID != "" {
+				fmt.Printf("      GitHub request id: %s\n", c.GitHub.RequestID)
+			}
+		}
+	}
+}
+
+func healthMark(s syshealth.State) string {
+	switch s {
+	case syshealth.StateOK:
+		return paint("32", "✓")
+	case syshealth.StateWarn:
+		return paint("33", "!")
+	case syshealth.StateFail:
+		return paint("31", "✗")
+	default:
+		return paint("90", "–")
+	}
+}
+
+func healthBadge(s syshealth.State) string {
+	switch s {
+	case syshealth.StateFail:
+		return paint("31", "problems found")
+	case syshealth.StateWarn:
+		return paint("33", "needs attention")
+	default:
+		return paint("32", "all clear")
+	}
+}
+
+// paint colors s with an ANSI code on a terminal, and leaves it plain when
+// piped or when NO_COLOR is set.
+func paint(code, s string) string {
+	if os.Getenv("NO_COLOR") != "" {
+		return s
+	}
+	if st, err := os.Stdout.Stat(); err != nil || st.Mode()&os.ModeCharDevice == 0 {
+		return s
+	}
+	return "\x1b[" + code + "m" + s + "\x1b[0m"
 }

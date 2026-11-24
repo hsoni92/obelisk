@@ -134,7 +134,7 @@ Open the installer’s `http://<host>/` URL. Platform is ready when Kong serves 
 
 ```bash
 sudo obelisk configure github    # OAuth wizard → encrypted blueprint
-sudo obelisk status              # platform health
+sudo obelisk status              # platform health + GitHub and supporting-API checks (--offline skips network probes)
 ```
 
 Enable Postgres, Redis, or RustFS from **Services** when you need them.

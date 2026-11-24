@@ -32,7 +32,7 @@ func isPublic(r *http.Request) bool {
 	switch r.URL.Path {
 	case "/api/v1/health":
 		return r.Method == http.MethodGet
-	case "/api/v1/blueprint/status", "/api/v1/blueprint/github/config":
+	case "/api/v1/blueprint/status", "/api/v1/blueprint/github/config", "/api/v1/system/health":
 		return r.Method == http.MethodGet
 	case "/api/v1/blueprint/github/authorize", "/api/v1/blueprint/github/callback":
 		return r.Method == http.MethodPost

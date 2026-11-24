@@ -45,6 +45,15 @@ type Status struct {
 	KeyID                string `json:"key_id,omitempty"`
 	RemoteKeyID          string `json:"remote_key_id,omitempty"`
 	DefaultBranch        string `json:"default_upstream_branch,omitempty"`
+	// GitHubAPI says whether GitHub can be used right now. When it is blocking
+	// (rate limit, 401/402/403, outage) the UI shows that error instead of the
+	// sign-in or onboarding flow, which could only fail the same way.
+	GitHubAPI GitHubHealth `json:"github_api"`
+	// RemoteCheckFailed means the blueprint repo could not be read, so
+	// bundle_present and needs_onboarding are unknown rather than false.
+	RemoteCheckFailed bool `json:"remote_check_failed,omitempty"`
+
+	remoteErr error
 }
 
 // Runtime is the in-process blueprint controller: OAuth, unlock, and sync.
@@ -62,6 +71,14 @@ type Runtime struct {
 	refreshMu sync.Mutex
 	probeMu   sync.Mutex
 	probe     probeCache
+
+	// GitHub API health (see health.go).
+	healthProbeMu sync.Mutex
+	healthMu      sync.Mutex
+	ghHealth      GitHubHealth
+	ghHealthAt    time.Time
+	ghNoted       *GitHubHealth
+	ghNotedAt     time.Time
 }
 
 type probeCache struct {
@@ -73,6 +90,7 @@ type probeCache struct {
 	machineID  string
 	keyID      string
 	err        string
+	errv       error
 }
 
 func NewRuntime(configPath, helmRoot string) (*Runtime, error) {
@@ -438,6 +456,7 @@ func (rt *Runtime) Status(ctx context.Context, login string) Status {
 		ClientConfigured: rt.OAuth.Config.Configured(),
 		SyncStatus:       obelisk.SyncIdle,
 	}
+	st.GitHubAPI = rt.GitHubAPIHealth(ctx, false)
 	if err != nil {
 		st.LastPushError = sanitize(err.Error())
 		return st
@@ -471,10 +490,20 @@ func (rt *Runtime) Status(ctx context.Context, login string) Status {
 		}
 	}
 	rt.applySyncDisplay(&st, displaySpec)
-	if login != "" {
+	// Do not spend API calls (or invent "new appliance" state) while GitHub is
+	// refusing us: an unreadable remote is unknown, never "no blueprint".
+	if login != "" && !st.GitHubAPI.Blocking {
 		rt.attachRemote(ctx, &st, spec)
 	}
-	st.NeedsOnboarding = st.Repository == "" && !st.BundlePresent
+	if st.remoteErr != nil {
+		st.RemoteCheckFailed = true
+		if h := ClassifyGitHubError(st.remoteErr, time.Now()); h.Blocking && !st.GitHubAPI.Blocking {
+			h.TokenPresent = st.GitHubAPI.TokenPresent
+			st.GitHubAPI = h
+		}
+	}
+	st.NeedsOnboarding = st.Repository == "" && !st.BundlePresent &&
+		!st.GitHubAPI.Blocking && !st.RemoteCheckFailed
 	return st
 }
 
@@ -521,6 +550,7 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 		probe = probeCache{at: time.Now(), repo: repo, branch: branch, present: present}
 		if err != nil {
 			probe.err = sanitize(err.Error())
+			probe.errv = err
 		} else if present {
 			var m Manifest
 			if json.Unmarshal(manifest, &m) == nil {
@@ -537,6 +567,7 @@ func (rt *Runtime) attachRemote(ctx context.Context, st *Status, spec obelisk.Sp
 	st.RemoteGeneration = probe.generation
 	st.RemoteMachineID = probe.machineID
 	st.RemoteKeyID = probe.keyID
+	st.remoteErr = probe.errv
 	if probe.err != "" && st.LastPushError == "" {
 		st.LastPushError = probe.err
 	}

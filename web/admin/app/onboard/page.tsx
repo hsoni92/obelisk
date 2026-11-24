@@ -1,13 +1,16 @@
 "use client";
 
 import { AuthFrame } from "@/components/blueprint/auth-frame";
+import { GitHubErrorScreen } from "@/components/blueprint/github-error-screen";
 import { Button } from "@/components/ui/button";
 import { Field, FieldPassword } from "@/components/ui/field";
 import {
+  githubHealthFromError,
   rtkErrorMessage,
   useGetBlueprintStatusQuery,
   useImportBlueprintMutation,
   useOnboardBlueprintMutation,
+  type GitHubHealth,
 } from "@/lib/api";
 import { writePassphrase } from "@/lib/blueprint-storage";
 import { toast } from "@/lib/toast";
@@ -19,6 +22,8 @@ export default function OnboardPage() {
   const { data: status } = useGetBlueprintStatusQuery(undefined, {
     pollingInterval: 5000,
   });
+  // A GitHub failure from this page's own requests (rate limit, 401/402/403, ...).
+  const [apiError, setApiError] = useState<GitHubHealth | null>(null);
   const [onboard, { isLoading: creating }] = useOnboardBlueprintMutation();
   const [importBundle, { isLoading: importing }] = useImportBlueprintMutation();
   const [passphrase, setPassphrase] = useState("");
@@ -86,8 +91,26 @@ export default function OnboardPage() {
       writePassphrase(passphrase);
       router.replace("/overview");
     } catch (e) {
+      const gh = githubHealthFromError(e);
+      if (gh?.blocking) {
+        setApiError(gh);
+        return;
+      }
       toast.error(rtkErrorMessage(e));
     }
+  }
+
+  // Creating or restoring a blueprint needs GitHub. While it is refusing us,
+  // say why instead of showing a form that would only fail again.
+  const blocked = apiError ?? (status?.github_api?.blocking ? status.github_api : null);
+  if (blocked) {
+    return (
+      <GitHubErrorScreen
+        health={blocked}
+        context="onboard"
+        onRecovered={() => setApiError(null)}
+      />
+    );
   }
 
   return (

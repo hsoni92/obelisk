@@ -25,6 +25,13 @@ type Remote interface {
 type StatusError struct {
 	Code int
 	Body string
+	// Response metadata used to explain the failure. Zero values mean GitHub
+	// did not send the header.
+	ResetAt    time.Time     // X-RateLimit-Reset
+	RetryAfter time.Duration // Retry-After
+	Remaining  int           // X-RateLimit-Remaining; -1 when absent
+	SSO        string        // X-GitHub-SSO (SAML SSO authorization required)
+	RequestID  string        // X-GitHub-Request-Id, useful for GitHub Support
 }
 
 func (e *StatusError) Error() string {
@@ -396,7 +403,7 @@ func (g *GitHub) do(ctx context.Context, method, endpoint string, in any, out an
 		return err
 	}
 	if resp.StatusCode >= 300 {
-		return &StatusError{Code: resp.StatusCode, Body: sanitize(string(b))}
+		return newStatusError(resp, string(b))
 	}
 	if out != nil && len(bytes.TrimSpace(b)) > 0 {
 		if err := json.Unmarshal(b, out); err != nil {

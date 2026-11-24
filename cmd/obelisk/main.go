@@ -72,7 +72,7 @@ func usage() {
 Commands:
   preflight [--profile vps|local] [--tailscale]
   init-config --profile vps|local [--path /etc/obelisk/obelisk.yaml]
-  status [--json] [--config path] [--helm-root path]
+  status [--json] [--offline] [--config path] [--helm-root path]   platform, services, and GitHub / supporting-API health
   service enable|disable <postgres|mysql|mongodb|redis|rustfs|qdrant|searxng|redpanda|unimeter|bunqueue|browserless> [--config path] [--helm-root path]
   reconcile [--config path] [--helm-root path]
   blueprint status|unlock|lock|push [--api URL] [--config path] [--passphrase secret]
@@ -115,7 +115,14 @@ func cmdInitConfig(args []string) {
 	role := fs.String("role", obelisk.DeploymentRoleLocal, "deployment role: local or gateway")
 	path := fs.String("path", config.ResolvePath(), "config path")
 	tailscale := fs.Bool("tailscale", false, "enable tailscale (local or gateway)")
+	force := fs.Bool("force", false, "overwrite an existing config")
 	_ = fs.Parse(args)
+	if target := config.WriteConfigPath(*path); !*force {
+		if _, err := os.Stat(target); err == nil {
+			fmt.Println("config exists, not overwriting:", target, "(use --force to replace)")
+			return
+		}
+	}
 	spec := obelisk.DefaultSpec(*profile)
 	spec.Deployment.Role = strings.ToLower(strings.TrimSpace(*role))
 	if spec.Deployment.Role == obelisk.DeploymentRoleGateway {

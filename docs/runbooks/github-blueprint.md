@@ -93,7 +93,18 @@ Check configuration: `obelisk github oauth status`.
 3. Confirm or create the private repo (default `obelisk-appliance`).
 4. The controller pushes generation 1: `manifest.json`, `obelisk.public.yaml`, and `secrets.enc`.
 
-Later saves sync about 5 seconds after the controller is unlocked. If GitHub is down, the local save still succeeds and the push retries.
+Later saves are pushed automatically, but at most **one automatic push every 15 minutes**: saves inside that window are coalesced into one push. After a failure the retry waits 5 minutes, doubling up to 1 hour, and a GitHub rate limit waits the full hour. Errors that retrying cannot fix (for example 422 or 403 permission errors) stop automatic retries until the next save. **Push now** is not throttled. If GitHub is down, the local save still succeeds and the push retries.
+
+**GitHub API errors (rate limit, 401/402/403, outage, no network):** The admin console shows a dedicated GitHub error screen with the reason, the reset time for rate limits, and the next steps. Sign-in and onboarding are unavailable until GitHub is usable again; the console never falls back to the "new appliance" onboarding flow because of a GitHub error. `GET /api/v1/blueprint/status` carries the same report in `github_api` (`state`, `blocking`, `http_status`, `reset_at`, `remaining`), and `GET /api/v1/system/health` lists every supporting check. From a shell, `sudo obelisk status` prints them under **Supporting services & APIs** (`--offline` skips the network probes). The health probe uses GitHub's `/rate_limit` endpoint, which does not consume API quota.
+
+| State | Typical cause | What to do |
+| --- | --- | --- |
+| `rate_limited` | Hourly quota used up (HTTP 403/429) | Wait for the reset time; stop other tools using the same account |
+| `unauthorized` | Token expired or revoked (401) | Sign in again; check the OAuth client secret was not rotated |
+| `payment_required` | Plan, billing or spending limit (402) | Fix billing on the GitHub account |
+| `forbidden` | SSO not authorized, OAuth app restrictions, missing scopes (403) | Authorize SSO for Obelisk; check Authorized OAuth Apps |
+| `unavailable` | GitHub outage (5xx) | Check githubstatus.com; it recovers on its own |
+| `unreachable` | DNS, firewall, proxy, or clock problem | `curl -sSI https://api.github.com` from the appliance |
 
 **Sync failed or “import required” with generation 0:** That import warning is wrong until the first successful push is recorded on disk (`generation` 0, no `last_commit_sha`). Unlock (or re-enter your passphrase), restart `make dev` on a current build, then **Push now** — the appliance overwrites stray commits on GitHub from failed attempts. For `github http 404`, ensure the controller was rebuilt after the `/git/refs` fix.
 

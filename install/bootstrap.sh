@@ -166,6 +166,14 @@ ensure_lib_paths() {
 write_config() {
   ensure_lib_paths
   mkdir -p "$(dirname "$CONFIG_PATH")"
+  # The live appliance config is /var/lib/obelisk/obelisk.yaml (writes from the CLI and
+  # controller land there); /etc/obelisk/obelisk.yaml is only a seed. Never re-init when
+  # either exists, or an upgrade resets profile/role and drops gateway registration.
+  local live_config="${OBELISK_LIB_DIR:-/var/lib/obelisk}/obelisk.yaml"
+  if [[ -f "$live_config" ]]; then
+    log "live config exists: $live_config (keeping profile/role/gateway settings)"
+    return
+  fi
   if [[ -f "$CONFIG_PATH" ]]; then
     log "config exists: $CONFIG_PATH"
     return

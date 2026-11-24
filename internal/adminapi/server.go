@@ -51,6 +51,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("POST /api/v1/tailscale/connect", s.handleTailscaleConnect)
 	mux.HandleFunc("PATCH /api/v1/deployment", s.handlePatchDeployment)
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
+	mux.HandleFunc("GET /api/v1/system/health", s.handleSystemHealth)
 	mux.HandleFunc("GET /api/v1/status", s.handleStatus)
 	mux.HandleFunc("GET /api/v1/overview", s.handleOverview)
 	mux.HandleFunc("GET /api/v1/activity/history", s.handleActivityHistory)

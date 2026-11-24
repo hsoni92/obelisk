@@ -5,6 +5,7 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"strconv"
 	"time"
 
 	"github.com/hsoni92/obelisk/internal/blueprint"
@@ -58,7 +59,7 @@ func (s *Server) handleBlueprintAuthorize(w http.ResponseWriter, r *http.Request
 		start, err = s.Blueprint.OAuth.StartCode(body.RedirectURI)
 	}
 	if err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	writeJSON(w, start)
@@ -90,14 +91,15 @@ func (s *Server) handleBlueprintCallback(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	sid, err := s.Blueprint.CompleteLogin(r.Context(), tok)
 	if err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
+	s.Blueprint.ClearGitHubError()
 	setSessionCookie(w, r, sid)
 	saved, _ := s.Blueprint.Tokens.Load()
 	writeJSON(w, map[string]any{"status": "ok", "login": saved.Login})
@@ -129,7 +131,7 @@ func (s *Server) handleBlueprintOnboard(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err := s.Blueprint.Onboard(r.Context(), body.Repository, body.Branch, body.Passphrase); err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	writeJSON(w, s.Blueprint.Status(r.Context(), loginFrom(r)))
@@ -144,7 +146,7 @@ func (s *Server) handleBlueprintUnlock(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Blueprint.Unlock(body.Passphrase); err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	writeJSON(w, s.Blueprint.Status(r.Context(), loginFrom(r)))
@@ -152,7 +154,7 @@ func (s *Server) handleBlueprintUnlock(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleBlueprintLock(w http.ResponseWriter, r *http.Request) {
 	if err := s.Blueprint.Lock(); err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	writeJSON(w, s.Blueprint.Status(r.Context(), loginFrom(r)))
@@ -170,7 +172,7 @@ func (s *Server) handleBlueprintImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if err := s.Blueprint.Import(r.Context(), body.Passphrase, body.Repository, body.Branch, body.MachineIDChoice); err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	s.Blueprint.InvalidateProbe()
@@ -196,7 +198,7 @@ func (s *Server) handleBlueprintPush(w http.ResponseWriter, r *http.Request) {
 	}
 	s.Blueprint.InvalidateProbe()
 	if err != nil {
-		writeBlueprintErr(w, err)
+		s.writeBlueprintErr(w, err)
 		return
 	}
 	writeJSON(w, s.Blueprint.Status(r.Context(), loginFrom(r)))
@@ -219,6 +221,30 @@ func setSessionCookie(w http.ResponseWriter, r *http.Request, id string) {
 	})
 }
 
+// writeBlueprintErr records blocking GitHub failures on the runtime (so Status
+// and the UI keep showing them after this request) and writes the response.
+func (s *Server) writeBlueprintErr(w http.ResponseWriter, err error) {
+	if s.Blueprint != nil {
+		s.Blueprint.NoteGitHubError(err)
+	}
+	writeBlueprintErr(w, err)
+}
+
+// githubResponseStatus is the HTTP status of our response for a GitHub failure.
+// 401 is avoided on purpose: the UI reads it as "admin sign-in required".
+func githubResponseStatus(h blueprint.GitHubHealth) int {
+	switch h.State {
+	case blueprint.GHStateRateLimited:
+		return http.StatusTooManyRequests
+	case blueprint.GHStateForbidden:
+		return http.StatusForbidden
+	case blueprint.GHStatePaymentRequired:
+		return http.StatusPaymentRequired
+	default:
+		return http.StatusBadGateway
+	}
+}
+
 func writeBlueprintErr(w http.ResponseWriter, err error) {
 	if errors.Is(err, blueprint.ErrClientNotConfigured) {
 		writeJSONStatus(w, http.StatusServiceUnavailable, map[string]string{"error": err.Error()})
@@ -231,11 +257,22 @@ func writeBlueprintErr(w http.ResponseWriter, err error) {
 		})
 		return
 	}
-	var gh *blueprint.StatusError
-	if errors.As(err, &gh) && gh.Code == http.StatusForbidden {
-		writeJSONStatus(w, http.StatusForbidden, map[string]any{
-			"error": gh.Error(),
-			"hint":  "Open github.com → Settings → Applications → Authorized OAuth Apps, authorize SSO for this app if your org requires it, then sign in again. If you upgraded Obelisk, sign out and sign in again so the token includes read:user scope.",
+	// GitHub refused or could not serve the call (rate limit, 401/402/403, outage,
+	// no network). Send the classified report so the UI can show the real reason
+	// instead of a generic failure or a misleading onboarding screen.
+	if h := blueprint.ClassifyGitHubError(err, time.Now()); h.Blocking {
+		if h.RetryAfterSeconds > 0 {
+			w.Header().Set("Retry-After", strconv.Itoa(h.RetryAfterSeconds))
+		}
+		msg := h.Title
+		if h.Message != "" {
+			msg += ": " + h.Message
+		}
+		writeJSONStatus(w, githubResponseStatus(h), map[string]any{
+			"error":  msg,
+			"code":   "github_" + h.State,
+			"hint":   h.Hint,
+			"github": h,
 		})
 		return
 	}

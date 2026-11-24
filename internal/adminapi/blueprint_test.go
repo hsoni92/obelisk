@@ -49,6 +49,22 @@ func (s *stubRemote) Push(_ context.Context, _, _, _ string, files map[string][]
 	return "new-sha", nil
 }
 
+// fakeGitHub serves every request with one fixed status and body so Status
+// never reaches the real api.github.com from tests.
+func fakeGitHub(t *testing.T, status int, body string) *blueprint.GitHub {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(status)
+		_, _ = w.Write([]byte(body))
+	}))
+	t.Cleanup(srv.Close)
+	return &blueprint.GitHub{
+		APIBase: srv.URL,
+		Client:  srv.Client(),
+		Token:   func(context.Context) (string, error) { return "tok", nil },
+	}
+}
+
 func TestHandleBlueprintPush_Force(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "obelisk.yaml")
@@ -66,6 +82,7 @@ func TestHandleBlueprintPush_Force(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	rt.Git = fakeGitHub(t, http.StatusOK, `{"resources":{"core":{"limit":5000,"remaining":4999,"reset":0}}}`)
 	kdf := blueprint.KDFParams{
 		Memory:      1024,
 		Iterations:  1,
