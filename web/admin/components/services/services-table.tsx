@@ -41,6 +41,7 @@ import {
   SlidersHorizontal,
   Activity,
   ListOrdered,
+  Globe,
 } from "lucide-react";
 import * as React from "react";
 
@@ -55,6 +56,7 @@ const TYPE_ICONS = {
   redpanda: Radio,
   unimeter: Activity,
   bunqueue: ListOrdered,
+  browserless: Globe,
 } as const;
 
 const GRID =

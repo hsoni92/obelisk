@@ -12,7 +12,9 @@ need k3d
 need kubectl
 
 if k3d cluster get "$CLUSTER" >/dev/null 2>&1; then
-  echo "[obelisk] k3d cluster $CLUSTER already exists"
+  # Exists but may be stopped (docker restart, reboot): start is a no-op when running.
+  echo "[obelisk] k3d cluster $CLUSTER exists; ensuring it is running"
+  k3d cluster start "$CLUSTER" >/dev/null 2>&1 || true
 else
   echo "[obelisk] creating k3d cluster $CLUSTER (k3s, traefik disabled)"
   k3d cluster create "$CLUSTER" \
@@ -20,6 +22,17 @@ else
     --port "9080:9080@loadbalancer"
 fi
 
+mkdir -p "$(dirname "$KUBECONFIG_OUT")"
+k3d kubeconfig get "$CLUSTER" >"$KUBECONFIG_OUT"
+chmod 600 "$KUBECONFIG_OUT"
+export KUBECONFIG="$KUBECONFIG_OUT"
+
+echo "[obelisk] waiting for API server..."
+for _ in $(seq 1 60); do
+  kubectl get --raw /readyz >/dev/null 2>&1 && break
+  sleep 2
+done
+kubectl get --raw /readyz >/dev/null 2>&1 || { echo "[obelisk] cluster API not reachable"; exit 1; }
 # metrics-server is required for kubectl top (overview vitals sampler).
 if ! kubectl get deployment -n kube-system metrics-server >/dev/null 2>&1; then
   echo "[obelisk] installing metrics-server (k3d dev)"
@@ -30,10 +43,6 @@ if ! kubectl get deployment -n kube-system metrics-server >/dev/null 2>&1; then
     2>/dev/null || true
 fi
 
-mkdir -p "$(dirname "$KUBECONFIG_OUT")"
-k3d kubeconfig get "$CLUSTER" >"$KUBECONFIG_OUT"
-chmod 600 "$KUBECONFIG_OUT"
-export KUBECONFIG="$KUBECONFIG_OUT"
 kubectl cluster-info
 echo "[obelisk] KUBECONFIG=$KUBECONFIG_OUT"
 echo "[obelisk] run: make dev-api   # cluster mode when helm+kubectl on PATH"

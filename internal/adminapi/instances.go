@@ -17,9 +17,9 @@ import (
 )
 
 type instanceDeploymentView struct {
-	Release   string                    `json:"release"`
-	Namespace string                    `json:"namespace"`
-	Backup    obelisk.InstanceBackupView  `json:"backup"`
+	Release   string                     `json:"release"`
+	Namespace string                     `json:"namespace"`
+	Backup    obelisk.InstanceBackupView `json:"backup"`
 }
 
 type instanceView struct {
@@ -45,9 +45,9 @@ type createInstanceRequest struct {
 }
 
 type patchInstanceBackupRequest struct {
-	Enabled             *bool                                `json:"enabled,omitempty"`
-	PolicyOverride      *obelisk.InstanceBackupPolicyOverride  `json:"policy_override,omitempty"`
-	ClearPolicyOverride *bool                                `json:"clear_policy_override,omitempty"`
+	Enabled             *bool                                 `json:"enabled,omitempty"`
+	PolicyOverride      *obelisk.InstanceBackupPolicyOverride `json:"policy_override,omitempty"`
+	ClearPolicyOverride *bool                                 `json:"clear_policy_override,omitempty"`
 }
 
 type patchInstanceRequest struct {
@@ -254,9 +254,9 @@ func (s *Server) handleCreateInstance(w http.ResponseWriter, r *http.Request) {
 		resp["from_backup"] = map[string]any{
 			"source_type":        strings.ToLower(strings.TrimSpace(req.FromBackup.SourceType)),
 			"source_instance_id": strings.TrimSpace(req.FromBackup.SourceInstanceID),
-			"backup_id":            sourceBkp,
-			"restore_ok":           restoreOK,
-			"restore_error":        restoreErr,
+			"backup_id":          sourceBkp,
+			"restore_ok":         restoreOK,
+			"restore_error":      restoreErr,
 		}
 	}
 	writeJSON(w, resp)

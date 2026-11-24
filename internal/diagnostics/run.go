@@ -172,6 +172,11 @@ func probeInstance(ctx context.Context, inst obelisk.ServiceInstance, ic obelisk
 			return nil, fmt.Errorf("missing unimeter health url")
 		}
 		return probeUnimeter(ctx, ic.UnimeterHealthHTTP)
+	case "browserless":
+		if ic.BrowserlessHTTP == "" {
+			return nil, fmt.Errorf("missing browserless url")
+		}
+		return probeBrowserless(ctx, ic.BrowserlessHTTP, inst.Credentials.AccessKey)
 	case "bunqueue":
 		if ic.BunqueueHealthHTTP == "" {
 			return nil, fmt.Errorf("missing bunqueue health url")

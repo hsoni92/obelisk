@@ -12,9 +12,9 @@ import (
 )
 
 type instanceDatabaseView struct {
-	BootstrapDatabase string                        `json:"bootstrap_database"`
-	Additional        []string                      `json:"additional_databases"`
-	Connections       []obelisk.DatabaseConnection  `json:"connections"`
+	BootstrapDatabase string                       `json:"bootstrap_database"`
+	Additional        []string                     `json:"additional_databases"`
+	Connections       []obelisk.DatabaseConnection `json:"connections"`
 }
 
 func (s *Server) handleGetInstanceDatabases(w http.ResponseWriter, r *http.Request) {

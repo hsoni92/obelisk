@@ -64,14 +64,14 @@ func (s *Server) handlePostCloneBackup(w http.ResponseWriter, r *http.Request) {
 	)
 
 	writeJSON(w, map[string]any{
-		"status":                  "ok",
-		"message":                 "backup entry cloned",
-		"scope":                   out.Scope,
-		"source_key":              out.SourceKey,
-		"service_type":            out.ServiceType,
-		"instance_id":             out.InstanceID,
-		"lineage_id":              out.LineageID,
-		"node_count":              out.NodeCount,
+		"status":                "ok",
+		"message":               "backup entry cloned",
+		"scope":                 out.Scope,
+		"source_key":            out.SourceKey,
+		"service_type":          out.ServiceType,
+		"instance_id":           out.InstanceID,
+		"lineage_id":            out.LineageID,
+		"node_count":            out.NodeCount,
 		"uploaded_destinations": out.UploadedDestinations,
 	})
 }

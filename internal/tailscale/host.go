@@ -12,21 +12,21 @@ import (
 
 // Status is a reduced view of `tailscale status --json`.
 type Status struct {
-	Installed   bool     `json:"installed"`
-	BackendOK   bool     `json:"backend_ok"`
-	Connected   bool     `json:"connected"`
-	BackendState string  `json:"backend_state,omitempty"`
-	AuthURL     string   `json:"auth_url,omitempty"`
-	Tailnet     string   `json:"tailnet,omitempty"`
-	DNSName     string   `json:"dns_name,omitempty"`
-	IPs         []string `json:"ips,omitempty"`
-	SocketPath  string   `json:"socket_path"`
-	Error       string   `json:"error,omitempty"`
+	Installed    bool     `json:"installed"`
+	BackendOK    bool     `json:"backend_ok"`
+	Connected    bool     `json:"connected"`
+	BackendState string   `json:"backend_state,omitempty"`
+	AuthURL      string   `json:"auth_url,omitempty"`
+	Tailnet      string   `json:"tailnet,omitempty"`
+	DNSName      string   `json:"dns_name,omitempty"`
+	IPs          []string `json:"ips,omitempty"`
+	SocketPath   string   `json:"socket_path"`
+	Error        string   `json:"error,omitempty"`
 }
 
 type statusJSON struct {
-	BackendState string `json:"BackendState"`
-	AuthURL      string `json:"AuthURL"`
+	BackendState string   `json:"BackendState"`
+	AuthURL      string   `json:"AuthURL"`
 	TailscaleIPs []string `json:"TailscaleIPs"`
 	Self         struct {
 		DNSName string `json:"DNSName"`

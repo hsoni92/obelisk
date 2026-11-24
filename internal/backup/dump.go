@@ -11,12 +11,12 @@ import (
 
 // DataDump is one uploadable backup artifact for an instance.
 type DataDump struct {
-	InstanceID   string
-	ServiceType  string
-	ObjectKey    string
-	Body         []byte
-	Skipped      bool
-	SkipReason   string
+	InstanceID  string
+	ServiceType string
+	ObjectKey   string
+	Body        []byte
+	Skipped     bool
+	SkipReason  string
 }
 
 // CollectDataDumps gathers logical backups for enabled running data instances.

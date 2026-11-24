@@ -17,32 +17,34 @@ type Connections struct {
 // InstanceConnection is one instance endpoint block for the admin console.
 // Use is the single copy-paste credential clients need (GitHub session required via GET /connections).
 type InstanceConnection struct {
-	ID          string `json:"id"`
-	Type        string `json:"type"`
-	DisplayName string `json:"display_name,omitempty"`
-	Use         string `json:"use,omitempty"`
-	Postgres    string `json:"postgres,omitempty"`
-	MySQL       string `json:"mysql,omitempty"`
-	MongoDB     string `json:"mongodb,omitempty"`
-	Redis       string `json:"redis,omitempty"`
-	S3HTTP      string `json:"s3_http,omitempty"`
-	PublicPath  string `json:"public_path,omitempty"`
-	RouteID     string `json:"route_id,omitempty"`
-	QdrantHTTP  string `json:"qdrant_http,omitempty"`
-	QdrantGRPC  string `json:"qdrant_grpc,omitempty"`
-	SearXNGHTTP        string `json:"searxng_http,omitempty"`
-	UnimeterAPI        string `json:"unimeter_api,omitempty"`
-	UnimeterHealthHTTP string `json:"unimeter_health_http,omitempty"`
-	BunqueueTCP        string `json:"bunqueue_tcp,omitempty"`
-	BunqueueHealthHTTP string `json:"bunqueue_health_http,omitempty"`
-	KafkaBootstrap     string `json:"kafka_bootstrap,omitempty"`
-	SchemaRegistryHTTP string `json:"schema_registry_http,omitempty"`
+	ID                 string               `json:"id"`
+	Type               string               `json:"type"`
+	DisplayName        string               `json:"display_name,omitempty"`
+	Use                string               `json:"use,omitempty"`
+	Postgres           string               `json:"postgres,omitempty"`
+	MySQL              string               `json:"mysql,omitempty"`
+	MongoDB            string               `json:"mongodb,omitempty"`
+	Redis              string               `json:"redis,omitempty"`
+	S3HTTP             string               `json:"s3_http,omitempty"`
+	PublicPath         string               `json:"public_path,omitempty"`
+	RouteID            string               `json:"route_id,omitempty"`
+	QdrantHTTP         string               `json:"qdrant_http,omitempty"`
+	QdrantGRPC         string               `json:"qdrant_grpc,omitempty"`
+	SearXNGHTTP        string               `json:"searxng_http,omitempty"`
+	UnimeterAPI        string               `json:"unimeter_api,omitempty"`
+	UnimeterHealthHTTP string               `json:"unimeter_health_http,omitempty"`
+	BunqueueTCP        string               `json:"bunqueue_tcp,omitempty"`
+	BunqueueHealthHTTP string               `json:"bunqueue_health_http,omitempty"`
+	BrowserlessHTTP    string               `json:"browserless_http,omitempty"`
+	BrowserlessWS      string               `json:"browserless_ws,omitempty"`
+	KafkaBootstrap     string               `json:"kafka_bootstrap,omitempty"`
+	SchemaRegistryHTTP string               `json:"schema_registry_http,omitempty"`
 	Databases          []DatabaseConnection `json:"databases,omitempty"`
-	Origin      string               `json:"origin,omitempty"`      // local | federated
-	PeerID      string               `json:"peer_id,omitempty"`
-	Reachable   *bool                `json:"reachable,omitempty"`
+	Origin             string               `json:"origin,omitempty"` // local | federated
+	PeerID             string               `json:"peer_id,omitempty"`
+	Reachable          *bool                `json:"reachable,omitempty"`
 	// InCluster holds URLs for workloads on the same Kubernetes cluster.
-	InCluster   *ConnectionBlock       `json:"in_cluster,omitempty"`
+	InCluster *ConnectionBlock `json:"in_cluster,omitempty"`
 }
 
 // PublicHost returns the hostname clients should use for native protocols.
@@ -185,6 +187,14 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			}
 			ic.UnimeterAPI = fmt.Sprintf("%s:7001", apiHost)
 			ic.UnimeterHealthHTTP = fmt.Sprintf("http://%s:9090/health", healthHost)
+		case "browserless":
+			if vpsEdge {
+				ic.BrowserlessHTTP = PublicHTTPEdgeURL(inst)
+				ic.BrowserlessWS = strings.Replace(ic.BrowserlessHTTP, "http://", "ws://", 1)
+			} else {
+				ic.BrowserlessHTTP = fmt.Sprintf("http://%s:3000", host)
+				ic.BrowserlessWS = fmt.Sprintf("ws://%s:3000", host)
+			}
 		case "bunqueue":
 			queueHost := host
 			healthHost := host
@@ -289,6 +299,18 @@ func instanceUse(spec Spec, inst ServiceInstance, ic InstanceConnection) string 
 		lines := []string{fmt.Sprintf("UNIMETER_ADDR=%s", ic.UnimeterAPI)}
 		if ic.UnimeterHealthHTTP != "" {
 			lines = append(lines, fmt.Sprintf("UNIMETER_HEALTH_URL=%s", ic.UnimeterHealthHTTP))
+		}
+		return strings.Join(lines, "\n")
+	case "browserless":
+		if ic.BrowserlessHTTP == "" {
+			return ""
+		}
+		lines := []string{
+			fmt.Sprintf("BROWSERLESS_URL=%s", ic.BrowserlessHTTP),
+			fmt.Sprintf("BROWSERLESS_WS_ENDPOINT=%s", ic.BrowserlessWS),
+		}
+		if tok := strings.TrimSpace(inst.Credentials.AccessKey); tok != "" {
+			lines = append(lines, fmt.Sprintf("BROWSERLESS_TOKEN=%s", tok))
 		}
 		return strings.Join(lines, "\n")
 	case "bunqueue":

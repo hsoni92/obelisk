@@ -20,27 +20,27 @@ type Spec struct {
 }
 
 type Deployment struct {
-	Profile   string          `yaml:"profile"`             // vps | local
-	Role      string          `yaml:"role,omitempty"`      // local | gateway (default local)
+	Profile   string          `yaml:"profile"`        // vps | local
+	Role      string          `yaml:"role,omitempty"` // local | gateway (default local)
 	Tailscale TailscaleDeploy `yaml:"tailscale"`
 }
 
 // PeerGateway configures tailnet federation (gateway aggregates locals).
 type PeerGateway struct {
-	AdvertiseURL       string `yaml:"advertise_url,omitempty"`         // local: gateway advertise endpoint
-	GatewayEdgeHost    string `yaml:"gateway_edge_host,omitempty"`     // local: gateway public host / edge zone (usually learned from advertise)
-	AutoAdmit          *bool  `yaml:"auto_admit,omitempty"`            // gateway: default true when omitted (OQ2)
-	ExposeNativePublic *bool  `yaml:"expose_native_public,omitempty"`  // gateway: default true (OQ4)
-	TLSMode            string `yaml:"tls_mode,omitempty"`              // v1: passthrough only (OQ1)
+	AdvertiseURL       string `yaml:"advertise_url,omitempty"`        // local: gateway advertise endpoint
+	GatewayEdgeHost    string `yaml:"gateway_edge_host,omitempty"`    // local: gateway public host / edge zone (usually learned from advertise)
+	AutoAdmit          *bool  `yaml:"auto_admit,omitempty"`           // gateway: default true when omitted (OQ2)
+	ExposeNativePublic *bool  `yaml:"expose_native_public,omitempty"` // gateway: default true (OQ4)
+	TLSMode            string `yaml:"tls_mode,omitempty"`             // v1: passthrough only (OQ1)
 }
 
 // PeerAdmission is a persisted peer row on the gateway.
 type PeerAdmission struct {
-	ID           string `yaml:"id" json:"id"`
-	MachineID    string `yaml:"machine_id,omitempty" json:"machine_id,omitempty"`
-	DisplayName  string `yaml:"display_name,omitempty" json:"display_name,omitempty"`
-	TailnetHost  string `yaml:"tailnet_host,omitempty" json:"tailnet_host,omitempty"`
-	Admitted     bool   `yaml:"admitted" json:"admitted"`
+	ID          string `yaml:"id" json:"id"`
+	MachineID   string `yaml:"machine_id,omitempty" json:"machine_id,omitempty"`
+	DisplayName string `yaml:"display_name,omitempty" json:"display_name,omitempty"`
+	TailnetHost string `yaml:"tailnet_host,omitempty" json:"tailnet_host,omitempty"`
+	Admitted    bool   `yaml:"admitted" json:"admitted"`
 }
 
 type TailscaleDeploy struct {
@@ -52,16 +52,17 @@ type Hardware struct {
 }
 
 type ServiceFlags struct {
-	Postgres ServiceToggle `yaml:"postgres"`
-	MySQL    ServiceToggle `yaml:"mysql"`
-	MongoDB  ServiceToggle `yaml:"mongodb"`
-	Redis    ServiceToggle `yaml:"redis"`
-	RustFS   ServiceToggle `yaml:"rustfs"`
-	Qdrant   ServiceToggle `yaml:"qdrant"`
-	SearXNG  ServiceToggle `yaml:"searxng"`
-	Redpanda ServiceToggle `yaml:"redpanda"`
-	Unimeter  ServiceToggle `yaml:"unimeter"`
-	Bunqueue  ServiceToggle `yaml:"bunqueue"`
+	Postgres    ServiceToggle `yaml:"postgres"`
+	MySQL       ServiceToggle `yaml:"mysql"`
+	MongoDB     ServiceToggle `yaml:"mongodb"`
+	Redis       ServiceToggle `yaml:"redis"`
+	RustFS      ServiceToggle `yaml:"rustfs"`
+	Qdrant      ServiceToggle `yaml:"qdrant"`
+	SearXNG     ServiceToggle `yaml:"searxng"`
+	Redpanda    ServiceToggle `yaml:"redpanda"`
+	Unimeter    ServiceToggle `yaml:"unimeter"`
+	Bunqueue    ServiceToggle `yaml:"bunqueue"`
+	Browserless ServiceToggle `yaml:"browserless"`
 }
 
 type ServiceToggle struct {
@@ -128,16 +129,17 @@ func DefaultSpec(profile string) Spec {
 		},
 		Hardware: Hardware{Tier: "floor"},
 		Services: ServiceFlags{
-			Postgres: ServiceToggle{Enabled: false},
-			MySQL:    ServiceToggle{Enabled: false},
-			MongoDB:  ServiceToggle{Enabled: false},
-			Redis:    ServiceToggle{Enabled: false},
-			RustFS:   ServiceToggle{Enabled: false},
-			Qdrant:   ServiceToggle{Enabled: false},
-			SearXNG:  ServiceToggle{Enabled: false},
-			Redpanda: ServiceToggle{Enabled: false},
-			Unimeter:  ServiceToggle{Enabled: false},
-			Bunqueue:  ServiceToggle{Enabled: false},
+			Postgres:    ServiceToggle{Enabled: false},
+			MySQL:       ServiceToggle{Enabled: false},
+			MongoDB:     ServiceToggle{Enabled: false},
+			Redis:       ServiceToggle{Enabled: false},
+			RustFS:      ServiceToggle{Enabled: false},
+			Qdrant:      ServiceToggle{Enabled: false},
+			SearXNG:     ServiceToggle{Enabled: false},
+			Redpanda:    ServiceToggle{Enabled: false},
+			Unimeter:    ServiceToggle{Enabled: false},
+			Bunqueue:    ServiceToggle{Enabled: false},
+			Browserless: ServiceToggle{Enabled: false},
 		},
 		Exposure: Exposure{
 			Funnel: FunnelExposure{

@@ -1,0 +1,5 @@
+apiVersion: v2
+name: obelisk-browserless
+type: application
+version: 0.1.0
+description: Browserless headless Chromium (https://docs.browserless.io/enterprise/docker/quickstart)

@@ -17,25 +17,25 @@ import (
 )
 
 type openRouterAccountView struct {
-	ID              string `json:"id"`
-	Label           string `json:"label"`
-	Enabled         bool   `json:"enabled"`
-	Notes           string `json:"notes,omitempty"`
-	HasAPIKey       bool   `json:"has_api_key"`
-	UpstreamLabel   string `json:"upstream_label,omitempty"`
-	KeyTail         string `json:"key_tail,omitempty"`
-	UpstreamUserID  string `json:"upstream_user_id,omitempty"`
-	KeyFingerprint  string `json:"key_fingerprint,omitempty"`
+	ID             string `json:"id"`
+	Label          string `json:"label"`
+	Enabled        bool   `json:"enabled"`
+	Notes          string `json:"notes,omitempty"`
+	HasAPIKey      bool   `json:"has_api_key"`
+	UpstreamLabel  string `json:"upstream_label,omitempty"`
+	KeyTail        string `json:"key_tail,omitempty"`
+	UpstreamUserID string `json:"upstream_user_id,omitempty"`
+	KeyFingerprint string `json:"key_fingerprint,omitempty"`
 }
 
 type openRouterConfigResponse struct {
-	Enabled              bool                    `json:"enabled"`
-	GatewayConfigured    bool                    `json:"gateway_token_configured"`
-	GatewayPublicPath    string                  `json:"gateway_public_path"`
-	GatewayListenHint    string                  `json:"gateway_direct_path"`
-	GatewayLocalBaseURL  string                  `json:"gateway_local_base_url"`
-	Accounts             []openRouterAccountView `json:"accounts"`
-	Runtime              openroutergateway.Status `json:"runtime"`
+	Enabled             bool                     `json:"enabled"`
+	GatewayConfigured   bool                     `json:"gateway_token_configured"`
+	GatewayPublicPath   string                   `json:"gateway_public_path"`
+	GatewayListenHint   string                   `json:"gateway_direct_path"`
+	GatewayLocalBaseURL string                   `json:"gateway_local_base_url"`
+	Accounts            []openRouterAccountView  `json:"accounts"`
+	Runtime             openroutergateway.Status `json:"runtime"`
 }
 
 type patchOpenRouterConfigRequest struct {
@@ -51,10 +51,10 @@ type postOpenRouterAccountRequest struct {
 }
 
 type patchOpenRouterAccountRequest struct {
-	Label    *string `json:"label,omitempty"`
-	Enabled  *bool   `json:"enabled,omitempty"`
-	Notes    *string `json:"notes,omitempty"`
-	APIKey   *string `json:"api_key,omitempty"`
+	Label   *string `json:"label,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+	Notes   *string `json:"notes,omitempty"`
+	APIKey  *string `json:"api_key,omitempty"`
 }
 
 func (s *Server) buildOpenRouterConfig(cfg string, spec obelisk.Spec) openRouterConfigResponse {
@@ -81,13 +81,13 @@ func (s *Server) buildOpenRouterConfig(cfg string, spec obelisk.Spec) openRouter
 	}
 	localBase := gatewayLocalBaseURL(s.GatewayListenAddr)
 	return openRouterConfigResponse{
-		Enabled:           spec.OpenRouterGateway.Enabled,
-		GatewayConfigured: openrouter.GatewayConfigured(cfg),
-		GatewayPublicPath: "/openrouter/api/v1",
-		GatewayListenHint: "http://<host>" + localListenSuffix(s.GatewayListenAddr) + "/api/v1",
+		Enabled:             spec.OpenRouterGateway.Enabled,
+		GatewayConfigured:   openrouter.GatewayConfigured(cfg),
+		GatewayPublicPath:   "/openrouter/api/v1",
+		GatewayListenHint:   "http://<host>" + localListenSuffix(s.GatewayListenAddr) + "/api/v1",
 		GatewayLocalBaseURL: localBase,
-		Accounts:          views,
-		Runtime:           rt,
+		Accounts:            views,
+		Runtime:             rt,
 	}
 }
 

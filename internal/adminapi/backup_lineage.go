@@ -17,28 +17,28 @@ import (
 )
 
 type backupNodeView struct {
-	ID          string         `json:"id"`
-	ParentID    string         `json:"parent_id,omitempty"`
-	CreatedAt   string         `json:"created_at"`
-	Trigger     string         `json:"trigger"`
-	ObjectKey   string         `json:"object_key"`
-	ManifestKey string         `json:"manifest_key"`
-	Size        int64          `json:"size"`
+	ID          string          `json:"id"`
+	ParentID    string          `json:"parent_id,omitempty"`
+	CreatedAt   string          `json:"created_at"`
+	Trigger     string          `json:"trigger"`
+	ObjectKey   string          `json:"object_key"`
+	ManifestKey string          `json:"manifest_key"`
+	Size        int64           `json:"size"`
 	Witness     lineage.Witness `json:"witness"`
-	Active      bool           `json:"active"`
+	Active      bool            `json:"active"`
 }
 
 type instanceBackupLineageResponse struct {
-	ServiceType      string           `json:"service_type"`
-	InstanceID       string           `json:"instance_id"`
-	LineageID        string           `json:"lineage_id"`
-	DisplayName      string           `json:"display_name,omitempty"`
-	Orphan           bool             `json:"orphan"`
-	Clone            bool             `json:"clone,omitempty"`
-	CloneSourceKey   string           `json:"clone_source_key,omitempty"`
-	ActiveBackupID   string           `json:"active_backup_id,omitempty"`
-	SourceBackupID   string           `json:"source_backup_id,omitempty"`
-	Nodes            []backupNodeView `json:"nodes"`
+	ServiceType    string           `json:"service_type"`
+	InstanceID     string           `json:"instance_id"`
+	LineageID      string           `json:"lineage_id"`
+	DisplayName    string           `json:"display_name,omitempty"`
+	Orphan         bool             `json:"orphan"`
+	Clone          bool             `json:"clone,omitempty"`
+	CloneSourceKey string           `json:"clone_source_key,omitempty"`
+	ActiveBackupID string           `json:"active_backup_id,omitempty"`
+	SourceBackupID string           `json:"source_backup_id,omitempty"`
+	Nodes          []backupNodeView `json:"nodes"`
 }
 
 func parseInstanceQuery(r *http.Request) (typ, id string, err error) {
@@ -89,16 +89,16 @@ func (s *Server) handleGetInstanceBackups(w http.ResponseWriter, r *http.Request
 		})
 	}
 	writeJSON(w, instanceBackupLineageResponse{
-		ServiceType:      typ,
-		InstanceID:       id,
-		LineageID:        forest.LineageID,
-		DisplayName:      forest.DisplayName,
-		Orphan:           forest.Orphan,
-		Clone:            forest.Clone,
-		CloneSourceKey:   forest.CloneSourceKey,
-		ActiveBackupID:   forest.ActiveBackupID,
-		SourceBackupID:   forest.SourceBackupID,
-		Nodes:            views,
+		ServiceType:    typ,
+		InstanceID:     id,
+		LineageID:      forest.LineageID,
+		DisplayName:    forest.DisplayName,
+		Orphan:         forest.Orphan,
+		Clone:          forest.Clone,
+		CloneSourceKey: forest.CloneSourceKey,
+		ActiveBackupID: forest.ActiveBackupID,
+		SourceBackupID: forest.SourceBackupID,
+		Nodes:          views,
 	})
 }
 
@@ -136,8 +136,8 @@ func (s *Server) handlePostInstanceBackupRun(w http.ResponseWriter, r *http.Requ
 	}
 	s.recordAudit("Backup", "instance", typ+"/"+id)
 	writeJSON(w, map[string]any{
-		"status":      "ok",
-		"backups":     out.RegisteredBackups,
+		"status":       "ok",
+		"backups":      out.RegisteredBackups,
 		"data_objects": out.DataObjects,
 	})
 }
@@ -374,12 +374,12 @@ type backupCatalogRow struct {
 }
 
 type backupCatalogResponse struct {
-	GeneratedAt               string             `json:"generated_at"`
-	GlobalReplicationFactor   int                `json:"global_replication_factor"`
-	EnabledDestinationCount   int                `json:"enabled_destination_count"`
-	ReadyDestinationCount     int                `json:"ready_destination_count"`
-	ReplicationReady          bool               `json:"replication_ready"`
-	Rows                      []backupCatalogRow `json:"rows"`
+	GeneratedAt             string             `json:"generated_at"`
+	GlobalReplicationFactor int                `json:"global_replication_factor"`
+	EnabledDestinationCount int                `json:"enabled_destination_count"`
+	ReadyDestinationCount   int                `json:"ready_destination_count"`
+	ReplicationReady        bool               `json:"replication_ready"`
+	Rows                    []backupCatalogRow `json:"rows"`
 }
 
 func (s *Server) handleGetBackupCatalog(w http.ResponseWriter, r *http.Request) {

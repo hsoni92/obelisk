@@ -104,7 +104,8 @@ export type ServiceInstance = {
     | "searxng"
     | "redpanda"
     | "unimeter"
-    | "bunqueue";
+    | "bunqueue"
+    | "browserless";
   display_name?: string;
   enabled: boolean;
   state?: string;
@@ -341,6 +342,8 @@ export type ConnectionBlock = {
   unimeter_health_http?: string;
   bunqueue_tcp?: string;
   bunqueue_health_http?: string;
+  browserless_http?: string;
+  browserless_ws?: string;
   databases?: { name: string; url: string }[];
 };
 
@@ -369,6 +372,8 @@ export type ConnectionsResponse = {
     unimeter_health_http?: string;
   bunqueue_tcp?: string;
   bunqueue_health_http?: string;
+    browserless_http?: string;
+    browserless_ws?: string;
     in_cluster?: ConnectionBlock;
   }[];
   notes?: string;

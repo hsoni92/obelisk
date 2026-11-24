@@ -80,11 +80,12 @@ else
   need k3d
   need helm
   need kubectl
-  if [ ! -f "${KUBECONFIG:-$ROOT/dev/kubeconfig}" ]; then
-    echo "[dev] cluster mode: bringing up k3d..."
-    make dev-k3d-up
-  fi
   export KUBECONFIG="${KUBECONFIG:-$ROOT/dev/kubeconfig}"
+  # kubeconfig can outlive a stopped/deleted cluster, so probe the API rather than the file.
+  if [ ! -f "$KUBECONFIG" ] || ! kubectl get --raw /readyz >/dev/null 2>&1; then
+    echo "[dev] cluster not reachable; bringing up k3d..."
+    OBELISK_KUBECONFIG="$KUBECONFIG" make dev-k3d-up
+  fi
   echo "[dev] reconcile: cluster (KUBECONFIG=$KUBECONFIG)"
 fi
 

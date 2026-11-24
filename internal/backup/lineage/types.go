@@ -25,32 +25,32 @@ type Witness struct {
 
 // Node is one backup record in a service forest.
 type Node struct {
-	ID           string  `json:"id"`
-	ParentID     string  `json:"parent_id,omitempty"`
-	CreatedAt    string  `json:"created_at"`
-	Trigger      string  `json:"trigger"`
-	ObjectKey    string  `json:"object_key"`
-	ManifestKey  string  `json:"manifest_key"`
-	Size         int64   `json:"size"`
-	Witness      Witness `json:"witness"`
-	Name         string  `json:"name,omitempty"`
-	Tombstone    bool    `json:"tombstone,omitempty"`
-	TombstoneAt  string  `json:"tombstone_at,omitempty"`
+	ID          string  `json:"id"`
+	ParentID    string  `json:"parent_id,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	Trigger     string  `json:"trigger"`
+	ObjectKey   string  `json:"object_key"`
+	ManifestKey string  `json:"manifest_key"`
+	Size        int64   `json:"size"`
+	Witness     Witness `json:"witness"`
+	Name        string  `json:"name,omitempty"`
+	Tombstone   bool    `json:"tombstone,omitempty"`
+	TombstoneAt string  `json:"tombstone_at,omitempty"`
 }
 
 // Forest is the lineage tree for one service instance (or orphan lineage).
 type Forest struct {
-	LineageID       string           `json:"lineage_id"`
-	ServiceType     string           `json:"service_type"`
-	InstanceID      string           `json:"instance_id"`
-	DisplayName     string           `json:"display_name,omitempty"`
-	Orphan          bool             `json:"orphan,omitempty"`
-	OrphanedAt      string           `json:"orphaned_at,omitempty"`
-	ActiveBackupID  string           `json:"active_backup_id,omitempty"`
-	Nodes           map[string]Node  `json:"nodes,omitempty"`
-	SourceBackupID  string           `json:"source_backup_id,omitempty"` // deploy-from-backup provenance
-	Clone           bool             `json:"clone,omitempty"`
-	CloneSourceKey  string           `json:"clone_source_key,omitempty"`
+	LineageID      string          `json:"lineage_id"`
+	ServiceType    string          `json:"service_type"`
+	InstanceID     string          `json:"instance_id"`
+	DisplayName    string          `json:"display_name,omitempty"`
+	Orphan         bool            `json:"orphan,omitempty"`
+	OrphanedAt     string          `json:"orphaned_at,omitempty"`
+	ActiveBackupID string          `json:"active_backup_id,omitempty"`
+	Nodes          map[string]Node `json:"nodes,omitempty"`
+	SourceBackupID string          `json:"source_backup_id,omitempty"` // deploy-from-backup provenance
+	Clone          bool            `json:"clone,omitempty"`
+	CloneSourceKey string          `json:"clone_source_key,omitempty"`
 }
 
 // Index is the machine-local authority for backup metadata.
@@ -61,16 +61,16 @@ type Index struct {
 
 // Manifest is the S3 sidecar written next to each data object.
 type Manifest struct {
-	SchemaVersion     int     `json:"schema_version"`
-	BackupID          string  `json:"backup_id"`
-	LineageID         string  `json:"lineage_id"`
-	ServiceType       string  `json:"service_type"`
-	InstanceID        string  `json:"instance_id"`
-	ParentID          string  `json:"parent_id,omitempty"`
-	CreatedAt         string  `json:"created_at"`
-	Trigger           string  `json:"trigger"`
-	ObjectKey         string  `json:"object_key"`
-	Size              int64   `json:"size"`
-	Witness           Witness `json:"witness"`
-	MachineID         string  `json:"machine_id,omitempty"`
+	SchemaVersion int     `json:"schema_version"`
+	BackupID      string  `json:"backup_id"`
+	LineageID     string  `json:"lineage_id"`
+	ServiceType   string  `json:"service_type"`
+	InstanceID    string  `json:"instance_id"`
+	ParentID      string  `json:"parent_id,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+	Trigger       string  `json:"trigger"`
+	ObjectKey     string  `json:"object_key"`
+	Size          int64   `json:"size"`
+	Witness       Witness `json:"witness"`
+	MachineID     string  `json:"machine_id,omitempty"`
 }

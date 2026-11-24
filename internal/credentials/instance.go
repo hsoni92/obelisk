@@ -63,6 +63,8 @@ func credentialsComplete(typ string, c obelisk.InstanceCredentials) bool {
 		return strings.TrimSpace(c.AccessKey) != "" && strings.TrimSpace(c.SecretKey) != ""
 	case "qdrant":
 		return strings.TrimSpace(c.AccessKey) != ""
+	case "browserless":
+		return strings.TrimSpace(c.AccessKey) != ""
 	case "searxng":
 		return strings.TrimSpace(c.SecretKey) != ""
 	case "redpanda":
@@ -85,6 +87,8 @@ func secretKeysForType(typ string) map[string]string {
 		}
 	case "qdrant":
 		return map[string]string{"access_key": "apiKey"}
+	case "browserless":
+		return map[string]string{"access_key": "token"}
 	case "searxng":
 		return map[string]string{"secret_key": "secretKey"}
 	case "redpanda":

@@ -29,10 +29,10 @@ func (c Collector) namespace() string {
 }
 
 type collectInput struct {
-	Spec     obelisk.Spec
-	States   map[string]string
-	Meta     rowMeta
-	DoDisk   bool
+	Spec   obelisk.Spec
+	States map[string]string
+	Meta   rowMeta
+	DoDisk bool
 }
 
 // CollectMinute samples memory and CPU; disk may be carried or refreshed.
@@ -116,16 +116,16 @@ func (c Collector) CollectMinute(ctx context.Context, store *Store, in collectIn
 		}
 
 		slot := Slot{
-			At:                now,
-			MemoryUsed:        memUsed,
-			MemoryTotal:       memTotal,
-			MemoryKnown:       memKnown && (def.Running || memUsed > 0),
-			CPUSharePercent:   cpuShare,
-			CPUKnown:          cpuKnown && def.Running,
-			DiskUsed:          diskUsed,
-			DiskTotal:         diskTotal,
-			DiskKnown:         diskKnown,
-			DiskObserved:      diskObs,
+			At:                    now,
+			MemoryUsed:            memUsed,
+			MemoryTotal:           memTotal,
+			MemoryKnown:           memKnown && (def.Running || memUsed > 0),
+			CPUSharePercent:       cpuShare,
+			CPUKnown:              cpuKnown && def.Running,
+			DiskUsed:              diskUsed,
+			DiskTotal:             diskTotal,
+			DiskKnown:             diskKnown,
+			DiskObserved:          diskObs,
 			RestartCount:          pi.RestartCount,
 			LastTerminationReason: pi.LastReason,
 			PodPhase:              pi.Phase,

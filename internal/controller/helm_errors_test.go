@@ -7,8 +7,8 @@ import (
 
 func TestHelmReleaseNotFound(t *testing.T) {
 	tests := []struct {
-		out string
-		err error
+		out  string
+		err  error
 		want bool
 	}{
 		{out: "", err: nil, want: false},

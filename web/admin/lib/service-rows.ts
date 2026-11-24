@@ -86,6 +86,8 @@ export function resolveConnection(
     bunqueue_tcp: inner.bunqueue_tcp ?? conn.bunqueue_tcp,
     bunqueue_health_http:
       inner.bunqueue_health_http ?? conn.bunqueue_health_http,
+    browserless_http: inner.browserless_http ?? conn.browserless_http,
+    browserless_ws: inner.browserless_ws ?? conn.browserless_ws,
     public_path: inner.host ?? conn.public_path,
   };
 }
@@ -123,6 +125,10 @@ export function connectionEntries(
     out.push({ label: "bunqueue TCP", value: view.bunqueue_tcp });
   if (view.bunqueue_health_http)
     out.push({ label: "bunqueue health", value: view.bunqueue_health_http });
+  if (view.browserless_http)
+    out.push({ label: "Browserless HTTP", value: view.browserless_http });
+  if (view.browserless_ws)
+    out.push({ label: "Browserless WS", value: view.browserless_ws });
   if (audience === "in_cluster" && conn?.in_cluster?.host) {
     out.unshift({ label: "Service DNS", value: conn.in_cluster.host });
   }

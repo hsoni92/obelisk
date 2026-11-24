@@ -29,6 +29,8 @@ type ConnectionBlock struct {
 	UnimeterHealthHTTP string               `json:"unimeter_health_http,omitempty"`
 	BunqueueTCP        string               `json:"bunqueue_tcp,omitempty"`
 	BunqueueHealthHTTP string               `json:"bunqueue_health_http,omitempty"`
+	BrowserlessHTTP    string               `json:"browserless_http,omitempty"`
+	BrowserlessWS      string               `json:"browserless_ws,omitempty"`
 	KafkaBootstrap     string               `json:"kafka_bootstrap,omitempty"`
 	SchemaRegistryHTTP string               `json:"schema_registry_http,omitempty"`
 	Databases          []DatabaseConnection `json:"databases,omitempty"`
@@ -113,6 +115,9 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 	case "bunqueue":
 		b.BunqueueTCP = fmt.Sprintf("%s:6789", host)
 		b.BunqueueHealthHTTP = fmt.Sprintf("http://%s:6790/health", host)
+	case "browserless":
+		b.BrowserlessHTTP = fmt.Sprintf("http://%s:3000", host)
+		b.BrowserlessWS = fmt.Sprintf("ws://%s:3000", host)
 	}
 
 	if IsRelationalEngine(inst.Type) {
@@ -166,6 +171,8 @@ func connectionBlockAsInstance(b ConnectionBlock) InstanceConnection {
 		QdrantHTTP:         b.QdrantHTTP,
 		QdrantGRPC:         b.QdrantGRPC,
 		SearXNGHTTP:        b.SearXNGHTTP,
+		BrowserlessHTTP:    b.BrowserlessHTTP,
+		BrowserlessWS:      b.BrowserlessWS,
 		UnimeterAPI:        b.UnimeterAPI,
 		UnimeterHealthHTTP: b.UnimeterHealthHTTP,
 		KafkaBootstrap:     b.KafkaBootstrap,
@@ -202,6 +209,8 @@ func applyConnectionBlock(ic InstanceConnection, b ConnectionBlock) InstanceConn
 	out.QdrantHTTP = b.QdrantHTTP
 	out.QdrantGRPC = b.QdrantGRPC
 	out.SearXNGHTTP = b.SearXNGHTTP
+	out.BrowserlessHTTP = b.BrowserlessHTTP
+	out.BrowserlessWS = b.BrowserlessWS
 	out.UnimeterAPI = b.UnimeterAPI
 	out.UnimeterHealthHTTP = b.UnimeterHealthHTTP
 	out.KafkaBootstrap = b.KafkaBootstrap

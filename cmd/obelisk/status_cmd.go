@@ -17,15 +17,15 @@ import (
 )
 
 type statusReport struct {
-	AdminURL      string                   `json:"admin_url"`
-	AdminAPI      string                   `json:"admin_api"`
-	Profile       string                   `json:"profile"`
-	MachineID     string                   `json:"machine_id"`
-	Reconcile     string                   `json:"reconcile"`
-	Blueprint     blueprintStatus          `json:"blueprint"`
-	Backup        backupStatus             `json:"backup"`
-	Platform      []platformComponent      `json:"platform"`
-	Instances     []instanceStatus         `json:"instances"`
+	AdminURL  string              `json:"admin_url"`
+	AdminAPI  string              `json:"admin_api"`
+	Profile   string              `json:"profile"`
+	MachineID string              `json:"machine_id"`
+	Reconcile string              `json:"reconcile"`
+	Blueprint blueprintStatus     `json:"blueprint"`
+	Backup    backupStatus        `json:"backup"`
+	Platform  []platformComponent `json:"platform"`
+	Instances []instanceStatus    `json:"instances"`
 }
 
 type blueprintStatus struct {

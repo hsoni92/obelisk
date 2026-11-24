@@ -187,6 +187,9 @@ export function ConfigureInstanceDialog({
     } else if (instance.type === "qdrant") {
       const access_key = String(data.get("access_key") || "");
       if (access_key) body.access_key = access_key;
+    } else if (instance.type === "browserless") {
+      const access_key = String(data.get("access_key") || "");
+      if (access_key) body.access_key = access_key;
     } else if (instance.type === "searxng") {
       const secret_key = String(data.get("secret_key") || "");
       if (secret_key) body.secret_key = secret_key;
@@ -293,6 +296,14 @@ export function ConfigureInstanceDialog({
               {instance.type === "qdrant" && (
                 <Field
                   label="API key"
+                  name="access_key"
+                  type="password"
+                  placeholder="Leave blank to keep current"
+                />
+              )}
+              {instance.type === "browserless" && (
+                <Field
+                  label="Access token"
                   name="access_key"
                   type="password"
                   placeholder="Leave blank to keep current"

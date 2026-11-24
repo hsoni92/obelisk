@@ -38,6 +38,7 @@ import {
   X,
   Activity,
   ListOrdered,
+  Globe,
 } from "lucide-react";
 import * as React from "react";
 
@@ -78,6 +79,7 @@ const TYPES: {
   { id: "redis", label: "Redis", desc: "In-memory cache, queues and pub/sub.", category: "Cache & messaging", icon: Layers },
   { id: "redpanda", label: "Redpanda", desc: "Kafka-compatible streaming platform.", category: "Cache & messaging", icon: Radio },
   { id: "bunqueue", label: "bunqueue", desc: "Bun job queue · TCP 6789 / HTTP 6790.", category: "Cache & messaging", icon: ListOrdered },
+  { id: "browserless", label: "Browserless", desc: "Headless Chromium over HTTP/WebSocket · 1 vCPU / 1 GiB cap.", category: "Vector & search", icon: Globe },
   { id: "unimeter", label: "Unimeter", desc: "Usage metering and billing events.", category: "Metering", icon: Activity },
 ];
 

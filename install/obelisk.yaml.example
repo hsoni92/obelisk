@@ -23,6 +23,8 @@ services:
     enabled: false
   bunqueue:
     enabled: false
+  browserless:
+    enabled: false
 backup:
   remote:
     endpoint: https://ACCOUNT_ID.r2.cloudflarestorage.com

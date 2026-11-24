@@ -1,4 +1,4 @@
-.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-observe dev-cluster install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-uninstall vm-destroy ci hooks-install gitleaks
+.PHONY: build-cli build-controller helm-lint dev-ui test-go dev dev-observe dev-cluster terminate install-air check-go test-vm vm-test-all vm-up vm-install vm-smoke vm-uninstall vm-destroy ci hooks-install gitleaks
 
 GITLEAKS ?= gitleaks
 PRE_COMMIT ?= pre-commit
@@ -33,6 +33,7 @@ helm-lint:
 	helm lint deploy/helm/services/redpanda
 	helm lint deploy/helm/services/unimeter
 	helm lint deploy/helm/services/bunqueue
+	helm lint deploy/helm/services/browserless
 
 ci: check-go test-go build-cli build-controller helm-lint
 	cd web/admin && npm ci && npm run build
@@ -82,6 +83,11 @@ dev-observe: check-go
 	./scripts/dev.sh --observe-only
 
 dev-cluster: dev
+
+# Stop all dev processes and delete the k3d cluster (dev/obelisk.yaml and credentials are kept).
+terminate:
+	chmod +x scripts/dev-terminate.sh
+	./scripts/dev-terminate.sh
 
 test-vm:
 	chmod +x tests/integration/multipass/harness.sh tests/integration/vm/*.sh install/build-images.sh

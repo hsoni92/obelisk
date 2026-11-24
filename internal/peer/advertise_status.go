@@ -7,10 +7,10 @@ import (
 
 // AdvertiseStatus is the last outcome of a local→gateway catalog push (in-memory).
 type AdvertiseStatus struct {
-	OK            bool       `json:"ok"`
-	LastOKAt      time.Time  `json:"last_ok_at,omitempty"`
-	LastAttemptAt time.Time  `json:"last_attempt_at,omitempty"`
-	LastError     string     `json:"last_error,omitempty"`
+	OK            bool      `json:"ok"`
+	LastOKAt      time.Time `json:"last_ok_at,omitempty"`
+	LastAttemptAt time.Time `json:"last_attempt_at,omitempty"`
+	LastError     string    `json:"last_error,omitempty"`
 }
 
 var advertiseStatusMu sync.RWMutex

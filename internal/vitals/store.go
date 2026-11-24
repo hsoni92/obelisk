@@ -33,9 +33,9 @@ type diskHold struct {
 }
 
 type diskJob struct {
-	RowKey    string
-	Release   string
-	Mounts    []diskMount
+	RowKey  string
+	Release string
+	Mounts  []diskMount
 }
 
 type diskMount struct {
@@ -143,11 +143,11 @@ type rowMeta struct {
 }
 
 type rowDef struct {
-	Key       string
-	Name      string
-	Kind      string
-	Type      string
-	Running   bool
+	Key     string
+	Name    string
+	Kind    string
+	Type    string
+	Running bool
 }
 
 func machineFromRing(r *Ring) MachineVitals {

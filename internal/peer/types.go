@@ -46,14 +46,14 @@ type FederatedTarget struct {
 
 // PeerRecord is runtime state for one local peer on the gateway.
 type PeerRecord struct {
-	ID           string                        `json:"id"`
-	MachineID    string                        `json:"machine_id,omitempty"`
-	TailnetHost          string                        `json:"tailnet_host,omitempty"`
-	NativeBackhaulPort   int                           `json:"native_backhaul_port,omitempty"`
-	HTTPBackhaulPort     int                           `json:"http_backhaul_port,omitempty"`
-	Admitted             bool                          `json:"admitted"`
-	TokenHash    string                        `json:"token_hash,omitempty"`
-	LastSeen     time.Time                     `json:"last_seen"`
-	Reachable    bool                          `json:"reachable"`
-	Instances    map[string]AdvertisedInstance `json:"instances,omitempty"`
+	ID                 string                        `json:"id"`
+	MachineID          string                        `json:"machine_id,omitempty"`
+	TailnetHost        string                        `json:"tailnet_host,omitempty"`
+	NativeBackhaulPort int                           `json:"native_backhaul_port,omitempty"`
+	HTTPBackhaulPort   int                           `json:"http_backhaul_port,omitempty"`
+	Admitted           bool                          `json:"admitted"`
+	TokenHash          string                        `json:"token_hash,omitempty"`
+	LastSeen           time.Time                     `json:"last_seen"`
+	Reachable          bool                          `json:"reachable"`
+	Instances          map[string]AdvertisedInstance `json:"instances,omitempty"`
 }

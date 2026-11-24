@@ -15,24 +15,24 @@ const keyInfoURL = "https://openrouter.ai/api/v1/key"
 
 // KeyMetadata is returned from OpenRouter when validating a provisioning/management key.
 type KeyMetadata struct {
-	Fingerprint        string `json:"fingerprint"`
-	KeyTail            string `json:"key_tail,omitempty"`
-	UpstreamLabel      string `json:"upstream_label,omitempty"`
-	CreatorUserID      string `json:"creator_user_id,omitempty"`
-	WorkspaceID        string `json:"workspace_id,omitempty"`
-	IsProvisioningKey  bool   `json:"is_provisioning_key,omitempty"`
-	IsManagementKey    bool   `json:"is_management_key,omitempty"`
+	Fingerprint       string `json:"fingerprint"`
+	KeyTail           string `json:"key_tail,omitempty"`
+	UpstreamLabel     string `json:"upstream_label,omitempty"`
+	CreatorUserID     string `json:"creator_user_id,omitempty"`
+	WorkspaceID       string `json:"workspace_id,omitempty"`
+	IsProvisioningKey bool   `json:"is_provisioning_key,omitempty"`
+	IsManagementKey   bool   `json:"is_management_key,omitempty"`
 }
 
 type keyInfoResponse struct {
 	Data struct {
-		Label               string  `json:"label"`
-		CreatorUserID       string  `json:"creator_user_id"`
-		WorkspaceID         string  `json:"workspace_id"`
-		IsProvisioningKey   bool    `json:"is_provisioning_key"`
-		IsManagementKey     bool    `json:"is_management_key"`
-		Limit               *float64 `json:"limit"`
-		Usage               *float64 `json:"usage"`
+		Label             string   `json:"label"`
+		CreatorUserID     string   `json:"creator_user_id"`
+		WorkspaceID       string   `json:"workspace_id"`
+		IsProvisioningKey bool     `json:"is_provisioning_key"`
+		IsManagementKey   bool     `json:"is_management_key"`
+		Limit             *float64 `json:"limit"`
+		Usage             *float64 `json:"usage"`
 	} `json:"data"`
 	Error *struct {
 		Message string `json:"message"`
@@ -100,11 +100,11 @@ func LookupKey(apiKey string) (KeyMetadata, error) {
 	}
 	return KeyMetadata{
 		Fingerprint:       FingerprintKey(apiKey),
-		KeyTail:             KeyTail(apiKey),
-		UpstreamLabel:       strings.TrimSpace(parsed.Data.Label),
-		CreatorUserID:       strings.TrimSpace(parsed.Data.CreatorUserID),
-		WorkspaceID:         strings.TrimSpace(parsed.Data.WorkspaceID),
-		IsProvisioningKey:   parsed.Data.IsProvisioningKey,
-		IsManagementKey:     parsed.Data.IsManagementKey,
+		KeyTail:           KeyTail(apiKey),
+		UpstreamLabel:     strings.TrimSpace(parsed.Data.Label),
+		CreatorUserID:     strings.TrimSpace(parsed.Data.CreatorUserID),
+		WorkspaceID:       strings.TrimSpace(parsed.Data.WorkspaceID),
+		IsProvisioningKey: parsed.Data.IsProvisioningKey,
+		IsManagementKey:   parsed.Data.IsManagementKey,
 	}, nil
 }

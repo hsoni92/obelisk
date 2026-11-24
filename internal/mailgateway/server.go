@@ -72,10 +72,10 @@ func (s *Server) Handler() http.Handler {
 }
 
 type Status struct {
-	Enabled              bool   `json:"enabled"`
-	Configured           bool   `json:"configured"`
-	LastAccountID        string `json:"last_account_id,omitempty"`
-	EnabledAccountCount  int    `json:"enabled_account_count"`
+	Enabled             bool   `json:"enabled"`
+	Configured          bool   `json:"configured"`
+	LastAccountID       string `json:"last_account_id,omitempty"`
+	EnabledAccountCount int    `json:"enabled_account_count"`
 }
 
 func (s *Server) Status() Status {

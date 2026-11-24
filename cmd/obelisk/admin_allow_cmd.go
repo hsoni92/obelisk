@@ -89,12 +89,12 @@ func cmdAdminAllowList(args []string) {
 	}
 	if *asJSON {
 		out := map[string]any{
-			"enforced":         enforced,
-			"logins":             list.Logins,
-			"credentials_dir":    credDir,
-			"allowlist_file":     "admin-github-allowlist.json",
-			"open_when_missing":  true,
-			"empty_list_denies":  true,
+			"enforced":            enforced,
+			"logins":              list.Logins,
+			"credentials_dir":     credDir,
+			"allowlist_file":      "admin-github-allowlist.json",
+			"open_when_missing":   true,
+			"empty_list_denies":   true,
 			"local_bearer_bypass": true,
 		}
 		enc := json.NewEncoder(os.Stdout)

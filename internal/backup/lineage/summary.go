@@ -2,11 +2,11 @@ package lineage
 
 // ForestSummary is a compact view for catalog / monitor UIs.
 type ForestSummary struct {
-	NodeCount              int
-	ActiveID               string
-	ActiveCreatedAt        string
-	ActiveSize             int64
-	ActiveWitnessRF        int
+	NodeCount       int
+	ActiveID        string
+	ActiveCreatedAt string
+	ActiveSize      int64
+	ActiveWitnessRF int
 }
 
 // SummarizeForest counts live nodes and resolves the active snapshot metadata.

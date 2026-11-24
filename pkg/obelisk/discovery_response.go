@@ -7,7 +7,7 @@ import (
 
 // ProjectDiscovery is the GET /discover/v1/projects/{id} JSON body.
 type ProjectDiscovery struct {
-	SchemaVersion int    `json:"schema_version"`
+	SchemaVersion int `json:"schema_version"`
 	Project       struct {
 		ID   string `json:"id"`
 		Name string `json:"name"`

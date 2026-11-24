@@ -7,37 +7,37 @@ import (
 
 // Reason codes surfaced in overview/API when an instance is not running cleanly.
 const (
-	ReasonReleaseMissing    = "release_missing"
-	ReasonHelmPendingInstall = "helm_pending_install"
-	ReasonHelmPendingUpgrade = "helm_pending_upgrade"
+	ReasonReleaseMissing      = "release_missing"
+	ReasonHelmPendingInstall  = "helm_pending_install"
+	ReasonHelmPendingUpgrade  = "helm_pending_upgrade"
 	ReasonHelmPendingRollback = "helm_pending_rollback"
-	ReasonHelmFailed        = "helm_failed"
-	ReasonPodCrashLoop      = "pod_crashloop"
-	ReasonPodImagePull      = "pod_image_pull"
-	ReasonPodPendingPVC     = "pod_pending_pvc"
-	ReasonPodNotReady       = "pod_not_ready"
-	ReasonDBInitFailed      = "db_init_failed"
-	ReasonChartInvalid      = "chart_invalid"
-	ReasonApplyTimeout      = "apply_timeout"
-	ReasonBackoffWait       = "backoff_wait"
-	ReasonStoppingDrain     = "stopping_drain"
-	ReasonInitialInstall    = "initial_install_pending"
+	ReasonHelmFailed          = "helm_failed"
+	ReasonPodCrashLoop        = "pod_crashloop"
+	ReasonPodImagePull        = "pod_image_pull"
+	ReasonPodPendingPVC       = "pod_pending_pvc"
+	ReasonPodNotReady         = "pod_not_ready"
+	ReasonDBInitFailed        = "db_init_failed"
+	ReasonChartInvalid        = "chart_invalid"
+	ReasonApplyTimeout        = "apply_timeout"
+	ReasonBackoffWait         = "backoff_wait"
+	ReasonStoppingDrain       = "stopping_drain"
+	ReasonInitialInstall      = "initial_install_pending"
 )
 
 type InstanceStatus struct {
-	State       string
-	ReasonCode  string
-	Detail      string
-	DesiredHash uint64
-	Attempts    int
-	LastAttempt time.Time
-	LastSuccess time.Time
-	NextRetry   time.Time
+	State        string
+	ReasonCode   string
+	Detail       string
+	DesiredHash  uint64
+	Attempts     int
+	LastAttempt  time.Time
+	LastSuccess  time.Time
+	NextRetry    time.Time
 	PendingSince time.Time
 }
 
 type statusStore struct {
-	mu   sync.RWMutex
+	mu    sync.RWMutex
 	byKey map[string]*InstanceStatus
 }
 

@@ -60,6 +60,7 @@
         "rustfs": { "$ref": "#/$defs/serviceToggle" },
         "qdrant": { "$ref": "#/$defs/serviceToggle" },
         "searxng": { "$ref": "#/$defs/serviceToggle" },
+        "browserless": { "$ref": "#/$defs/serviceToggle" },
         "redpanda": { "$ref": "#/$defs/serviceToggle" }
       }
     },

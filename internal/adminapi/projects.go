@@ -17,14 +17,14 @@ import (
 )
 
 type projectView struct {
-	ID                          string   `json:"id"`
-	Name                        string   `json:"name"`
-	InstanceIDs                 []string `json:"instance_ids,omitempty"`
-	DiscoveryEnabled            bool     `json:"discovery_enabled"`
-	DiscoveryConfigured         bool     `json:"discovery_configured"`
-	DiscoveryURL                string   `json:"discovery_url,omitempty"`
-	DiscoveryURLInCluster       string   `json:"discovery_url_in_cluster,omitempty"`
-	DiscoveryKongInClusterURL   string   `json:"discovery_kong_in_cluster_url,omitempty"`
+	ID                        string   `json:"id"`
+	Name                      string   `json:"name"`
+	InstanceIDs               []string `json:"instance_ids,omitempty"`
+	DiscoveryEnabled          bool     `json:"discovery_enabled"`
+	DiscoveryConfigured       bool     `json:"discovery_configured"`
+	DiscoveryURL              string   `json:"discovery_url,omitempty"`
+	DiscoveryURLInCluster     string   `json:"discovery_url_in_cluster,omitempty"`
+	DiscoveryKongInClusterURL string   `json:"discovery_kong_in_cluster_url,omitempty"`
 }
 
 func (s *Server) enrichProjectView(cfg string, p obelisk.Project) projectView {

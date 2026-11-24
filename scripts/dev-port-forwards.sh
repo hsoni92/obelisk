@@ -80,6 +80,9 @@ forward_release() {
     obelisk-rustfs-*)
       ensure_forward "$svc" 9000 9000
       ;;
+    obelisk-browserless-*)
+      ensure_forward "$svc" 13000 3000
+      ;;
     obelisk-searxng-*)
       ensure_forward "$svc" 18080 8080
       ;;

@@ -11,32 +11,32 @@ const RingSize = 30
 type Slot struct {
 	At time.Time `json:"at"`
 
-	MemoryUsed      int64 `json:"memory_used_bytes"`
-	MemoryTotal     int64 `json:"memory_total_bytes"`
-	MemoryKnown     bool  `json:"memory_known"`
+	MemoryUsed  int64 `json:"memory_used_bytes"`
+	MemoryTotal int64 `json:"memory_total_bytes"`
+	MemoryKnown bool  `json:"memory_known"`
 
 	CPUSharePercent float64 `json:"cpu_share_percent"`
 	CPUKnown        bool    `json:"cpu_known"`
 
-	DiskUsed      int64     `json:"disk_used_bytes"`
-	DiskTotal     int64     `json:"disk_total_bytes"`
-	DiskKnown     bool      `json:"disk_known"`
-	DiskObserved  time.Time `json:"disk_observed_at"`
+	DiskUsed     int64     `json:"disk_used_bytes"`
+	DiskTotal    int64     `json:"disk_total_bytes"`
+	DiskKnown    bool      `json:"disk_known"`
+	DiskObserved time.Time `json:"disk_observed_at"`
 
-	RestartCount             int       `json:"restart_count,omitempty"`
-	LastTerminationReason    string    `json:"last_termination_reason,omitempty"`
-	PodPhase                 string    `json:"pod_phase,omitempty"`
-	RunningSince             time.Time `json:"running_since,omitempty"`
-	PodReady                 bool      `json:"pod_ready,omitempty"`
-	WaitingReason            string    `json:"waiting_reason,omitempty"`
+	RestartCount          int       `json:"restart_count,omitempty"`
+	LastTerminationReason string    `json:"last_termination_reason,omitempty"`
+	PodPhase              string    `json:"pod_phase,omitempty"`
+	RunningSince          time.Time `json:"running_since,omitempty"`
+	PodReady              bool      `json:"pod_ready,omitempty"`
+	WaitingReason         string    `json:"waiting_reason,omitempty"`
 }
 
 // Ring is a fixed-size circular buffer of slots.
 type Ring struct {
-	mu   sync.RWMutex
+	mu    sync.RWMutex
 	slots [RingSize]Slot
-	n    int
-	head int
+	n     int
+	head  int
 }
 
 func (r *Ring) Append(s Slot) {

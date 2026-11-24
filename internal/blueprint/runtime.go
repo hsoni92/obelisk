@@ -339,8 +339,8 @@ func (rt *Runtime) Import(ctx context.Context, passphrase, repository, branchOve
 		branch = obelisk.EffectiveBlueprintBranch(current)
 	}
 	var (
-		kdf  KDFParams
-		key  []byte
+		kdf    KDFParams
+		key    []byte
 		bundle Bundle
 	)
 	var importErr error

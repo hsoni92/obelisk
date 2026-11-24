@@ -70,6 +70,7 @@ const TYPES = [
   "redpanda",
   "unimeter",
   "bunqueue",
+  "browserless",
 ] as const;
 
 function ServicesPageContent() {

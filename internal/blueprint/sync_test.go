@@ -397,5 +397,3 @@ func fakeGitHubContentsServer(t *testing.T, files map[string][]byte) *httptest.S
 		http.NotFound(w, r)
 	}))
 }
-
-

@@ -10,19 +10,19 @@ import (
 
 // DestinationRuntimeStatus is volatile per-destination health (backup-status.json).
 type DestinationRuntimeStatus struct {
-	LastTestAt        string `json:"last_test_at,omitempty"`
-	LastTestOK        *bool  `json:"last_test_ok,omitempty"`
-	LastTestMessage   string `json:"last_test_message,omitempty"`
-	LastUploadAt      string `json:"last_upload_at,omitempty"`
-	LastInventoryAt   string `json:"last_inventory_at,omitempty"`
-	Bytes             int64  `json:"bytes,omitempty"`
-	Objects           int    `json:"objects,omitempty"`
-	LastError         string `json:"last_error,omitempty"`
+	LastTestAt      string `json:"last_test_at,omitempty"`
+	LastTestOK      *bool  `json:"last_test_ok,omitempty"`
+	LastTestMessage string `json:"last_test_message,omitempty"`
+	LastUploadAt    string `json:"last_upload_at,omitempty"`
+	LastInventoryAt string `json:"last_inventory_at,omitempty"`
+	Bytes           int64  `json:"bytes,omitempty"`
+	Objects         int    `json:"objects,omitempty"`
+	LastError       string `json:"last_error,omitempty"`
 }
 
 // StatusFile tracks DR runtime state beside obelisk.yaml.
 type StatusFile struct {
-	LastRunAt    string                              `json:"last_run_at,omitempty"`
+	LastRunAt string `json:"last_run_at,omitempty"`
 	// Instances maps "<type>/<id>" to the RFC3339 time its data was last uploaded.
 	Instances    map[string]string                   `json:"instances,omitempty"`
 	Destinations map[string]DestinationRuntimeStatus `json:"destinations,omitempty"`

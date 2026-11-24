@@ -10,8 +10,8 @@ type InstanceRef struct {
 
 // RunResponse is the outcome of POST /api/v1/diagnostics/run.
 type RunResponse struct {
-	StartedAt string            `json:"started_at"`
-	Results   []InstanceResult    `json:"results"`
+	StartedAt string           `json:"started_at"`
+	Results   []InstanceResult `json:"results"`
 }
 
 // InstanceResult is a single end-to-end probe using published connection URLs.

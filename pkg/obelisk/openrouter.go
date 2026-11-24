@@ -9,8 +9,8 @@ const OpenRouterUpstreamBase = "https://openrouter.ai"
 
 // OpenRouterGateway configures multi-account round-robin proxying to OpenRouter.
 type OpenRouterGateway struct {
-	Enabled  bool                 `yaml:"enabled" json:"enabled"`
-	Accounts []OpenRouterAccount  `yaml:"accounts,omitempty" json:"accounts,omitempty"`
+	Enabled  bool                `yaml:"enabled" json:"enabled"`
+	Accounts []OpenRouterAccount `yaml:"accounts,omitempty" json:"accounts,omitempty"`
 }
 
 // OpenRouterAccount is metadata in obelisk.yaml; API keys live in openrouter.credentials.json.

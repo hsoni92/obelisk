@@ -15,7 +15,7 @@ import (
 )
 
 type podTop struct {
-	Name    string
+	Name     string
 	CPUMilli int64
 	MemBytes int64
 }
@@ -105,7 +105,7 @@ func kubectlNodeCapacity(ctx context.Context) (nodeCaps, error) {
 	var doc struct {
 		Items []struct {
 			Status struct {
-				Capacity map[string]string `json:"capacity"`
+				Capacity   map[string]string `json:"capacity"`
 				Conditions []struct {
 					Type   string `json:"type"`
 					Status string `json:"status"`
@@ -127,11 +127,11 @@ func kubectlNodeCapacity(ctx context.Context) (nodeCaps, error) {
 }
 
 type podInspect struct {
-	RestartCount int
-	LastReason   string
-	Phase        string
-	RunningSince time.Time
-	Ready        bool
+	RestartCount  int
+	LastReason    string
+	Phase         string
+	RunningSince  time.Time
+	Ready         bool
 	WaitingReason string
 }
 
@@ -144,8 +144,8 @@ func kubectlPodInspect(ctx context.Context, ns, pod string) (podInspect, error) 
 	}
 	var doc struct {
 		Status struct {
-			Phase     string `json:"phase"`
-			StartTime string `json:"startTime"`
+			Phase      string `json:"phase"`
+			StartTime  string `json:"startTime"`
 			Conditions []struct {
 				Type   string `json:"type"`
 				Status string `json:"status"`

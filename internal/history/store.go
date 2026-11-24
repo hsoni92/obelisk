@@ -11,22 +11,22 @@ import (
 
 // Event is one observed state transition for a component key.
 type Event struct {
-	At        time.Time `json:"at"`
-	Key       string    `json:"key"`
-	Kind      string    `json:"kind"` // platform | instance
-	State     string    `json:"state"`
-	Detail    string    `json:"detail,omitempty"`
-	HelmStatus string   `json:"helm_status,omitempty"`
+	At         time.Time `json:"at"`
+	Key        string    `json:"key"`
+	Kind       string    `json:"kind"` // platform | instance
+	State      string    `json:"state"`
+	Detail     string    `json:"detail,omitempty"`
+	HelmStatus string    `json:"helm_status,omitempty"`
 }
 
 const defaultRetention = 24 * time.Hour
 
 // Store appends transition events and prunes by retention.
 type Store struct {
-	path       string
-	retention  time.Duration
-	mu         sync.Mutex
-	lastState  map[string]string
+	path      string
+	retention time.Duration
+	mu        sync.Mutex
+	lastState map[string]string
 }
 
 func NewStore(path string) *Store {

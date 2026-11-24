@@ -89,11 +89,12 @@ var NativeEdgeTypes = map[string]int{
 
 // HTTPEdgeTypes are exposed on the Kong HTTP admin port by hostname.
 var HTTPEdgeTypes = map[string]int{
-	"rustfs":  9000,
-	"qdrant":  6333,
-	"searxng": 8080,
-	"redpanda":  8081,
-	"bunqueue":  6790,
+	"rustfs":      9000,
+	"qdrant":      6333,
+	"searxng":     8080,
+	"redpanda":    8081,
+	"bunqueue":    6790,
+	"browserless": 3000,
 }
 
 func nativeEdgePort(typ string) (int, bool) {

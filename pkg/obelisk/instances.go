@@ -21,7 +21,7 @@ type InstanceCredentials struct {
 type ServiceInstance struct {
 	// ID is the immutable route slug (e.g. calm-otter) used in edge hostnames and Helm release names.
 	ID          string                 `yaml:"id" json:"id"`
-	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng | redpanda | unimeter | bunqueue
+	Type        string                 `yaml:"type" json:"type"` // postgres | mysql | mongodb | redis | rustfs | qdrant | searxng | redpanda | unimeter | bunqueue | browserless
 	DisplayName string                 `yaml:"display_name,omitempty" json:"display_name,omitempty"`
 	Enabled     bool                   `yaml:"enabled" json:"enabled"`
 	Backup      InstanceBackupSettings `yaml:"backup,omitempty" json:"backup,omitempty"`
@@ -66,6 +66,10 @@ func DefaultCredentialsForType(typ string) InstanceCredentials {
 	case "searxng":
 		return InstanceCredentials{
 			SecretKey: randomDevSecret(32),
+		}
+	case "browserless":
+		return InstanceCredentials{
+			AccessKey: randomDevSecret(32),
 		}
 	case "redpanda":
 		return InstanceCredentials{
@@ -128,10 +132,10 @@ func SlugID(s string) string {
 
 func ValidateServiceType(typ string) error {
 	switch typ {
-	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng", "redpanda", "unimeter", "bunqueue":
+	case "postgres", "mysql", "mongodb", "redis", "rustfs", "qdrant", "searxng", "redpanda", "unimeter", "bunqueue", "browserless":
 		return nil
 	default:
-		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, searxng, redpanda, unimeter, or bunqueue")
+		return fmt.Errorf("type must be postgres, mysql, mongodb, redis, rustfs, qdrant, searxng, redpanda, unimeter, bunqueue, or browserless")
 	}
 }
 
@@ -207,6 +211,9 @@ func NormalizeInstances(spec *Spec) {
 		}
 		if spec.Services.Bunqueue.Enabled {
 			spec.Instances = append(spec.Instances, legacyInstance("bunqueue", "default", spec))
+		}
+		if spec.Services.Browserless.Enabled {
+			spec.Instances = append(spec.Instances, legacyInstance("browserless", "default", spec))
 		}
 	}
 	for i := range spec.Instances {
@@ -298,6 +305,8 @@ func legacyInstance(typ, id string, spec *Spec) ServiceInstance {
 		enabled = spec.Services.Unimeter.Enabled
 	case "bunqueue":
 		enabled = spec.Services.Bunqueue.Enabled
+	case "browserless":
+		enabled = spec.Services.Browserless.Enabled
 	}
 	return ServiceInstance{
 		ID:          id,
@@ -321,6 +330,7 @@ func SyncLegacyServiceFlags(spec *Spec) {
 	spec.Services.Redpanda.Enabled = anyInstanceEnabled(spec, "redpanda")
 	spec.Services.Unimeter.Enabled = anyInstanceEnabled(spec, "unimeter")
 	spec.Services.Bunqueue.Enabled = anyInstanceEnabled(spec, "bunqueue")
+	spec.Services.Browserless.Enabled = anyInstanceEnabled(spec, "browserless")
 }
 
 func anyInstanceEnabled(spec *Spec, typ string) bool {

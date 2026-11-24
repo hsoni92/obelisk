@@ -23,6 +23,8 @@ func writeInstanceValues(vpsEdge, edgeTLSReady bool, inst obelisk.ServiceInstanc
 		creds["secretKey"] = inst.Credentials.SecretKey
 	case "qdrant":
 		creds["apiKey"] = inst.Credentials.AccessKey
+	case "browserless":
+		creds["token"] = inst.Credentials.AccessKey
 	case "searxng":
 		creds["secretKey"] = inst.Credentials.SecretKey
 	case "redpanda":

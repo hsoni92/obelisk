@@ -13,8 +13,8 @@ type Machine struct {
 
 // Backup layout inside the machine bucket (operator does not configure these).
 const (
-	BackupConfigPrefix   = "config/"
-	BackupDataPrefix     = "data/"
+	BackupConfigPrefix    = "config/"
+	BackupDataPrefix      = "data/"
 	BackupPreflightObject = "preflight/.write-test"
 )
 

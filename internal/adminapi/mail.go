@@ -14,23 +14,23 @@ import (
 )
 
 type mailAccountView struct {
-	ID         string `json:"id"`
-	Label      string `json:"label"`
-	Enabled    bool   `json:"enabled"`
-	Address    string `json:"address"`
-	Provider   string `json:"provider,omitempty"`
-	HasSecret  bool   `json:"has_secret"`
-	Notes      string `json:"notes,omitempty"`
+	ID        string `json:"id"`
+	Label     string `json:"label"`
+	Enabled   bool   `json:"enabled"`
+	Address   string `json:"address"`
+	Provider  string `json:"provider,omitempty"`
+	HasSecret bool   `json:"has_secret"`
+	Notes     string `json:"notes,omitempty"`
 }
 
 type mailConfigResponse struct {
-	Enabled             bool                `json:"enabled"`
-	GatewayConfigured   bool                `json:"gateway_token_configured"`
-	GatewayPublicPath   string              `json:"gateway_public_path"`
-	GatewayListenHint   string              `json:"gateway_direct_path"`
-	GatewayLocalBaseURL string              `json:"gateway_local_base_url"`
-	Accounts            []mailAccountView   `json:"accounts"`
-	Runtime             mailgateway.Status  `json:"runtime"`
+	Enabled             bool               `json:"enabled"`
+	GatewayConfigured   bool               `json:"gateway_token_configured"`
+	GatewayPublicPath   string             `json:"gateway_public_path"`
+	GatewayListenHint   string             `json:"gateway_direct_path"`
+	GatewayLocalBaseURL string             `json:"gateway_local_base_url"`
+	Accounts            []mailAccountView  `json:"accounts"`
+	Runtime             mailgateway.Status `json:"runtime"`
 }
 
 type patchMailConfigRequest struct {
@@ -47,11 +47,11 @@ type postMailAccountRequest struct {
 }
 
 type patchMailAccountRequest struct {
-	Label    *string `json:"label,omitempty"`
-	Enabled  *bool   `json:"enabled,omitempty"`
-	Notes    *string `json:"notes,omitempty"`
-	Secret   *string `json:"secret,omitempty"`
-	Address  *string `json:"address,omitempty"`
+	Label   *string `json:"label,omitempty"`
+	Enabled *bool   `json:"enabled,omitempty"`
+	Notes   *string `json:"notes,omitempty"`
+	Secret  *string `json:"secret,omitempty"`
+	Address *string `json:"address,omitempty"`
 }
 
 type mailTestRequest struct {

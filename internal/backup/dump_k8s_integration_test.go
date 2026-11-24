@@ -5,7 +5,6 @@ import (
 	"os"
 	"os/exec"
 	"testing"
-
 )
 
 func TestK8sRustfsQdrantDumpsIntegration(t *testing.T) {

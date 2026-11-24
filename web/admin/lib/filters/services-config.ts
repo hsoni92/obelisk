@@ -18,6 +18,7 @@ export const SERVICE_TYPES = [
   "redpanda",
   "unimeter",
   "bunqueue",
+  "browserless",
 ] as const;
 
 export const SERVICE_STATES = [
@@ -42,6 +43,7 @@ export const SERVICE_TYPE_LABEL: Record<(typeof SERVICE_TYPES)[number], string> 
     redpanda: "Redpanda",
     unimeter: "Unimeter",
     bunqueue: "bunqueue",
+    browserless: "Browserless",
   };
 
 export function defaultServicesFilters(): SurfaceFilterState {

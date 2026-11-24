@@ -48,20 +48,20 @@ type backupScopeView struct {
 }
 
 type backupConfigResponse struct {
-	MachineID              string                  `json:"machine_id"`
-	Layout                 backupLayoutView        `json:"layout"`
-	Scope                  backupScopeView         `json:"scope"`
-	Policy                 backupPolicyView        `json:"policy"`
-	Destinations           []backupDestinationView `json:"destinations"`
-	BackupReady            bool                    `json:"backup_ready"`
-	ReplicationReady       bool                    `json:"replication_ready"`
-	ReadyDestinationCount  int                     `json:"ready_destination_count"`
-	EnabledDestinationCount int                    `json:"enabled_destination_count"`
-	ImplementationStatus   string                  `json:"implementation_status"`
-	LastRunAt              string                  `json:"last_run_at,omitempty"`
+	MachineID               string                  `json:"machine_id"`
+	Layout                  backupLayoutView        `json:"layout"`
+	Scope                   backupScopeView         `json:"scope"`
+	Policy                  backupPolicyView        `json:"policy"`
+	Destinations            []backupDestinationView `json:"destinations"`
+	BackupReady             bool                    `json:"backup_ready"`
+	ReplicationReady        bool                    `json:"replication_ready"`
+	ReadyDestinationCount   int                     `json:"ready_destination_count"`
+	EnabledDestinationCount int                     `json:"enabled_destination_count"`
+	ImplementationStatus    string                  `json:"implementation_status"`
+	LastRunAt               string                  `json:"last_run_at,omitempty"`
 	// LastBackupByInstance maps "<type>/<id>" to the RFC3339 time of its last data upload.
-	LastBackupByInstance   map[string]string       `json:"last_backup_by_instance,omitempty"`
-	CredentialsSecret      string                  `json:"credentials_secret"`
+	LastBackupByInstance map[string]string `json:"last_backup_by_instance,omitempty"`
+	CredentialsSecret    string            `json:"credentials_secret"`
 }
 
 type patchBackupPolicyRequest struct {
@@ -73,10 +73,10 @@ type patchBackupPolicyRequest struct {
 }
 
 type postBackupDestinationRequest struct {
-	Label       string `json:"label"`
-	Provider    string `json:"provider,omitempty"`
-	Endpoint    string `json:"endpoint"`
-	Enabled     *bool  `json:"enabled,omitempty"`
+	Label       string                    `json:"label"`
+	Provider    string                    `json:"provider,omitempty"`
+	Endpoint    string                    `json:"endpoint"`
+	Enabled     *bool                     `json:"enabled,omitempty"`
 	Credentials *backup.RemoteCredentials `json:"credentials,omitempty"`
 }
 
@@ -86,10 +86,10 @@ type deleteBackupDestinationRequest struct {
 }
 
 type patchBackupDestinationRequest struct {
-	Label       *string `json:"label,omitempty"`
-	Provider    *string `json:"provider,omitempty"`
-	Endpoint    *string `json:"endpoint,omitempty"`
-	Enabled     *bool   `json:"enabled,omitempty"`
+	Label       *string                   `json:"label,omitempty"`
+	Provider    *string                   `json:"provider,omitempty"`
+	Endpoint    *string                   `json:"endpoint,omitempty"`
+	Enabled     *bool                     `json:"enabled,omitempty"`
 	Credentials *backup.RemoteCredentials `json:"credentials,omitempty"`
 }
 

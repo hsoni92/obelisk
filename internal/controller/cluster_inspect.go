@@ -12,11 +12,11 @@ const PlatformRelease = "obelisk-platform"
 
 // HelmReleaseDetail from `helm status -o json`.
 type HelmReleaseDetail struct {
-	Status     string
-	Revision   int
-	Notes      string
+	Status      string
+	Revision    int
+	Notes       string
 	Description string
-	Err        error
+	Err         error
 }
 
 // PodSummary from kubectl pod list for a release label.

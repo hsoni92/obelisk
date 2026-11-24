@@ -90,12 +90,12 @@ type pendingAuth struct {
 
 // OAuth talks to GitHub's authorization and device endpoints.
 type OAuth struct {
-	Config          OAuthConfig
-	Client          *http.Client
-	AuthBase        string
-	CredentialsDir  string
-	mu              sync.Mutex
-	pending         map[string]pendingAuth
+	Config         OAuthConfig
+	Client         *http.Client
+	AuthBase       string
+	CredentialsDir string
+	mu             sync.Mutex
+	pending        map[string]pendingAuth
 }
 
 func NewOAuth(cfg OAuthConfig) *OAuth {

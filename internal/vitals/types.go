@@ -5,32 +5,32 @@ import "time"
 // API payload attached to GET /api/v1/overview.
 
 type Snapshot struct {
-	CollectedAt   time.Time      `json:"collected_at"`
-	Stale         bool           `json:"stale"`
-	Collecting    bool           `json:"collecting"`
-	Scarce        string         `json:"scarce_resource,omitempty"` // memory | disk | cpu
-	Machine       MachineVitals  `json:"machine"`
-	Unaccounted   Unaccounted    `json:"unaccounted"`
-	Rows          []RowVitals    `json:"rows"`
+	CollectedAt time.Time     `json:"collected_at"`
+	Stale       bool          `json:"stale"`
+	Collecting  bool          `json:"collecting"`
+	Scarce      string        `json:"scarce_resource,omitempty"` // memory | disk | cpu
+	Machine     MachineVitals `json:"machine"`
+	Unaccounted Unaccounted   `json:"unaccounted"`
+	Rows        []RowVitals   `json:"rows"`
 }
 
 type MachineVitals struct {
-	MemoryUsed      int64         `json:"memory_used_bytes"`
-	MemoryTotal     int64         `json:"memory_total_bytes"`
-	DiskUsed        int64         `json:"disk_used_bytes"`
-	DiskTotal       int64         `json:"disk_total_bytes"`
-	CPUPercent      float64       `json:"cpu_percent"`
-	MemorySeries    []Point       `json:"memory_series"`
-	DiskSeries      []Point       `json:"disk_series"`
-	CPUSeries       []Point       `json:"cpu_series"`
-	PressureMemory  bool          `json:"pressure_memory,omitempty"`
-	PressureDisk    bool          `json:"pressure_disk,omitempty"`
-	PressurePID     bool          `json:"pressure_pid,omitempty"`
+	MemoryUsed     int64   `json:"memory_used_bytes"`
+	MemoryTotal    int64   `json:"memory_total_bytes"`
+	DiskUsed       int64   `json:"disk_used_bytes"`
+	DiskTotal      int64   `json:"disk_total_bytes"`
+	CPUPercent     float64 `json:"cpu_percent"`
+	MemorySeries   []Point `json:"memory_series"`
+	DiskSeries     []Point `json:"disk_series"`
+	CPUSeries      []Point `json:"cpu_series"`
+	PressureMemory bool    `json:"pressure_memory,omitempty"`
+	PressureDisk   bool    `json:"pressure_disk,omitempty"`
+	PressurePID    bool    `json:"pressure_pid,omitempty"`
 }
 
 type Unaccounted struct {
-	MemoryBytes int64 `json:"memory_bytes"`
-	DiskBytes   int64 `json:"disk_bytes"`
+	MemoryBytes int64   `json:"memory_bytes"`
+	DiskBytes   int64   `json:"disk_bytes"`
 	CPUPercent  float64 `json:"cpu_percent"`
 }
 

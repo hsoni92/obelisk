@@ -11,9 +11,9 @@ import (
 )
 
 type tailscaleConnectRequest struct {
-	AuthKey         string `json:"auth_key"`
-	EnableInConfig  bool   `json:"enable_in_config"`
-	GatewayRole     bool   `json:"gateway_role"`
+	AuthKey        string `json:"auth_key"`
+	EnableInConfig bool   `json:"enable_in_config"`
+	GatewayRole    bool   `json:"gateway_role"`
 }
 
 type deploymentPatchRequest struct {
@@ -140,8 +140,8 @@ func (s *Server) handlePatchDeployment(w http.ResponseWriter, r *http.Request) {
 	rec := s.reconciler(s.ConfigPath)
 	_, _ = rec.Reconcile(r.Context())
 	writeJSON(w, map[string]any{
-		"profile": spec.Deployment.Profile,
-		"role":    spec.Deployment.Role,
+		"profile":   spec.Deployment.Profile,
+		"role":      spec.Deployment.Role,
 		"tailscale": spec.Deployment.Tailscale.Enabled,
 	})
 }

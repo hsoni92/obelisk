@@ -1,0 +1,18 @@
+replicas: 1
+image: ghcr.io/browserless/chromium:v2.38.1
+credentials:
+  token: ""
+# Stateless: no PVC. Tuned for minimal footprint — one concurrent session, short queue.
+concurrent: 1
+queued: 5
+timeoutMs: 30000
+# /dev/shm for Chromium (memory-backed, counts toward the container memory limit).
+shmSize: 256Mi
+# Hard cap: 1 vCPU / 1 GiB per instance.
+resources:
+  requests:
+    cpu: 50m
+    memory: 256Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
