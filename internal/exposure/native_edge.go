@@ -110,17 +110,13 @@ func nativeEdgeConfigNeeded(spec obelisk.Spec, federated []peer.FederatedTarget,
 	return false
 }
 
-func nativeEdgeWorkNeeded(spec obelisk.Spec, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) bool {
-	return nativeEdgeConfigNeeded(spec, federated, backhaul)
-}
-
 // ReconcileNativeEdge updates the nginx stream proxy for native TLS data services.
+// The platform chart always deploys obelisk-native-edge and mounts native-edge-config,
+// so the ConfigMap must exist even when no native TLS service is enabled; in that case
+// RenderNativeEdgeNginx yields the placeholder config instead of skipping the apply.
 func ReconcileNativeEdge(ctx context.Context, spec obelisk.Spec, namespace string, federated []peer.FederatedTarget, backhaul *peer.BackhaulInfo) error {
 	if namespace == "" {
 		namespace = "obelisk"
-	}
-	if !nativeEdgeWorkNeeded(spec, federated, backhaul) {
-		return nil
 	}
 	body := []byte(RenderNativeEdgeNginx(spec, namespace, federated, backhaul))
 	current, err := nativeEdgeConfigFromCluster(ctx, namespace)
