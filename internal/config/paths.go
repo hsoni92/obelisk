@@ -86,6 +86,23 @@ func defaultProfileForPath(path string) string {
 	return "local"
 }
 
+// existingApplianceState reports whether path is the live appliance config and sits next to
+// state that only a provisioned appliance has (appliance-id or credential files).
+func existingApplianceState(path string) bool {
+	if filepath.Clean(path) != WritableApplianceConfigPath {
+		return false
+	}
+	return provisionedStateDir(filepath.Dir(path))
+}
+
+func provisionedStateDir(dir string) bool {
+	if _, err := os.Stat(filepath.Join(dir, "appliance-id")); err == nil {
+		return true
+	}
+	entries, err := os.ReadDir(filepath.Join(dir, "credentials"))
+	return err == nil && len(entries) > 0
+}
+
 func autoInitAllowed(path string) bool {
 	return path != DefaultPath
 }

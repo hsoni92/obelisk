@@ -1,6 +1,7 @@
 package config
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -13,6 +14,10 @@ import (
 )
 
 const DefaultPath = "/etc/obelisk/obelisk.yaml"
+
+// ErrLiveConfigMissing means the appliance already has identity/credentials on disk but its
+// live obelisk.yaml is gone. Restore it (blueprint, backup) or remove appliance-id to start fresh.
+var ErrLiveConfigMissing = errors.New("live config missing on a provisioned appliance; restore it from a blueprint or backup, or delete appliance-id and credentials to re-provision")
 
 // Options controls bootstrap identity when loading config.
 type Options struct {
@@ -38,6 +43,11 @@ func load(path string, opt Options) (obelisk.Spec, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) && autoInitAllowed(path) {
+			if existingApplianceState(path) {
+				// A live config that vanished on an already-provisioned appliance must never be
+				// replaced by defaults: the empty spec would make the controller prune every release.
+				return obelisk.Spec{}, fmt.Errorf("%w: %s", ErrLiveConfigMissing, path)
+			}
 			spec := obelisk.DefaultSpec(defaultProfileForPath(path))
 			if opt.AdoptMachineID != "" {
 				spec.Machine.ID = opt.AdoptMachineID

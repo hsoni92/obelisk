@@ -1,6 +1,10 @@
 package controller
 
-import "testing"
+import (
+	"testing"
+
+	"github.com/hsoni92/obelisk/pkg/obelisk"
+)
 
 func TestOrphanGraceAndDeleteIntent(t *testing.T) {
 	release := "obelisk-redis-test"
@@ -20,5 +24,14 @@ func TestOrphanGraceAndDeleteIntent(t *testing.T) {
 	}
 	if consumeDeleteIntent(release) {
 		t.Fatal("intent consumed once")
+	}
+}
+
+func TestGraceAllowedForSpec(t *testing.T) {
+	if graceAllowedForSpec(obelisk.Spec{}) {
+		t.Fatal("empty spec must not allow grace-based pruning")
+	}
+	if !graceAllowedForSpec(obelisk.Spec{Instances: []obelisk.ServiceInstance{{ID: "a", Type: "redis"}}}) {
+		t.Fatal("spec with instances allows grace pruning")
 	}
 }

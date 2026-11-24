@@ -29,6 +29,9 @@ func (r *Reconciler) pruneOrphanReleases(ctx context.Context, spec obelisk.Spec)
 		slog.Warn("list helm releases", "err", err)
 		return nil
 	}
+	// With no instances in spec, the grace timer must not delete anything: an empty spec is
+	// indistinguishable from a lost config. Only explicit delete intents may prune then.
+	graceAllowed := graceAllowedForSpec(spec)
 	var removed []string
 	for _, rel := range releases {
 		if !strings.HasPrefix(rel, "obelisk-") {
@@ -38,9 +41,15 @@ func (r *Reconciler) pruneOrphanReleases(ctx context.Context, spec obelisk.Spec)
 			resetOrphanGrace(rel)
 			continue
 		}
-		if !consumeDeleteIntent(rel) && !orphanGraceReached(rel) {
-			slog.Debug("orphan grace", "release", rel)
-			continue
+		if !consumeDeleteIntent(rel) {
+			if !graceAllowed {
+				slog.Warn("refusing to prune release: spec has no instances (config lost?)", "release", rel)
+				continue
+			}
+			if !orphanGraceReached(rel) {
+				slog.Debug("orphan grace", "release", rel)
+				continue
+			}
 		}
 		if err := r.helmUninstall(ctx, rel); err != nil {
 			slog.Warn("prune orphan release", "release", rel, "err", err)
@@ -49,6 +58,10 @@ func (r *Reconciler) pruneOrphanReleases(ctx context.Context, spec obelisk.Spec)
 		removed = append(removed, rel)
 	}
 	return removed
+}
+
+func graceAllowedForSpec(spec obelisk.Spec) bool {
+	return len(spec.Instances) > 0
 }
 
 func (r *Reconciler) listHelmReleases(ctx context.Context, all bool) ([]string, error) {
