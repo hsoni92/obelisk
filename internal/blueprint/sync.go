@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"os"
 	"strings"
 	"sync"
@@ -22,24 +23,99 @@ type Syncer struct {
 	ConfigPath string
 	Session    *Session
 	Remote     Remote
-	Debounce   time.Duration
+	// Debounce coalesces a burst of saves into one automatic push.
+	Debounce time.Duration
+	// MinInterval is the minimum gap between automatic push attempts. It keeps
+	// saves from turning into GitHub API bursts (each push makes many calls).
+	// Manual pushes (PushNow) are not throttled.
+	MinInterval time.Duration
+	// Backoff is the first retry delay after a transient failure; it doubles
+	// per failure up to MaxBackoff.
 	Backoff    time.Duration
+	MaxBackoff time.Duration
 
-	wake   chan struct{}
-	pushMu sync.Mutex
-	specMu sync.Mutex
-	fails  int
+	wake        chan struct{}
+	pushMu      sync.Mutex
+	specMu      sync.Mutex
+	fails       int
+	lastAttempt time.Time
 }
 
 func NewSyncer(configPath string, session *Session, remote Remote) *Syncer {
 	return &Syncer{
-		ConfigPath: configPath,
-		Session:    session,
-		Remote:     remote,
-		Debounce:   5 * time.Second,
-		Backoff:    2 * time.Second,
-		wake:       make(chan struct{}, 1),
+		ConfigPath:  configPath,
+		Session:     session,
+		Remote:      remote,
+		Debounce:    5 * time.Second,
+		MinInterval: 15 * time.Minute,
+		Backoff:     5 * time.Minute,
+		MaxBackoff:  time.Hour,
+		wake:        make(chan struct{}, 1),
 	}
+}
+
+// autoPushWait returns how long an automatic push must still wait so that
+// attempts are at least MinInterval apart. Zero means it may run now.
+func (s *Syncer) autoPushWait() time.Duration {
+	if s.MinInterval <= 0 || s.lastAttempt.IsZero() {
+		return 0
+	}
+	if since := time.Since(s.lastAttempt); since < s.MinInterval {
+		return s.MinInterval - since
+	}
+	return 0
+}
+
+// retryDelay returns the wait before retrying a failed automatic push.
+// GitHub rate limits wait the full MaxBackoff; other transient errors double
+// from Backoff.
+func (s *Syncer) retryDelay(err error) time.Duration {
+	maxDelay := s.MaxBackoff
+	if maxDelay <= 0 {
+		maxDelay = time.Hour
+	}
+	if isGitHubRateLimit(err) {
+		return maxDelay
+	}
+	delay := s.Backoff
+	if delay <= 0 {
+		delay = 5 * time.Minute
+	}
+	for i := 1; i < s.fails && delay < maxDelay; i++ {
+		delay *= 2
+	}
+	if delay > maxDelay {
+		delay = maxDelay
+	}
+	return delay
+}
+
+// isGitHubRateLimit reports a GitHub 429, or a 403 caused by the API rate limit.
+func isGitHubRateLimit(err error) bool {
+	var se *StatusError
+	if !errors.As(err, &se) {
+		return false
+	}
+	return se.Code == http.StatusTooManyRequests ||
+		(se.Code == http.StatusForbidden && strings.Contains(strings.ToLower(se.Body), "rate limit"))
+}
+
+// isNonRetryablePushError reports errors that will not change by retrying the
+// same content (for example a 422 non-fast-forward ref update). Automatic
+// pushes stop until the next save instead of repeating the same request.
+func isNonRetryablePushError(err error) bool {
+	var se *StatusError
+	if !errors.As(err, &se) {
+		return false
+	}
+	if isGitHubRateLimit(err) {
+		return false
+	}
+	switch se.Code {
+	case http.StatusUnprocessableEntity, http.StatusUnauthorized, http.StatusForbidden:
+		return true
+	}
+	return false
 }
 
 // Enqueue coalesces saves into one push after the debounce window.
@@ -144,7 +220,14 @@ func (s *Syncer) Loop(ctx context.Context) {
 			if !pending {
 				continue
 			}
+			if wait := s.autoPushWait(); wait > 0 {
+				// Too soon after the last attempt: keep the pending save and try
+				// again when the window opens. Later saves coalesce into this push.
+				timer.Reset(wait)
+				continue
+			}
 			pending = false
+			s.lastAttempt = time.Now()
 			err := s.PushNow(ctx)
 			if st, statErr := os.Stat(s.ConfigPath); statErr == nil {
 				lastMod = st.ModTime()
@@ -158,16 +241,15 @@ func (s *Syncer) Loop(ctx context.Context) {
 				s.fails = 0
 				continue
 			}
+			if isNonRetryablePushError(err) {
+				// Same content, same answer: wait for the next save instead of
+				// repeating a request GitHub has already refused.
+				s.fails = 0
+				continue
+			}
 			s.fails++
 			pending = true
-			delay := s.Backoff
-			if delay <= 0 {
-				delay = 2 * time.Second
-			}
-			for i := 1; i < s.fails && i < 6; i++ {
-				delay *= 2
-			}
-			timer.Reset(delay)
+			timer.Reset(s.retryDelay(err))
 		}
 	}
 }

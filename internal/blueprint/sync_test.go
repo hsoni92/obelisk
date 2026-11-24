@@ -101,7 +101,106 @@ func newTestSyncer(t *testing.T, remote Remote) (*Syncer, string) {
 	s := NewSyncer(path, session, remote)
 	s.Debounce = 30 * time.Millisecond
 	s.Backoff = 20 * time.Millisecond
+	s.MaxBackoff = 100 * time.Millisecond
+	s.MinInterval = 0 // rate-limit tests set this explicitly
 	return s, path
+}
+
+// pushErrRemote fails every push with err and counts attempts.
+type pushErrRemote struct {
+	memRemote
+	err error
+}
+
+func (p *pushErrRemote) Push(context.Context, string, string, string, map[string][]byte) (string, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.pushes++
+	return "", p.err
+}
+
+func TestSyncMinIntervalSpacesAutomaticPushes(t *testing.T) {
+	remote := &memRemote{}
+	s, _ := newTestSyncer(t, remote)
+	s.MinInterval = 400 * time.Millisecond
+	startSyncLoop(t, s)
+
+	s.Enqueue()
+	waitForPushes(t, remote, 1, 2*time.Second)
+
+	// A save inside the window must not push right away.
+	s.Enqueue()
+	time.Sleep(150 * time.Millisecond)
+	if got := remote.pushCount(); got != 1 {
+		t.Fatalf("pushes inside MinInterval = %d, want 1", got)
+	}
+	waitForPushes(t, remote, 2, 2*time.Second)
+}
+
+func TestSyncCoalescesSavesDuringMinIntervalWindow(t *testing.T) {
+	remote := &memRemote{}
+	s, _ := newTestSyncer(t, remote)
+	s.MinInterval = 400 * time.Millisecond
+	startSyncLoop(t, s)
+
+	s.Enqueue()
+	waitForPushes(t, remote, 1, 2*time.Second)
+	for i := 0; i < 20; i++ {
+		s.Enqueue()
+		time.Sleep(10 * time.Millisecond)
+	}
+	waitForPushes(t, remote, 2, 2*time.Second)
+	time.Sleep(200 * time.Millisecond)
+	if got := remote.pushCount(); got != 2 {
+		t.Fatalf("pushes = %d, want 2 (saves during the window coalesce)", got)
+	}
+}
+
+func TestSyncStopsRetryingNonRetryableErrors(t *testing.T) {
+	remote := &pushErrRemote{err: &StatusError{Code: http.StatusUnprocessableEntity, Body: `{"message":"Update is not a fast forward"}`}}
+	s, _ := newTestSyncer(t, remote)
+	startSyncLoop(t, s)
+	s.Enqueue()
+	waitForPushes(t, &remote.memRemote, 1, 2*time.Second)
+	time.Sleep(400 * time.Millisecond)
+	if got := remote.pushCount(); got != 1 {
+		t.Fatalf("pushes = %d, want 1 (422 must not be retried automatically)", got)
+	}
+}
+
+func TestSyncRateLimitWaitsLongRetry(t *testing.T) {
+	remote := &pushErrRemote{err: &StatusError{Code: http.StatusForbidden, Body: `{"message":"API rate limit exceeded"}`}}
+	s, _ := newTestSyncer(t, remote)
+	s.Backoff = 10 * time.Millisecond
+	s.MaxBackoff = time.Hour
+	startSyncLoop(t, s)
+	s.Enqueue()
+	waitForPushes(t, &remote.memRemote, 1, 2*time.Second)
+	time.Sleep(300 * time.Millisecond)
+	if got := remote.pushCount(); got != 1 {
+		t.Fatalf("pushes = %d, want 1 (rate limit must wait MaxBackoff, not retry at Backoff)", got)
+	}
+}
+
+func TestRetryDelayCapsAtMaxBackoff(t *testing.T) {
+	s := &Syncer{Backoff: 5 * time.Minute, MaxBackoff: time.Hour}
+	for fails, want := range map[int]time.Duration{1: 5 * time.Minute, 2: 10 * time.Minute, 4: 40 * time.Minute, 9: time.Hour} {
+		s.fails = fails
+		if got := s.retryDelay(errors.New("temporary")); got != want {
+			t.Fatalf("fails=%d delay=%v want %v", fails, got, want)
+		}
+	}
+}
+
+func waitForPushes(t *testing.T, remote *memRemote, n int, within time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(within)
+	for time.Now().Before(deadline) && remote.pushCount() < n {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if got := remote.pushCount(); got < n {
+		t.Fatalf("pushes = %d, want at least %d", got, n)
+	}
 }
 
 func TestSyncCoalescesSaves(t *testing.T) {
