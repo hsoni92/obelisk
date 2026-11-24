@@ -86,13 +86,27 @@ ensure_docker() {
 }
 
 ensure_go() {
+  # Snap binaries live in /snap/bin, which is missing from PATH on Debian and
+  # under sudo's secure_path. Add it so `go` resolves both before and after install.
+  case ":$PATH:" in
+    *:/snap/bin:*) ;;
+    *) export PATH="$PATH:/snap/bin" ;;
+  esac
+  hash -r
+
   if command -v go >/dev/null 2>&1; then
     log "go $(go version | awk '{print $3}')"
     return
   fi
   if command -v snap >/dev/null 2>&1; then
     log "installing Go via snap"
+    # Freshly installed snapd may still be restarting/seeding; wait before installing.
+    snap wait system seed.loaded >/dev/null 2>&1 || true
     snap install go --classic
+    hash -r
+    command -v go >/dev/null 2>&1 \
+      || die "go installed via snap but not found; expected /snap/bin/go"
+    log "go $(go version | awk '{print $3}') (from /snap/bin)"
     return
   fi
   die "go not found and snap unavailable; install Go 1.22+ and re-run"
