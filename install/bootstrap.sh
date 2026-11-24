@@ -81,14 +81,38 @@ ensure_image_tag() {
   log "platform image tag: $OBELISK_IMAGE_TAG"
 }
 
+ensure_docker_running() {
+  if docker info >/dev/null 2>&1; then
+    log "docker running"
+    return
+  fi
+  if ! command -v docker >/dev/null 2>&1; then
+    log "docker CLI missing; installing docker.io"
+    export DEBIAN_FRONTEND=noninteractive
+    apt-get update -qq
+    apt-get install -y docker.io
+  fi
+  log "starting docker daemon"
+  systemctl enable --now docker >/dev/null 2>&1 || systemctl restart docker >/dev/null 2>&1 || true
+  local i
+  for i in $(seq 1 30); do
+    if docker info >/dev/null 2>&1; then
+      log "docker running"
+      return
+    fi
+    sleep 2
+  done
+  log "docker daemon status:"
+  systemctl --no-pager status docker 2>&1 | tail -n 15 || true
+  die "Docker daemon is not running. Check: journalctl -u docker -n 50 — or set OBELISK_BUILD_IMAGES=false to skip image builds"
+}
+
 build_images() {
   if [[ "${OBELISK_BUILD_IMAGES:-false}" != "true" ]]; then
     log "skipping image build (set OBELISK_BUILD_IMAGES=true to build and import)"
     return
   fi
-  if ! docker info >/dev/null 2>&1; then
-    die "OBELISK_BUILD_IMAGES=true but Docker is not running; install docker.io or set OBELISK_BUILD_IMAGES=false"
-  fi
+  ensure_docker_running
   if [[ ! -x "$OBELISK_ROOT/install/build-images.sh" ]]; then
     die "OBELISK_BUILD_IMAGES set but $OBELISK_ROOT/install/build-images.sh missing or not executable"
   fi
