@@ -2,9 +2,9 @@ package mail
 
 import (
 	"crypto/tls"
-	"fmt"
 	"net"
 	"net/smtp"
+	"strconv"
 	"time"
 )
 
@@ -13,7 +13,7 @@ func smtpAuth(address, secret string) error {
 	if err != nil {
 		return err
 	}
-	addr := fmt.Sprintf("%s:%d", prof.Host, prof.Port)
+	addr := net.JoinHostPort(prof.Host, strconv.Itoa(prof.Port))
 	var client *smtp.Client
 	if prof.ImplicitTLS {
 		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", addr, &tls.Config{ServerName: prof.Host})

@@ -263,6 +263,10 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 	}
 	parent := ""
 	emptyBranch := false
+	// replacingTip is true when the new commit does not descend from the current
+	// branch tip (same-UTC-day replace keeps the tip's parent). Such a ref update
+	// is only accepted by GitHub with force=true.
+	replacingTip := false
 	if err := g.do(ctx, http.MethodGet, refGetURL, nil, &ref); err != nil {
 		var se *StatusError
 		if errors.As(err, &se) && se.Code == http.StatusNotFound {
@@ -281,6 +285,7 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 			return "", err
 		}
 		parent = p
+		replacingTip = parent != tip
 	}
 	type treeEntry struct {
 		Path string `json:"path"`
@@ -325,7 +330,7 @@ func (g *GitHub) Push(ctx context.Context, repository, branch, message string, f
 			return "", err
 		}
 	} else {
-		patch := map[string]string{"sha": created.SHA}
+		patch := map[string]any{"sha": created.SHA, "force": replacingTip}
 		if err := g.do(ctx, http.MethodPatch, refUpdateURL, patch, nil); err != nil {
 			return "", err
 		}

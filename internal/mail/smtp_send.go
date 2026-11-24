@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -20,7 +21,7 @@ func SendMessage(address, secret, to, subject, text, html string) error {
 		return fmt.Errorf("recipient required")
 	}
 	msg := buildMIME(address, to, subject, text, html)
-	addr := fmt.Sprintf("%s:%d", prof.Host, prof.Port)
+	addr := net.JoinHostPort(prof.Host, strconv.Itoa(prof.Port))
 	var client *smtp.Client
 	if prof.ImplicitTLS {
 		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 15 * time.Second}, "tcp", addr, &tls.Config{ServerName: prof.Host})
