@@ -87,10 +87,15 @@ ensure_docker_running() {
     return
   fi
   if ! command -v docker >/dev/null 2>&1; then
-    log "docker CLI missing; installing docker.io"
+    log "docker CLI missing; installing docker.io and docker-cli"
     export DEBIAN_FRONTEND=noninteractive
     apt-get update -qq
     apt-get install -y docker.io
+    # docker.io ships dockerd only; the `docker` client is a separate package.
+    if ! command -v docker >/dev/null 2>&1; then
+      apt-get install -y docker-cli
+    fi
+    command -v docker >/dev/null 2>&1 || die "docker CLI still missing after installing docker-cli"
   fi
   log "starting docker daemon"
   systemctl enable --now docker >/dev/null 2>&1 || systemctl restart docker >/dev/null 2>&1 || true

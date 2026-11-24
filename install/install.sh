@@ -77,10 +77,15 @@ ensure_docker() {
     log "docker ok"
     return
   fi
-  log "installing docker.io"
+  log "installing docker.io and docker-cli"
   export DEBIAN_FRONTEND=noninteractive
   apt-get update -qq
   apt-get install -y docker.io
+  # docker.io ships dockerd only; the `docker` client is a separate package.
+  if ! command -v docker >/dev/null 2>&1; then
+    apt-get install -y docker-cli
+  fi
+  command -v docker >/dev/null 2>&1 || die "docker CLI missing after install"
   systemctl enable --now docker
   log "docker installed"
 }
