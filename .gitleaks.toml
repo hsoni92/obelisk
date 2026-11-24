@@ -14,3 +14,8 @@ paths = [
   '''(?i)\.env\.example$''',
   '''(?i)^schemas/''',
 ]
+# Documentation placeholder used in "Example curl" snippets, e.g.
+# -H "Authorization: Bearer YOUR_TOKEN". Matches the captured secret only.
+regexes = [
+  '''^YOUR_TOKEN$''',
+]
