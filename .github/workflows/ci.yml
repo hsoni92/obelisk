@@ -76,7 +76,22 @@ jobs:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
       - name: shellcheck install scripts
         # -S error: fail on errors only; warnings in the existing installer are not blocking yet.
-        run: shellcheck -S error install/*.sh scripts/*.sh
+        run: shellcheck -S error install/*.sh scripts/*.sh tests/install/*.sh
+
+  # Installer behaviour: profile menu, closed allowlist on a fresh install, release install/upgrade
+  # protocol (checksums, hand-over, rollback). The second script runs in a throwaway container.
+  install-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Profile menu and admin allowlist
+        run: tests/install/profile-and-allowlist.sh
+      - name: Release install and upgrade flow
+        run: tests/install/release-flow.sh
 
   secrets:
     runs-on: ubuntu-latest
@@ -136,7 +151,7 @@ jobs:
   # updating `needs`, not the ruleset. `always()` makes a failed or skipped dependency fail the gate.
   ci-gate:
     if: always()
-    needs: [go, web, helm, shellcheck, secrets, images]
+    needs: [go, web, helm, shellcheck, install-tests, secrets, images]
     runs-on: ubuntu-latest
     steps:
       - name: Require every job to succeed

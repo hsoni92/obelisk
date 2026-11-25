@@ -15,7 +15,8 @@ const adminAllowlistFile = "admin-github-allowlist.json"
 var ErrLoginNotAllowed = errors.New("github login is not allowed to use this admin UI")
 
 // AdminGitHubAllowlist lists GitHub logins permitted to sign in via the admin UI.
-// When the file is missing, all GitHub logins are allowed (legacy installs).
+// When the file is missing, all GitHub logins are allowed (installs from before the default
+// changed). Fresh installs write an empty file, so they start closed.
 // When the file exists, only listed logins may authenticate; an empty list denies all UI logins.
 type AdminGitHubAllowlist struct {
 	Logins []string `json:"logins"`
@@ -66,6 +67,33 @@ func RemoveAdminGitHubAllowlist(credentialsDir string) error {
 	return err
 }
 
+// InitAdminGitHubAllowlist writes an empty allowlist (deny every GitHub login) when none exists.
+// A fresh install calls this so the admin UI is closed until the operator allows a user from
+// the CLI. It never touches an existing file, so upgrades and re-runs keep the current list.
+// It returns true when it created the file.
+func InitAdminGitHubAllowlist(credentialsDir string) (bool, error) {
+	_, enforced, err := ReadAdminGitHubAllowlist(credentialsDir)
+	if err != nil {
+		return false, err
+	}
+	if enforced {
+		return false, nil
+	}
+	if _, err := WriteAdminGitHubAllowlist(credentialsDir, AdminGitHubAllowlist{Logins: []string{}}); err != nil {
+		return false, err
+	}
+	return true, nil
+}
+
+// NoUsersAllowed reports whether the allowlist is enforced and empty, which means no GitHub
+// login can sign in until one is added with `obelisk admin allow add`. A missing file is the
+// legacy open state and returns false. An unreadable file also returns false: that error
+// surfaces on sign-in, and the login page must not claim a state it cannot confirm.
+func NoUsersAllowed(credentialsDir string) bool {
+	list, enforced, err := ReadAdminGitHubAllowlist(credentialsDir)
+	return err == nil && enforced && len(list.Logins) == 0
+}
+
 // LoginPermitted returns nil when login may use GitHub OAuth for the admin UI.
 func LoginPermitted(credentialsDir, login string) error {
 	list, enforced, err := ReadAdminGitHubAllowlist(credentialsDir)
@@ -89,7 +117,7 @@ func LoginPermitted(credentialsDir, login string) error {
 
 func normalizeAllowlistLogins(logins []string) []string {
 	seen := map[string]struct{}{}
-	var out []string
+	out := []string{} // non-nil so an empty list is written as [] and not null
 	for _, raw := range logins {
 		l := strings.ToLower(strings.TrimSpace(raw))
 		if l == "" {

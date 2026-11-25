@@ -45,6 +45,9 @@ type Status struct {
 	KeyID                string `json:"key_id,omitempty"`
 	RemoteKeyID          string `json:"remote_key_id,omitempty"`
 	DefaultBranch        string `json:"default_upstream_branch,omitempty"`
+	// LoginAllowlistEmpty is true when no GitHub user is allowed to sign in (fresh install
+	// default). The login page tells the operator to run `obelisk admin allow add`.
+	LoginAllowlistEmpty bool `json:"login_allowlist_empty"`
 	// GitHubAPI says whether GitHub can be used right now. When it is blocking
 	// (rate limit, 401/402/403, outage) the UI shows that error instead of the
 	// sign-in or onboarding flow, which could only fail the same way.
@@ -456,6 +459,7 @@ func (rt *Runtime) Status(ctx context.Context, login string) Status {
 		ClientConfigured: rt.OAuth.Config.Configured(),
 		SyncStatus:       obelisk.SyncIdle,
 	}
+	st.LoginAllowlistEmpty = credentials.NoUsersAllowed(config.CredentialsDir(rt.ConfigPath))
 	st.GitHubAPI = rt.GitHubAPIHealth(ctx, false)
 	if err != nil {
 		st.LastPushError = sanitize(err.Error())

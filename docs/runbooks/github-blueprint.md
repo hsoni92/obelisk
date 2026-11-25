@@ -4,20 +4,24 @@ On a **new VPS**, install the platform first with the curl installer in [install
 
 Operators sign in with GitHub. The appliance keeps an encrypted copy of desired state in a private repository and uses S3/R2 only for `data/`.
 
-## Admin GitHub allowlist (VPS)
+## Admin GitHub allowlist
 
-By default, **any** GitHub account that can finish OAuth against your app may use the admin UI. On an internet-reachable VPS, restrict sign-in to GitHub logins you trust:
+**A fresh install allows no GitHub user.** The installer creates an empty allowlist, so nobody can sign in to the admin UI until you allow a user from a terminal on the machine. The login page says so ("No GitHub user is allowed to sign in yet") and shows the command, and its sign-in buttons stay disabled until a user is added:
 
 ```bash
 sudo obelisk admin allow add --login your-github-user
 sudo obelisk admin allow list
 ```
 
+Then reload the login page.
+
 - Allowlist file: `/var/lib/obelisk/credentials/admin-github-allowlist.json` (mode `0600`), on the same host path the controller reads.
-- **File missing:** open (legacy behavior).
-- **File present, empty `logins`:** all GitHub UI sign-in denied.
+- **File present, empty `logins` (fresh install):** all GitHub UI sign-in denied.
+- **File present, with logins:** only those logins may sign in.
+- **File missing:** **any** GitHub account that finishes OAuth against your app may sign in. This is how machines installed before the closed default behave. Upgrading does not change it, but the installer prints a warning. Close it with `sudo obelisk admin allow add --login your-github-user`, which creates the file.
+- `sudo obelisk admin allow init` creates an empty allowlist if none exists and leaves an existing one alone.
+- `sudo obelisk admin allow clear` deletes the file, which **opens** sign-in to every GitHub account. It prints a warning; use it only on a machine that is not reachable from untrusted networks.
 - **On-box CLI** (`Authorization: Bearer` local token) is unaffected; use that for automation on the host.
-- Remove enforcement: `sudo obelisk admin allow clear`.
 
 ## OAuth app
 

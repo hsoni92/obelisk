@@ -217,6 +217,34 @@ ensure_lib_paths() {
   # appliance-id (mode 0600) is written on first machine.id mint; keep /var/lib/obelisk on reinstall when possible.
 }
 
+ADMIN_ALLOWLIST_FILE="admin-github-allowlist.json"
+
+init_admin_allowlist() {
+  # Fresh install: start with NO GitHub user allowed to sign in to the admin UI. Without this
+  # file the controller lets any GitHub account in. The operator adds themselves with
+  # `obelisk admin allow add`. Same directory the controller reads (OBELISK_CREDENTIALS_DIR).
+  local cred_dir="${OBELISK_LIB_DIR:-/var/lib/obelisk}/credentials"
+  mkdir -p "$cred_dir"
+  chmod 750 "$cred_dir" 2>/dev/null || true
+  if [[ -x "$OBELISK_ROOT/obelisk" ]]; then
+    OBELISK_CREDENTIALS_DIR="$cred_dir" "$OBELISK_ROOT/obelisk" admin allow init --config "$CONFIG_PATH" \
+      || die "could not create the admin allowlist"
+  elif [[ ! -f "$cred_dir/$ADMIN_ALLOWLIST_FILE" ]]; then
+    umask 077
+    printf '{"logins":[]}\n' >"$cred_dir/$ADMIN_ALLOWLIST_FILE"
+    log "created empty admin allowlist: no GitHub user can sign in until you run: sudo obelisk admin allow add --login YOUR_GITHUB_USER"
+  fi
+}
+
+warn_open_admin_allowlist() {
+  # Machines installed before the closed default have no allowlist file: any GitHub user may sign in.
+  local f="${OBELISK_LIB_DIR:-/var/lib/obelisk}/credentials/$ADMIN_ALLOWLIST_FILE"
+  if [[ ! -f "$f" ]]; then
+    log "WARNING: no admin allowlist: ANY GitHub user can sign in to this admin UI."
+    log "         Close it with: sudo obelisk admin allow add --login YOUR_GITHUB_USER"
+  fi
+}
+
 write_config() {
   ensure_lib_paths
   mkdir -p "$(dirname "$CONFIG_PATH")"
@@ -241,6 +269,9 @@ write_config() {
     die "no obelisk CLI or example config under $OBELISK_ROOT"
   fi
   log "wrote $CONFIG_PATH"
+  # Reached only when neither the live nor the seed config existed: a fresh install. Close the
+  # admin UI until a user is allowed. Upgrades never get here, so open installs stay as they are.
+  init_admin_allowlist
 }
 
 adopt_unmanaged_helm_resources() {
@@ -277,9 +308,9 @@ deploy_platform() {
   ensure_image_tag
   adopt_unmanaged_helm_resources
   local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
-  if [[ "$PROFILE" == "vps" && -z "$helm_extra" ]]; then
+  if [[ -z "$helm_extra" ]]; then
     helm_extra='--set kong.service.type=LoadBalancer --set nativeEdge.service.type=LoadBalancer'
-    log "VPS default: LoadBalancer on 9080 (Kong) + 9443 (native edge); never 80/443"
+    log "default ($PROFILE): LoadBalancer on 9080 (Kong) + 9443 (native edge); never 80/443"
   fi
   # Obelisk must never claim the host's HTTP/HTTPS edge (80/443): a co-located app
   # (e.g. an existing k3s Ingress/Kong) already owns those. Non-invasive by default.
@@ -388,8 +419,11 @@ main() {
   deploy_platform
   wait_platform_rollout
   install_cli
+  warn_open_admin_allowlist
   post_install_cleanup
   log "platform-ready — open admin UI via Kong route on this host"
 }
 
-main "$@"
+if [[ -z "${OBELISK_BOOTSTRAP_SOURCE_ONLY:-}" ]]; then
+  main "$@"
+fi

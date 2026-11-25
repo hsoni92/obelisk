@@ -86,7 +86,7 @@ Commands:
   configure deployment --show
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
-  admin allow add|remove|list|clear   restrict which GitHub users may sign in to the admin UI
+  admin allow add|remove|list|init|clear   which GitHub users may sign in to the admin UI (fresh installs start with none)
   version            show CLI build and the installed build from /opt/obelisk/.install-meta.json
   update [--check] [--to build-N] [--force] [--root /opt/obelisk]
                      upgrade to the latest release (never builds on this machine)
