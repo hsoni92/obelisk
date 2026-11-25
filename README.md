@@ -12,7 +12,7 @@
 <p align="center">
   <a href="https://github.com/hsoni92/obelisk/actions/workflows/ci.yml"><img src="https://github.com/hsoni92/obelisk/actions/workflows/ci.yml/badge.svg" alt="CI" /></a>
   <img src="https://img.shields.io/badge/go-1.22+-00ADD8?style=flat&logo=go&logoColor=white" alt="Go 1.22+" />
-  <img src="https://img.shields.io/badge/platform-linux%2Famd64-2d3748?style=flat&logo=linux&logoColor=white" alt="linux/amd64" />
+  <img src="https://img.shields.io/badge/platform-linux%2Famd64%20%7C%20arm64-2d3748?style=flat&logo=linux&logoColor=white" alt="linux/amd64, linux/arm64" />
   <img src="https://img.shields.io/badge/UI-Next.js%20%2B%20shadcn-black?style=flat&logo=next.js" alt="Next.js admin" />
 </p>
 
@@ -37,7 +37,7 @@ Every side project repeats the same stack: Postgres, Redis, object storage, back
 |---|---|
 | **Who it’s for** | Solo developers and small teams running multiple projects on one Linux node |
 | **What it is not** | An app host, CI runner, or multi-node HA cluster |
-| **Min host** | 4 vCPU, 8 GB RAM (documented target); Ubuntu LTS on **linux/amd64** |
+| **Min host** | 4 vCPU, 8 GB RAM (documented target); Ubuntu LTS on **linux/amd64** or **linux/arm64** |
 
 Full product spec: [docs/designs/obelisk.md](docs/designs/obelisk.md)
 
@@ -203,9 +203,9 @@ sudo -E ./install/bootstrap.sh
 ### Upgrade
 
 ```bash
-sudo obelisk update
-sudo obelisk update --ref v0.2.0
-sudo obelisk update --skip-images       # controller/Helm only
+sudo obelisk update --check             # is a newer build available?
+sudo obelisk update                     # download + verify + helm upgrade; no builds on the machine
+sudo obelisk update --to build-140      # pin an exact build
 ```
 
 ### Start / stop / restart (VPS)
@@ -270,7 +270,7 @@ obelisk — middleware appliance CLI
   restore --chain [--adopt-machine-id | --keep-machine-id]
   configure deployment --profile vps|local [--public-host HOST] [--reconcile]
   configure github
-  update [--ref REF] [--skip-images]
+  update [--check] [--to build-N] [--force]   (dev: --ref REF [--skip-images])
   uninstall [--dry-run] [--yes] [--tier full|platform]
 ```
 

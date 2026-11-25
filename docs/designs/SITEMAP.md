@@ -27,3 +27,4 @@ Index of specification documents for obelisk. Add a row when a design is approve
 | [cloudflare_tunnel_concepts_brief.md](./cloudflare_tunnel_concepts_brief.md) | Ideation | Standalone local: CF Tunnel UI, HTTPS Kong edge, no Tailscale/gateway |
 | [cloudflare_tunnel.md](./cloudflare_tunnel.md) | Proposed | Cloudflare Tunnel local ingress; Connectivity nav page; HTTPEdgeEnabled; cloudflared lifecycle |
 | [../concepts_brief.md](../concepts_brief.md) | Ideation | Peer gateway brainstorm brief (repo root) |
+| [release_pipeline_concepts_brief.md](./release_pipeline_concepts_brief.md) | RFC | PR-only `main`, CI-built multi-arch releases (`build-N`), download-only `obelisk update` |

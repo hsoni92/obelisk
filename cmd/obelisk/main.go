@@ -87,8 +87,11 @@ Commands:
   configure github   interactive GitHub OAuth wizard (same as github oauth configure)
   github oauth configure|set|status   blueprint login credentials (set = non-interactive flags)
   admin allow add|remove|list|clear   restrict which GitHub users may sign in to the admin UI
-  version            show install ref from /opt/obelisk/.install-meta.json
-  update [--ref REF] [--root /opt/obelisk] [--skip-images] [--skip-fetch]
+  version            show CLI build and the installed build from /opt/obelisk/.install-meta.json
+  update [--check] [--to build-N] [--force] [--root /opt/obelisk]
+                     upgrade to the latest release (never builds on this machine)
+                     --check exits 0 if up to date, 10 if an update is available, 11 if it cannot tell
+                     dev: --ref REF [--skip-images] [--skip-fetch] builds from a git ref locally
   start|stop|restart [--root /opt/obelisk] [--namespace NAME] [--system]
                      start/stop/restart ONLY the obelisk namespace (k3s keeps running)
                      --system: whole-node k3s control for dedicated appliances

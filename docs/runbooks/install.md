@@ -5,15 +5,21 @@
 On a clean **Ubuntu LTS** VPS with sudo and outbound HTTPS:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo bash
+curl -fsSL https://github.com/hsoni92/obelisk/releases/latest/download/install.sh | sudo bash
 ```
 
-The installer downloads a GitHub source archive (default branch `main`), unpacks to `/opt/obelisk`, installs Docker/Go if needed, builds images on the host, and runs `install/bootstrap.sh` with `OBELISK_PROFILE=vps`. First install often takes **15–25 minutes** on an 8 GB VM because of image builds.
+The installer finds the latest release (`build-N`), downloads the `obelisk` CLI for this machine's architecture (amd64 or arm64) and checks its SHA-256, unpacks that release's source tree to `/opt/obelisk`, and runs `install/bootstrap.sh`. The platform images were built by CI and k3s pulls them from GHCR. **No Docker, Go, or image build runs on the machine.** See [release.md](./release.md) for how releases are made.
 
-Pin a tag or branch when you cut releases:
+Pin a build:
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo OBELISK_REF=v0.1.0 bash
+curl -fsSL https://github.com/hsoni92/obelisk/releases/latest/download/install.sh | sudo OBELISK_REF=build-142 bash
+```
+
+Build from source on the machine instead (development; needs Docker and Go, takes 15–25 minutes):
+
+```bash
+curl -fsSL https://raw.githubusercontent.com/hsoni92/obelisk/main/install/install.sh | sudo OBELISK_REF=main bash
 ```
 
 Safer than piping straight to shell: download, read, then run `sudo bash install.sh`.
@@ -22,7 +28,8 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 
 | Variable | Default | Meaning |
 |----------|---------|---------|
-| `OBELISK_REF` | `main` | GitHub archive ref (branch, tag, or commit) |
+| `OBELISK_REF` | latest release | `build-N` pins a release. Any other ref (branch, tag, commit) is a **dev** install that builds on the machine |
+| `OBELISK_IMAGE_REGISTRY` | `ghcr.io/<repo owner>` | Registry holding `obelisk-controller` and `obelisk-admin-ui` for release installs |
 | `OBELISK_ROOT` | `/opt/obelisk` | Install tree |
 | `OBELISK_ARCHIVE_SHA256` | unset | Optional archive checksum verify |
 | `OBELISK_INSTALL_UPGRADE` | `false` | Replace tree in place when `true` |
@@ -31,12 +38,15 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 ## Upgrade an existing VPS
 
 ```bash
-sudo obelisk update
-sudo obelisk update --ref v0.2.0    # pin a tag or branch
-sudo obelisk update --skip-images   # helm/controller rollout only (no new UI image)
+sudo obelisk update --check         # exit 0 up to date, 10 update available, 11 cannot tell (no root needed)
+sudo obelisk update                 # upgrade only if the latest build is higher than the installed one
+sudo obelisk update --to build-140  # exact build; going lower also needs --force
+sudo obelisk update --ref main      # developer: build from a git ref on this machine
 ```
 
-This fetches the GitHub archive, rsyncs into `/opt/obelisk` (preserving `/etc/obelisk` and `/var/lib/obelisk`), rebuilds platform images by default, and runs `install/bootstrap.sh`. Each upgrade tags images uniquely so Helm rolls the admin UI and controller pods (rebuilding the same `0.1.0` tag alone does not refresh running pods). Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
+`update` compares the installed build number (in `/opt/obelisk/.install-meta.json`, `obelisk version`) with the latest GitHub Release. If the latest is higher it downloads and verifies the new CLI, checks the images can be pulled, pulls them into k3s, replaces the source tree (preserving `/etc/obelisk` and `/var/lib/obelisk`), and runs `helm upgrade --atomic --wait`. If anything fails after the tree is replaced, the previous tree is restored and Helm rolls back. The recorded build changes only after success. It never builds images and never compiles Go. Install scripts take a lock, so two updates cannot run at once.
+
+A machine installed before this change has no build number (counted as build 0). Its first `sudo obelisk update` still builds on the machine once, then later updates are download-only. Equivalent: `sudo OBELISK_INSTALL_MODE=upgrade bash /opt/obelisk/install/update.sh`.
 
 After each install or upgrade, bootstrap runs **`install/cleanup.sh`** automatically: stale platform Docker/k3s images (keeping the current tag), Helm revision pruning, light dangling-layer prune, and install-log rotation.
 

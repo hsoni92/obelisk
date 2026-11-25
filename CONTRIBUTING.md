@@ -1,13 +1,13 @@
 # Contributing
 
-The **obelisk** repo is public; CI on pull requests is the merge gate. Local git hooks are optional speed-ups.
+The **obelisk** repo is public. **Nothing is pushed to `main` directly:** every change is a pull request, squash-merged once the `ci-gate` check passes (rules in [.github/rulesets/](.github/rulesets/)). After a merge, CI builds and publishes release `build-N`; see [docs/runbooks/release.md](docs/runbooks/release.md). Local git hooks are optional speed-ups.
 
 ## Prerequisites
 
 | Tool | Version | Notes |
 |------|---------|--------|
 | Go | 1.22+ | `make check-go` |
-| Node.js | 20 LTS | Admin UI in `web/admin` |
+| Node.js | 22 | Admin UI in `web/admin` (matches `Dockerfile.admin-ui`) |
 | Helm | 3.14+ | Only when changing charts |
 | pre-commit | 3.x | Optional; `make hooks-install` |
 

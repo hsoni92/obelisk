@@ -1,0 +1,249 @@
+name: Release
+
+# Runs after a PR is squash-merged to main. Builds multi-arch images and CLI binaries,
+# pushes images to GHCR, then publishes GitHub Release `build-N` LAST. Machines compare N
+# from the latest Release, so a failure anywhere before the final step leaves them untouched.
+#
+# N = number of commits reachable from the merged commit (git rev-list --count). With
+# squash-only merges that is one number per merged PR. Numbers can have gaps (a skipped
+# or failed run still uses its number); that is expected.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch: {}   # re-run the release for main's HEAD (all steps are safe to repeat)
+
+# One release at a time, never cancel an in-flight publish.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+    permissions:
+      contents: read
+
+  prepare:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      build: ${{ steps.n.outputs.build }}
+      tag: ${{ steps.n.outputs.tag }}
+      short: ${{ steps.n.outputs.short }}
+      owner: ${{ steps.n.outputs.owner }}
+      exists: ${{ steps.n.outputs.exists }}
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          fetch-depth: 0   # a shallow clone would make the commit count wrong
+      - name: Compute build number
+        id: n
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          if [ "${GITHUB_REF}" != "refs/heads/main" ]; then
+            echo "release runs only for main (got ${GITHUB_REF})" >&2
+            exit 1
+          fi
+          n="$(git rev-list --count "${GITHUB_SHA}")"
+          tag="build-${n}"
+          owner="$(echo "${GITHUB_REPOSITORY_OWNER}" | tr '[:upper:]' '[:lower:]')"
+          exists=false
+          if gh release view "$tag" >/dev/null 2>&1; then
+            exists=true
+            echo "release $tag already exists; nothing to publish"
+          fi
+          {
+            echo "build=${n}"
+            echo "tag=${tag}"
+            echo "short=${GITHUB_SHA::7}"
+            echo "owner=${owner}"
+            echo "exists=${exists}"
+          } >>"$GITHUB_OUTPUT"
+
+  images:
+    needs: prepare
+    if: needs.prepare.outputs.exists != 'true'
+    name: push ${{ matrix.image }} (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: true
+      matrix:
+        arch: [amd64, arm64]
+        image: [controller, admin-ui]
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Build and push by digest
+        id: build
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile.${{ matrix.image }}
+          platforms: linux/${{ matrix.arch }}
+          provenance: false
+          outputs: type=image,name=ghcr.io/${{ needs.prepare.outputs.owner }}/obelisk-${{ matrix.image }},push-by-digest=true,name-canonical=true,push=true
+          cache-from: type=gha,scope=${{ matrix.image }}-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}-${{ matrix.arch }}
+      - name: Record digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          mkdir -p /tmp/digests
+          echo "${DIGEST#sha256:}" >"/tmp/digests/${{ matrix.image }}-${{ matrix.arch }}"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: digest-${{ matrix.image }}-${{ matrix.arch }}
+          path: /tmp/digests/*
+          if-no-files-found: error
+          retention-days: 3
+
+  manifest:
+    needs: [prepare, images]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: /tmp/digests
+          pattern: digest-*
+          merge-multiple: true
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - name: Create multi-arch manifests
+        env:
+          OWNER: ${{ needs.prepare.outputs.owner }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          SHORT: ${{ needs.prepare.outputs.short }}
+        run: |
+          set -euo pipefail
+          for image in controller admin-ui; do
+            repo="ghcr.io/${OWNER}/obelisk-${image}"
+            amd="$(cat "/tmp/digests/${image}-amd64")"
+            arm="$(cat "/tmp/digests/${image}-arm64")"
+            docker buildx imagetools create \
+              -t "${repo}:${TAG}" -t "${repo}:sha-${SHORT}" \
+              "${repo}@sha256:${amd}" "${repo}@sha256:${arm}"
+          done
+      - name: Verify anonymous pull of both platforms
+        # Fails while a package is still private (GHCR default for new packages), which keeps
+        # an unpullable build from ever being published as a Release.
+        env:
+          OWNER: ${{ needs.prepare.outputs.owner }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+        run: |
+          set -euo pipefail
+          docker logout ghcr.io
+          for image in controller admin-ui; do
+            out="$(docker buildx imagetools inspect "ghcr.io/${OWNER}/obelisk-${image}:${TAG}")" || {
+              echo "anonymous pull of obelisk-${image}:${TAG} failed. Set the package to Public:" >&2
+              echo "https://github.com/users/${OWNER}/packages/container/obelisk-${image}/settings" >&2
+              exit 1
+            }
+            echo "$out" | grep -q 'linux/amd64' || { echo "obelisk-${image} missing linux/amd64" >&2; exit 1; }
+            echo "$out" | grep -q 'linux/arm64' || { echo "obelisk-${image} missing linux/arm64" >&2; exit 1; }
+          done
+
+  cli:
+    needs: prepare
+    if: needs.prepare.outputs.exists != 'true'
+    name: cli (${{ matrix.arch }})
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    strategy:
+      matrix:
+        arch: [amd64, arm64]
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
+        with:
+          go-version-file: go.mod
+          cache: true
+      - name: Cross-compile CLI
+        env:
+          BUILD: ${{ needs.prepare.outputs.build }}
+          GOARCH: ${{ matrix.arch }}
+        run: |
+          set -euo pipefail
+          CGO_ENABLED=0 GOOS=linux go build -trimpath \
+            -ldflags "-s -w -X main.buildNumber=${BUILD} -X main.buildCommit=${GITHUB_SHA}" \
+            -o "obelisk-linux-${GOARCH}" ./cmd/obelisk
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: cli-${{ matrix.arch }}
+          path: obelisk-linux-${{ matrix.arch }}
+          if-no-files-found: error
+          retention-days: 3
+
+  release:
+    needs: [prepare, manifest, cli]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
+        with:
+          path: /tmp/cli
+          pattern: cli-*
+          merge-multiple: true
+      - name: Publish Release (last step)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.prepare.outputs.tag }}
+          BUILD: ${{ needs.prepare.outputs.build }}
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/assets
+          cp /tmp/cli/obelisk-linux-* /tmp/assets/
+          cp install/install.sh /tmp/assets/install.sh
+          (cd /tmp/assets && sha256sum obelisk-linux-* install.sh >SHA256SUMS)
+          cat /tmp/assets/SHA256SUMS
+          gh release create "$TAG" /tmp/assets/* \
+            --target "$GITHUB_SHA" \
+            --title "build ${BUILD}" \
+            --generate-notes
+
+  report-failure:
+    needs: [ci, prepare, images, manifest, cli, release]
+    if: failure()
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    steps:
+      - name: Open an issue so a merged commit that did not ship is visible
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          gh issue create --repo "$REPO" \
+            --title "Release failed for ${SHA::7}" \
+            --body "The release workflow failed for commit ${SHA}. Machines stay on the previous build. Run: ${RUN_URL}. Fix the cause, then re-run the workflow (workflow_dispatch) for main."

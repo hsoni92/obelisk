@@ -3,6 +3,7 @@
 * **Author:** hsoni92
 * **Status:** Proposed
 * **Date:** 2026-11-16
+* **Superseded in part:** image builds, Docker/Go prerequisites, amd64-only and default ref `main` are replaced by [release_pipeline_concepts_brief.md](./release_pipeline_concepts_brief.md) (CI-built images from GHCR, downloaded CLI, `build-N` releases).
 
 ---
 
