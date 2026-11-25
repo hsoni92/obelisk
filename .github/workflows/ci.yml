@@ -87,12 +87,13 @@ jobs:
       - name: Install gitleaks
         run: |
           ver="${GITLEAKS_VERSION#v}"
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${ver}_linux_x64.tar.gz" \
-            -o /tmp/gitleaks.tgz
-          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${ver}_checksums.txt" \
-            -o /tmp/gitleaks_checksums.txt
-          (cd /tmp && grep " gitleaks_${ver}_linux_x64.tar.gz\$" gitleaks_checksums.txt | sha256sum -c -)
-          sudo tar -xz -C /usr/local/bin gitleaks -f /tmp/gitleaks.tgz
+          file="gitleaks_${ver}_linux_x64.tar.gz"
+          base="https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}"
+          cd "$RUNNER_TEMP"
+          curl -sSfL "$base/$file" -o "$file"
+          curl -sSfL "$base/gitleaks_${ver}_checksums.txt" -o checksums.txt
+          grep " ${file}\$" checksums.txt | sha256sum -c -
+          sudo tar -xzf "$file" -C /usr/local/bin gitleaks
       - name: Scan repository
         run: gitleaks detect --config .gitleaks.toml --verbose
 
