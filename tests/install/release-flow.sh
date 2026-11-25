@@ -86,9 +86,11 @@ grep -q '"build":3' /opt/obelisk/.install-meta.json || fail "meta moved on failu
 
 echo "== 4. upgrade to build-4 (pinned via OBELISK_REF)"
 rm -f /opt/obelisk/MARKER
+sed -i 's/"profile":"vps"/"profile":"local"/' /opt/obelisk/.install-meta.json   # a local-profile machine
 OBELISK_REF=build-4 OBELISK_INSTALL_MODE=upgrade OBELISK_ARCHIVE_URL=http://127.0.0.1:8099/archive-4.tar.gz bash /repo/install/install.sh
 grep -q '"build":4' /opt/obelisk/.install-meta.json || fail "meta build 4"
-grep -q '"profile":"vps"' /opt/obelisk/.install-meta.json || fail "profile kept"
+grep -q '"profile":"local"' /opt/obelisk/.install-meta.json || fail "profile not kept across upgrade: $(cat /opt/obelisk/.install-meta.json)"
+tail -1 /tmp/bootstrap.log | grep -q 'profile=local' || fail "bootstrap did not get profile=local"
 
 echo "== 5. dev mode (--ref main) still selects source build path"
 OBELISK_REF=main bash -c 'source <(sed -n "1,/^OBELISK_REF=\"\${OBELISK_REF:-}\"/p" /repo/install/install.sh | grep -v "^set -euo"); echo "mode=$OBELISK_SOURCE"' | grep -q 'mode=dev' || fail "dev mode detection"

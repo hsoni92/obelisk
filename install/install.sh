@@ -399,6 +399,11 @@ run_release_install() {
     stage_cli
     prepull_images
     if [[ "${OBELISK_INSTALL_MODE:-}" == "upgrade" ]]; then
+      # Read the profile now: fetch_and_extract replaces the tree, including .install-meta.json.
+      if [[ -z "${OBELISK_PROFILE:-}" ]]; then
+        OBELISK_PROFILE="$(meta_value profile)"
+      fi
+      export OBELISK_PROFILE
       backup_tree
     fi
     fetch_and_extract
