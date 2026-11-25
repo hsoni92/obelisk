@@ -50,8 +50,13 @@ echo "== 1. radio menu"
 [[ "$(menu 'j \r')" == "local" ]]        || fail "j then Space then Enter must choose local"
 
 echo "== 2. no terminal: falls back to vps with a note, and does not hang"
+# choose_profile checks /dev/tty, not stdin, so this must run with no controlling terminal.
+# CI agents such as Buildkite do have one, which made the menu wait forever on /dev/tty.
+# setsid -w detaches from it; timeout turns any future hang into a failure.
+detach=()
+command -v setsid >/dev/null && detach=(setsid -w)
 out="$(OBELISK_INSTALL_SOURCE_ONLY=1 OBELISK_ROOT="$WORK/none" OBELISK_LIB_DIR="$WORK/lib" OBELISK_ETC_DIR="$WORK/etc" \
-  bash -c "source '$ROOT/install/install.sh'; unset OBELISK_PROFILE; resolve_profile; echo PROFILE=\$OBELISK_PROFILE" </dev/null 2>&1 | cat)"
+  timeout 60 "${detach[@]}" bash -c "source '$ROOT/install/install.sh'; unset OBELISK_PROFILE; resolve_profile; echo PROFILE=\$OBELISK_PROFILE" </dev/null 2>&1 | cat)"
 echo "$out" | grep -q 'PROFILE=vps' || fail "non-interactive default: $out"
 echo "$out" | grep -q 'no terminal' || fail "note missing: $out"
 
