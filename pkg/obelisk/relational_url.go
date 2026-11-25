@@ -55,7 +55,7 @@ func RelationalConnectionURL(spec Spec, inst ServiceInstance, dbName string) str
 	case "mongodb":
 		if vpsEdge {
 			return fmt.Sprintf(
-				"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true",
+				"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true&tlsAllowInvalidCertificates=true",
 				user, pass, edgeHost, NativeEdgeTLSPort(), dbName,
 			)
 		}

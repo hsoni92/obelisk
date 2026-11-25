@@ -296,8 +296,27 @@ func (s *Server) handleDiscoverProject(w http.ResponseWriter, r *http.Request) {
 		observedAt = s.statesCache.at.UTC()
 	}
 	extras := projectDiscoveryExtras(cfg)
-	audience := strings.TrimSpace(r.URL.Query().Get("audience"))
+	audience := resolveDiscoveryAudience(r)
 	out := obelisk.BuildProjectDiscovery(resolved, *p, states, observedAt, extras, audience)
 	s.recordAudit("Project", "discovery_access", p.Name)
 	writeJSON(w, out)
+}
+
+// resolveDiscoveryAudience picks edge vs in-cluster URLs. An explicit ?audience=edge|in_cluster
+// always wins; otherwise ("" or "auto") it is inferred from how the caller reached us, so clients
+// need no audience parameter: requests addressed to a cluster-internal service DNS name
+// (*.svc, *.svc.cluster.local) get in-cluster URLs, everything else gets edge URLs.
+func resolveDiscoveryAudience(r *http.Request) string {
+	a := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("audience")))
+	if a != "" && a != "auto" {
+		return a
+	}
+	host := strings.ToLower(r.Host)
+	if i := strings.LastIndex(host, ":"); i >= 0 {
+		host = host[:i]
+	}
+	if strings.HasSuffix(host, ".svc") || strings.Contains(host, ".svc.") {
+		return obelisk.ConnectionAudienceInCluster
+	}
+	return obelisk.ConnectionAudienceEdge
 }

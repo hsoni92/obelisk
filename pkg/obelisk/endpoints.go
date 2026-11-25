@@ -21,6 +21,7 @@ type InstanceConnection struct {
 	Type               string               `json:"type"`
 	DisplayName        string               `json:"display_name,omitempty"`
 	Use                string               `json:"use,omitempty"`
+	TLS                *ConnectionTLS       `json:"tls,omitempty"`
 	Postgres           string               `json:"postgres,omitempty"`
 	MySQL              string               `json:"mysql,omitempty"`
 	MongoDB            string               `json:"mongodb,omitempty"`
@@ -128,7 +129,7 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 			case "mongodb":
 				if vpsEdge {
 					ic.MongoDB = fmt.Sprintf(
-						"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true",
+						"mongodb://%s:%s@%s:%s/%s?authSource=admin&tls=true&tlsAllowInvalidCertificates=true",
 						user, pass, edgeHost, NativeEdgeTLSPort(), db,
 					)
 				} else {
@@ -219,6 +220,9 @@ func BuildConnections(spec Spec, states map[string]string) Connections {
 					ic.Databases = append(ic.Databases, DatabaseConnection{Name: name, URL: u})
 				}
 			}
+		}
+		if vpsEdge {
+			ic.TLS = edgeConnectionTLS(inst)
 		}
 		ic.Use = instanceUse(spec, inst, ic)
 		attachInClusterBlock(&ic, spec, inst, ObeliskNamespace())
@@ -371,4 +375,15 @@ func relationalUseBlock(spec Spec, inst ServiceInstance, ic InstanceConnection) 
 		}
 	}
 	return strings.Join(lines, "\n")
+}
+
+// edgeConnectionTLS describes TLS for native protocols behind the VPS SNI edge.
+func edgeConnectionTLS(inst ServiceInstance) *ConnectionTLS {
+	switch inst.Type {
+	case "postgres":
+		return &ConnectionTLS{Enabled: true, ServerName: PublicEdgeHost(inst), Negotiation: "direct"}
+	case "mysql", "mongodb", "redis":
+		return &ConnectionTLS{Enabled: true, ServerName: PublicEdgeHost(inst)}
+	}
+	return nil
 }

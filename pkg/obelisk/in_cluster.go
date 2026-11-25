@@ -13,8 +13,23 @@ const (
 	ConnectionAudienceInCluster = "in_cluster"
 )
 
+// ConnectionTLS tells a client exactly how to handle TLS for an instance so it needs no
+// per-service special-casing. Obelisk edge certificates are self-signed, so Verify is false:
+// clients must encrypt but not validate the chain (libpq sslmode=require semantics).
+// When the URL already carries the required TLS options this is informational only.
+type ConnectionTLS struct {
+	Enabled bool `json:"enabled"`
+	// Verify is false when the certificate is self-signed and must not be chain-validated.
+	Verify bool `json:"verify"`
+	// ServerName is the SNI name to present (edge routing is SNI-based).
+	ServerName string `json:"server_name,omitempty"`
+	// Negotiation is "direct" when TLS must start at the first byte (Postgres 17 sslnegotiation=direct).
+	Negotiation string `json:"negotiation,omitempty"`
+}
+
 // ConnectionBlock is copy-ready URLs for one reachability audience.
 type ConnectionBlock struct {
+	TLS                *ConnectionTLS       `json:"tls,omitempty"`
 	Use                string               `json:"use,omitempty"`
 	Host               string               `json:"host,omitempty"`
 	Postgres           string               `json:"postgres,omitempty"`
@@ -82,6 +97,12 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 		pass = "SECRET"
 	}
 	db := BootstrapDatabase(inst)
+	// With edge TLS enabled the Mongo and Redis charts only listen with TLS, so the
+	// in-cluster URLs must say so; otherwise clients connect in plaintext and get reset.
+	tlsOnly := VPSEdge(spec) && (inst.Type == "mongodb" || inst.Type == "redis")
+	if tlsOnly {
+		b.TLS = &ConnectionTLS{Enabled: true, Verify: false, ServerName: host}
+	}
 
 	switch inst.Type {
 	case "postgres", "mysql", "mongodb":
@@ -91,13 +112,17 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 		case "mysql":
 			b.MySQL = fmt.Sprintf("mysql://%s:%s@tcp(%s:3306)/%s", user, pass, host, db)
 		case "mongodb":
-			b.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, db)
+			b.MongoDB = fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?%s", user, pass, host, db, inClusterMongoQuery(tlsOnly))
 		}
 	case "redis":
+		scheme := "redis"
+		if tlsOnly {
+			scheme = "rediss"
+		}
 		if inst.Credentials.Password != "" {
-			b.Redis = fmt.Sprintf("redis://:%s@%s:6379/0", url.QueryEscape(inst.Credentials.Password), host)
+			b.Redis = fmt.Sprintf("%s://:%s@%s:6379/0", scheme, url.QueryEscape(inst.Credentials.Password), host)
 		} else {
-			b.Redis = fmt.Sprintf("redis://%s:6379/0", host)
+			b.Redis = fmt.Sprintf("%s://%s:6379/0", scheme, host)
 		}
 	case "rustfs":
 		b.S3HTTP = fmt.Sprintf("http://%s:9000", host)
@@ -122,7 +147,7 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 
 	if IsRelationalEngine(inst.Type) {
 		for _, name := range DesiredDatabaseNames(inst) {
-			if u := relationalConnectionURLInCluster(inst, name, host); u != "" {
+			if u := relationalConnectionURLInCluster(inst, name, host, tlsOnly); u != "" {
 				b.Databases = append(b.Databases, DatabaseConnection{Name: name, URL: u})
 			}
 		}
@@ -133,7 +158,7 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 	return b
 }
 
-func relationalConnectionURLInCluster(inst ServiceInstance, dbName, host string) string {
+func relationalConnectionURLInCluster(inst ServiceInstance, dbName, host string, tlsOnly bool) string {
 	if !IsRelationalEngine(inst.Type) {
 		return ""
 	}
@@ -155,10 +180,20 @@ func relationalConnectionURLInCluster(inst ServiceInstance, dbName, host string)
 	case "mysql":
 		return fmt.Sprintf("mysql://%s:%s@tcp(%s:3306)/%s", user, pass, host, dbName)
 	case "mongodb":
-		return fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?authSource=admin", user, pass, host, dbName)
+		return fmt.Sprintf("mongodb://%s:%s@%s:27017/%s?%s", user, pass, host, dbName, inClusterMongoQuery(tlsOnly))
 	default:
 		return ""
 	}
+}
+
+// inClusterMongoQuery returns the query string for in-cluster Mongo URLs. When the chart enforces
+// TLS (edge TLS on) the self-signed certificate must be accepted, which every driver supports via
+// tlsAllowInvalidCertificates, so clients need no custom TLS code.
+func inClusterMongoQuery(tlsOnly bool) string {
+	if tlsOnly {
+		return "authSource=admin&tls=true&tlsAllowInvalidCertificates=true"
+	}
+	return "authSource=admin"
 }
 
 func connectionBlockAsInstance(b ConnectionBlock) InstanceConnection {
@@ -201,6 +236,7 @@ func InstanceConnectionForAudience(ic InstanceConnection, audience string) Insta
 func applyConnectionBlock(ic InstanceConnection, b ConnectionBlock) InstanceConnection {
 	out := ic
 	out.Use = b.Use
+	out.TLS = b.TLS
 	out.Postgres = b.Postgres
 	out.MySQL = b.MySQL
 	out.MongoDB = b.MongoDB

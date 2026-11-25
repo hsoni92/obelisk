@@ -47,8 +47,27 @@ func TestInstanceConnectionForAudience_InCluster(t *testing.T) {
 	if promoted.Redis != ic.InCluster.Redis {
 		t.Fatalf("promoted redis=%q in_cluster=%q", promoted.Redis, ic.InCluster.Redis)
 	}
-	if strings.Contains(promoted.Redis, "rediss://") {
-		t.Fatalf("in-cluster should use redis:// not rediss://: %q", promoted.Redis)
+	// Redis chart is TLS-only when the VPS edge is on, so the URL must be rediss://.
+	if !strings.HasPrefix(promoted.Redis, "rediss://") {
+		t.Fatalf("in-cluster redis must be rediss:// on a TLS-only chart: %q", promoted.Redis)
+	}
+	if promoted.TLS == nil || !promoted.TLS.Enabled || promoted.TLS.Verify {
+		t.Fatalf("tls descriptor=%+v", promoted.TLS)
+	}
+}
+
+func TestInCluster_MongoCarriesTLSOptions(t *testing.T) {
+	t.Setenv("OBELISK_PUBLIC_HOST", "vps.example.com")
+	spec := DefaultSpec("vps")
+	spec.Instances = []ServiceInstance{{
+		ID: "m1", Type: "mongodb", Enabled: true,
+		Credentials: InstanceCredentials{Username: "u", Password: "p", Database: "d"},
+	}}
+	ic := BuildConnections(spec, nil).Instances[0]
+	for _, u := range []string{ic.InCluster.MongoDB, ic.InCluster.Databases[0].URL, ic.MongoDB} {
+		if !strings.Contains(u, "tls=true") || !strings.Contains(u, "tlsAllowInvalidCertificates=true") {
+			t.Fatalf("mongo url missing tls options: %q", u)
+		}
 	}
 }
 
