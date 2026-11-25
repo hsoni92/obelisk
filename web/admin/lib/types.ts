@@ -467,6 +467,8 @@ export type BlueprintStatus = {
   authenticated: boolean;
   login?: string;
   client_configured: boolean;
+  /** True when no GitHub user is allowed to sign in (fresh install). Run `obelisk admin allow add`. */
+  login_allowlist_empty?: boolean;
   repository?: string;
   branch?: string;
   default_upstream_branch?: string;

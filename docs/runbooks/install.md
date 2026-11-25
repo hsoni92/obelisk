@@ -10,6 +10,15 @@ curl -fsSL https://github.com/hsoni92/obelisk/releases/latest/download/install.s
 
 The installer finds the latest release (`build-N`), downloads the `obelisk` CLI for this machine's architecture (amd64 or arm64) and checks its SHA-256, unpacks that release's source tree to `/opt/obelisk`, and runs `install/bootstrap.sh`. The platform images were built by CI and k3s pulls them from GHCR. **No Docker, Go, or image build runs on the machine.** See [release.md](./release.md) for how releases are made.
 
+**Choose the profile.** On a fresh install the installer asks which kind of machine this is, with a radio menu (Up/Down or `j`/`k` to move, Space or `1`/`2` to select, Enter to confirm):
+
+- **VPS**: a server with a public address. Admin UI and data ports are served on the server's IP. No Tailscale.
+- **Local**: a home or office machine, reachable on your network. Tailscale can be added later (`sudo obelisk configure deployment --profile local --tailscale`).
+
+The choice is written to the config and recorded in `/opt/obelisk/.install-meta.json`; later updates keep it. It reads the keyboard from the terminal, so it works with `curl | sudo bash`. To skip the question, or when no terminal is available (automation, CI), set it: `sudo env OBELISK_PROFILE=local bash install.sh`. With no terminal and no `OBELISK_PROFILE` it uses `vps`.
+
+**No one can sign in yet.** A fresh install allows no GitHub user to sign in to the admin UI. Before opening the UI, run `sudo obelisk admin allow add --login YOUR_GITHUB_USER` on the machine. See [github-blueprint.md](./github-blueprint.md#admin-github-allowlist).
+
 Pin a build:
 
 ```bash
@@ -30,6 +39,7 @@ After install, open the printed `http://<vps-ip>/` URL. **Platform install** end
 |----------|---------|---------|
 | `OBELISK_REF` | latest release | `build-N` pins a release. Any other ref (branch, tag, commit) is a **dev** install that builds on the machine |
 | `OBELISK_IMAGE_REGISTRY` | `ghcr.io/<repo owner>` | Registry holding `obelisk-controller` and `obelisk-admin-ui` for release installs |
+| `OBELISK_PROFILE` | asked on a fresh install; else the recorded profile; else `vps` | `vps` or `local` |
 | `OBELISK_ROOT` | `/opt/obelisk` | Install tree |
 | `OBELISK_ARCHIVE_SHA256` | unset | Optional archive checksum verify |
 | `OBELISK_INSTALL_UPGRADE` | `false` | Replace tree in place when `true` |

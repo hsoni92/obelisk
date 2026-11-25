@@ -293,6 +293,127 @@ fetch_and_extract() {
   rm -rf "$tmp"
 }
 
+# ---- deployment profile (vps | local) ---------------------------------------
+
+config_profile() {
+  # deployment.profile from the live or seed config, or empty. Only vps|local match, so the
+  # unrelated `profile: default` (resource sizing) lines are ignored.
+  local f v
+  for f in "${OBELISK_LIB_DIR:-/var/lib/obelisk}/obelisk.yaml" "${OBELISK_ETC_DIR:-/etc/obelisk}/obelisk.yaml"; do
+    [[ -f "$f" ]] || continue
+    v="$(grep -E -m1 '^[[:space:]]*profile:[[:space:]]*(vps|local)([[:space:]]|$)' "$f" 2>/dev/null | awk '{print $2}')" || true
+    if [[ -n "$v" ]]; then
+      printf '%s' "$v"
+      return
+    fi
+  done
+}
+
+has_existing_install() {
+  [[ -f "${OBELISK_LIB_DIR:-/var/lib/obelisk}/obelisk.yaml" || -f "${OBELISK_ETC_DIR:-/etc/obelisk}/obelisk.yaml" ]]
+}
+
+choose_profile() {
+  # Radio menu on the terminal (/dev/tty, so it works under `curl | bash`). Arrow keys or
+  # j/k move, space or 1/2 select, Enter confirms. Sets OBELISK_PROFILE. Returns 1 when
+  # there is no terminal to ask on.
+  { : </dev/tty >/dev/tty; } 2>/dev/null || return 1
+  local -a keys=(vps local)
+  local -a titles=("VPS" "Local")
+  local -a descs=(
+    "A server with a public address. Admin UI and data ports are served on the server's IP. No Tailscale."
+    "A home or office machine. Reachable on your network; Tailscale can be added later for internet access."
+  )
+  local sel=0 key rest i
+
+  if [[ -z "${TERM:-}" || "${TERM:-}" == "dumb" ]]; then
+    # No cursor control: numbered prompt instead of the redrawing menu.
+    {
+      printf '\nWhich kind of machine is this?\n'
+      for i in 0 1; do printf '  %d) %s - %s\n' "$((i + 1))" "${titles[i]}" "${descs[i]}"; done
+    } >/dev/tty
+    while true; do
+      printf 'Choose 1 or 2 [1]: ' >/dev/tty
+      IFS= read -r key </dev/tty || return 1
+      case "${key:-1}" in
+        1) sel=0; break ;;
+        2) sel=1; break ;;
+      esac
+    done
+    OBELISK_PROFILE="${keys[sel]}"
+    export OBELISK_PROFILE
+    return 0
+  fi
+
+  draw() {
+    local j mark
+    for j in 0 1; do
+      if [[ $j -eq $sel ]]; then mark='(*)'; else mark='( )'; fi
+      if [[ $j -eq $sel ]]; then
+        printf '\033[1m  %s %s\033[0m\033[K\n' "$mark" "${titles[j]}"
+      else
+        printf '  %s %s\033[K\n' "$mark" "${titles[j]}"
+      fi
+      printf '      \033[2m%s\033[0m\033[K\n' "${descs[j]}"
+    done
+  }
+
+  {
+    printf '\nWhich kind of machine is this? This sets the deployment profile.\n'
+    printf '(Up/Down to move, Space or 1/2 to select, Enter to confirm)\n\n'
+    draw
+  } >/dev/tty
+  while true; do
+    IFS= read -rsn1 key </dev/tty || return 1
+    case "$key" in
+      $'\x1b')
+        rest=""
+        read -rsn2 -t 1 rest </dev/tty || true
+        case "$rest" in
+          '[A') sel=$(( (sel + 1) % 2 )) ;;
+          '[B') sel=$(( (sel + 1) % 2 )) ;;
+        esac
+        ;;
+      k|j) sel=$(( (sel + 1) % 2 )) ;;
+      1) sel=0 ;;
+      2) sel=1 ;;
+      ' ') ;;
+      '') break ;;   # Enter
+    esac
+    printf '\033[4A' >/dev/tty
+    draw >/dev/tty
+  done
+  OBELISK_PROFILE="${keys[sel]}"
+  export OBELISK_PROFILE
+  printf '\nProfile: %s\n\n' "$OBELISK_PROFILE" >/dev/tty
+  return 0
+}
+
+resolve_profile() {
+  # Order: OBELISK_PROFILE, the profile recorded by the last install, the existing config,
+  # then (fresh install on a terminal only) ask. Anything else defaults to vps.
+  if [[ -n "${OBELISK_PROFILE:-}" ]]; then
+    :
+  elif [[ -n "$(meta_value profile)" ]]; then
+    OBELISK_PROFILE="$(meta_value profile)"
+  elif [[ -n "$(config_profile)" ]]; then
+    OBELISK_PROFILE="$(config_profile)"
+  elif ! has_existing_install && [[ "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]] && choose_profile; then
+    :
+  else
+    OBELISK_PROFILE=vps
+    if ! has_existing_install; then
+      log "no terminal to ask on: using profile vps (set OBELISK_PROFILE=local to change)"
+    fi
+  fi
+  case "$OBELISK_PROFILE" in
+    vps|local) ;;
+    *) die "OBELISK_PROFILE must be vps or local (got '$OBELISK_PROFILE')" ;;
+  esac
+  export OBELISK_PROFILE
+  log "deployment profile: $OBELISK_PROFILE"
+}
+
 meta_value() {
   # Read a string field from the previous .install-meta.json (empty if absent).
   sed -n "s/.*\"$1\": *\"\([^\"]*\)\".*/\1/p" "$OBELISK_ROOT/.install-meta.json" 2>/dev/null | head -n1 || true
@@ -334,7 +455,15 @@ print_admin_url() {
   log "verify: curl -fsS ${base%/}/api/v1/health"
   local pub=""
   pub="$(echo "${base%/}" | sed -n 's#.*://\([^/:]*\).*#\1#p')"
-  log "next: sudo obelisk configure deployment --profile vps${pub:+ --public-host $pub}"
+  if [[ "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
+    log "next: sudo obelisk admin allow add --login YOUR_GITHUB_USER"
+    log "       (no GitHub user is allowed to sign in until you run this)"
+  fi
+  if [[ "${OBELISK_PROFILE:-vps}" == "vps" ]]; then
+    log "next: sudo obelisk configure deployment --profile vps${pub:+ --public-host $pub}"
+  else
+    log "next: sudo obelisk configure deployment --profile local   # add --tailscale for internet reachability"
+  fi
   log "       sudo obelisk configure github   # interactive OAuth wizard"
   log "       or: sudo obelisk github oauth set --client-id ... --client-secret ... --public-url ${base%/}"
   log "       then sign in with GitHub (see docs/runbooks/github-blueprint.md)"
@@ -349,9 +478,7 @@ print_admin_url() {
 invoke_bootstrap() {
   chmod +x "$OBELISK_ROOT"/install/*.sh 2>/dev/null || true
   export OBELISK_ROOT
-  local existing_profile
-  existing_profile="$(meta_value profile)"
-  export OBELISK_PROFILE="${OBELISK_PROFILE:-${existing_profile:-vps}}"
+  export OBELISK_PROFILE="${OBELISK_PROFILE:-vps}"
   if [[ "$OBELISK_SOURCE" == "release" ]]; then
     export OBELISK_BUILD_IMAGES=false
     export OBELISK_IMAGE_REGISTRY="$(release_image_registry)"
@@ -359,10 +486,9 @@ invoke_bootstrap() {
   else
     export OBELISK_BUILD_IMAGES="${OBELISK_BUILD_IMAGES:-true}"
   fi
-  if [[ "$OBELISK_PROFILE" != "vps" && "${OBELISK_INSTALL_MODE:-}" != "upgrade" ]]; then
-    die "install.sh first install is VPS-only; set OBELISK_PROFILE=vps"
-  fi
-  if [[ -z "${OBELISK_HELM_EXTRA_ARGS:-}" && "$OBELISK_PROFILE" == "vps" ]]; then
+  # Both profiles expose the admin UI on the host (k3s servicelb, port 9080). Without this the
+  # chart default (ClusterIP) closes the port, and the platform health check cannot reach Kong.
+  if [[ -z "${OBELISK_HELM_EXTRA_ARGS:-}" ]]; then
     export OBELISK_HELM_EXTRA_ARGS='--set kong.service.type=LoadBalancer'
   fi
   log "running bootstrap profile=$OBELISK_PROFILE source=$OBELISK_SOURCE"
@@ -371,6 +497,7 @@ invoke_bootstrap() {
 
 run_dev_install() {
   preflight_os
+  resolve_profile
   fetch_and_extract
   if [[ "${OBELISK_BUILD_IMAGES:-true}" == "true" ]]; then
     ensure_docker
@@ -394,6 +521,7 @@ run_release_install() {
     # Keep it small and stable: everything that can fail before the host changes comes first.
     preflight_os
     acquire_lock
+    resolve_profile
     resolve_release_tag
     check_images_pullable
     stage_cli
@@ -452,4 +580,6 @@ main() {
   run_install_body
 }
 
-main "$@"
+if [[ -z "${OBELISK_INSTALL_SOURCE_ONLY:-}" ]]; then
+  main "$@"
+fi
