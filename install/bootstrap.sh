@@ -77,6 +77,60 @@ install_k3s() {
   log "k3s installed"
 }
 
+HELM_VERSION="${OBELISK_HELM_VERSION:-v3.14.4}"
+
+install_helm() {
+  # Pinned release with checksum, not the install script from helm's main branch.
+  local arch
+  case "$(uname -m)" in
+    x86_64|amd64) arch=amd64 ;;
+    aarch64|arm64) arch=arm64 ;;
+    *) die "unsupported architecture $(uname -m) for helm" ;;
+  esac
+  local tmp url
+  tmp="$(mktemp -d)"
+  url="https://get.helm.sh/helm-${HELM_VERSION}-linux-${arch}.tar.gz"
+  log "installing helm ${HELM_VERSION} (${arch})"
+  curl -fsSL "$url" -o "$tmp/helm.tgz"
+  echo "$(curl -fsSL "${url}.sha256sum" | cut -d' ' -f1)  $tmp/helm.tgz" | sha256sum -c - >/dev/null \
+    || die "helm checksum mismatch"
+  tar -xzf "$tmp/helm.tgz" -C "$tmp" "linux-${arch}/helm"
+  install -m 0755 "$tmp/linux-${arch}/helm" /usr/local/bin/helm
+  rm -rf "$tmp"
+}
+
+# platform_image prints the image reference for helm. With OBELISK_IMAGE_REGISTRY set
+# (release installs) it is registry/name:tag; otherwise the local name used by source builds.
+platform_image() {
+  local name="$1"
+  if [[ -n "${OBELISK_IMAGE_REGISTRY:-}" ]]; then
+    printf '%s/%s:%s' "${OBELISK_IMAGE_REGISTRY%/}" "$name" "$OBELISK_IMAGE_TAG"
+  else
+    printf '%s:%s' "$name" "$OBELISK_IMAGE_TAG"
+  fi
+}
+
+prepull_release_images() {
+  # Fresh install: k3s was just installed. Pull the release images now so the rollout does not
+  # wait on first-pull time. (Upgrades pre-pull earlier, in install.sh, before the tree changes.)
+  [[ -n "${OBELISK_IMAGE_REGISTRY:-}" && "${OBELISK_BUILD_IMAGES:-false}" != "true" ]] || return 0
+  command -v k3s >/dev/null 2>&1 || return 0
+  ensure_image_tag
+  local name ref attempt
+  for name in obelisk-controller obelisk-admin-ui; do
+    ref="$(platform_image "$name")"
+    for attempt in 1 2 3 4 5 6; do
+      if k3s ctr images pull "$ref" >/dev/null 2>&1; then
+        log "pulled $ref"
+        continue 2
+      fi
+      log "waiting for containerd to pull $ref (attempt $attempt)"
+      sleep 5
+    done
+    die "could not pull $ref. Is the package public? (ghcr.io packages start private)"
+  done
+}
+
 ensure_image_tag() {
   if [[ -n "${OBELISK_IMAGE_TAG:-}" ]]; then
     return
@@ -219,9 +273,7 @@ adopt_unmanaged_helm_resources() {
 
 deploy_platform() {
   export KUBECONFIG=/etc/rancher/k3s/k3s.yaml
-  command -v helm >/dev/null || {
-    curl -fsSL https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
-  }
+  command -v helm >/dev/null || install_helm
   ensure_image_tag
   adopt_unmanaged_helm_resources
   local helm_extra="${OBELISK_HELM_EXTRA_ARGS:-}"
@@ -254,14 +306,20 @@ deploy_platform() {
   fi
   # shellcheck disable=SC2086
   local helm_history_max="${OBELISK_HELM_HISTORY_MAX:-10}"
+  # Upgrades roll the chart back on failure; --wait makes "applied" mean "pods ready".
+  local helm_safety=()
+  if [[ "${OBELISK_INSTALL_UPGRADE:-false}" == "true" ]]; then
+    helm_safety=(--atomic --wait --timeout "${OBELISK_HELM_TIMEOUT:-10m}")
+  fi
   log "applying helm release obelisk-platform (images ${OBELISK_IMAGE_TAG}); waiting for rollouts next"
   helm upgrade --install obelisk-platform "$OBELISK_ROOT/deploy/helm/platform" \
     --namespace "$NAMESPACE" --create-namespace \
     --history-max "$helm_history_max" \
     --set obelisk.configHostPath="$CONFIG_PATH" \
     --set obelisk.helmRoot="$OBELISK_ROOT" \
-    --set "obelisk.imageController=obelisk-controller:${OBELISK_IMAGE_TAG}" \
-    --set "obelisk.imageAdminUI=obelisk-admin-ui:${OBELISK_IMAGE_TAG}" \
+    --set "obelisk.imageController=$(platform_image obelisk-controller)" \
+    --set "obelisk.imageAdminUI=$(platform_image obelisk-admin-ui)" \
+    "${helm_safety[@]}" \
     $([[ -n "$public_host" ]] && echo --set "obelisk.publicHost=$public_host") \
     --set "kong.service.httpPort=$edge_http_port" \
     --set "nativeEdge.service.tlsPort=$edge_tls_port" \
@@ -294,7 +352,9 @@ wait_platform_rollout() {
 
 install_cli() {
   if [[ -f "$OBELISK_ROOT/obelisk" ]]; then
-    install -m 0755 "$OBELISK_ROOT/obelisk" /usr/local/bin/obelisk
+    # Copy beside the target then rename: replacing a running binary in place can fail (ETXTBSY).
+    install -m 0755 "$OBELISK_ROOT/obelisk" /usr/local/bin/obelisk.new
+    mv -f /usr/local/bin/obelisk.new /usr/local/bin/obelisk
     log "installed /usr/local/bin/obelisk"
   fi
   local envdrop="/etc/profile.d/obelisk.sh"
@@ -322,6 +382,7 @@ main() {
   preflight
   install_k3s
   build_images
+  prepull_release_images
   maybe_tailscale
   write_config
   deploy_platform

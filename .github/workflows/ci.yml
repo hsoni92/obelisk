@@ -1,20 +1,23 @@
 name: CI
 
+# PR validation. Also called by release.yml so a merge re-runs the same checks before publishing.
+# `main` is protected by a ruleset (.github/rulesets/main.json) that requires the `ci-gate` job.
 on:
-  push:
-    branches: [main, master]
   pull_request:
+  workflow_call:
 
+# Cancel superseded PR runs only. Runs called from release.yml get a unique group so a newer
+# merge never cancels an in-flight release.
 concurrency:
-  group: ci-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
 
 env:
   GO_VERSION: "1.26"
-  NODE_VERSION: "20"
+  NODE_VERSION: "22"
   HELM_VERSION: "v3.14.4"
   GITLEAKS_VERSION: "v8.21.2"
 
@@ -22,8 +25,8 @@ jobs:
   go:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version: ${{ env.GO_VERSION }}
           cache: true
@@ -46,8 +49,8 @@ jobs:
       run:
         working-directory: web/admin
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
@@ -61,22 +64,86 @@ jobs:
   helm:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: azure/setup-helm@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: azure/setup-helm@1a275c3b69536ee54be43f2070a358922e12c8d4 # v4
         with:
           version: ${{ env.HELM_VERSION }}
       - run: make helm-lint
 
+  shellcheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - name: shellcheck install scripts
+        # -S error: fail on errors only; warnings in the existing installer are not blocking yet.
+        run: shellcheck -S error install/*.sh scripts/*.sh
+
   secrets:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
         with:
           fetch-depth: 0
       - name: Install gitleaks
         run: |
           ver="${GITLEAKS_VERSION#v}"
           curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${ver}_linux_x64.tar.gz" \
-            | sudo tar -xz -C /usr/local/bin gitleaks
+            -o /tmp/gitleaks.tgz
+          curl -sSfL "https://github.com/gitleaks/gitleaks/releases/download/${GITLEAKS_VERSION}/gitleaks_${ver}_checksums.txt" \
+            -o /tmp/gitleaks_checksums.txt
+          (cd /tmp && grep " gitleaks_${ver}_linux_x64.tar.gz\$" gitleaks_checksums.txt | sha256sum -c -)
+          sudo tar -xz -C /usr/local/bin gitleaks -f /tmp/gitleaks.tgz
       - name: Scan repository
         run: gitleaks detect --config .gitleaks.toml --verbose
+
+  # Build both images for each architecture without pushing. Catches Dockerfile and
+  # arm64-only breakage on the PR instead of after merge (where it would mean no release).
+  images:
+    name: images (${{ matrix.arch }})
+    runs-on: ${{ matrix.runner }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - arch: amd64
+            runner: ubuntu-latest
+          - arch: arm64
+            runner: ubuntu-24.04-arm
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
+      - name: Build controller (no push)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile.controller
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          cache-from: type=gha,scope=controller-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=controller-${{ matrix.arch }}
+      - name: Build admin UI (no push)
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: .
+          file: Dockerfile.admin-ui
+          platforms: linux/${{ matrix.arch }}
+          push: false
+          cache-from: type=gha,scope=admin-ui-${{ matrix.arch }}
+          cache-to: type=gha,mode=max,scope=admin-ui-${{ matrix.arch }}
+
+  # Single required check for the ruleset. Renaming or adding jobs above only requires
+  # updating `needs`, not the ruleset. `always()` makes a failed or skipped dependency fail the gate.
+  ci-gate:
+    if: always()
+    needs: [go, web, helm, shellcheck, secrets, images]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require every job to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          echo "$RESULTS"
+          if echo "$RESULTS" | grep -E '"result": "(failure|cancelled|skipped)"' >/dev/null; then
+            echo "one or more required jobs did not succeed" >&2
+            exit 1
+          fi

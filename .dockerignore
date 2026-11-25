@@ -1,0 +1,11 @@
+# Whitelist build context: everything is excluded unless re-included below.
+# Keeps .env, .git, local binaries and docs out of images and out of the cache key.
+**
+!go.mod
+!go.sum
+!cmd/**
+!internal/**
+!pkg/**
+!web/admin/**
+web/admin/node_modules
+web/admin/.next

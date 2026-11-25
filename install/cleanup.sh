@@ -70,7 +70,7 @@ prune_docker_platform_images() {
     while IFS= read -r ref; do
       [[ -z "$ref" ]] && continue
       run_or_dry "remove docker image $ref" docker_cmd image rm -f "$ref" || true
-    done < <(docker_cmd images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '^obelisk-(controller|admin-ui):' || true)
+    done < <(docker_cmd images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '(^|/)obelisk-(controller|admin-ui):' || true)
     return
   fi
   read_keep_platform_tag
@@ -83,7 +83,7 @@ prune_docker_platform_images() {
       continue
     fi
     run_or_dry "remove stale docker platform image $ref" docker_cmd image rm -f "$ref" || true
-  done < <(docker_cmd images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '^obelisk-(controller|admin-ui):' || true)
+  done < <(docker_cmd images --format '{{.Repository}}:{{.Tag}}' 2>/dev/null | grep -E '(^|/)obelisk-(controller|admin-ui):' || true)
 }
 
 prune_k3s_platform_images() {

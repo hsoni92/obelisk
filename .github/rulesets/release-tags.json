@@ -1,0 +1,14 @@
+{
+  "name": "build-* release tags are immutable",
+  "target": "tag",
+  "enforcement": "active",
+  "conditions": {
+    "ref_name": { "include": ["refs/tags/build-*"], "exclude": [] }
+  },
+  "bypass_actors": [],
+  "rules": [
+    { "type": "update" },
+    { "type": "deletion" },
+    { "type": "non_fast_forward" }
+  ]
+}
