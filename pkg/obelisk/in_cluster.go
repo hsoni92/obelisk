@@ -102,6 +102,9 @@ func buildInClusterBlock(spec Spec, inst ServiceInstance, namespace string) Conn
 	tlsOnly := VPSEdge(spec) && (inst.Type == "mongodb" || inst.Type == "redis")
 	if tlsOnly {
 		b.TLS = &ConnectionTLS{Enabled: true, Verify: false, ServerName: host}
+	} else if nativeTLSType(inst.Type) {
+		// Explicitly plaintext, so clients never have to guess.
+		b.TLS = &ConnectionTLS{}
 	}
 
 	switch inst.Type {
@@ -184,6 +187,14 @@ func relationalConnectionURLInCluster(inst ServiceInstance, dbName, host string,
 	default:
 		return ""
 	}
+}
+
+func nativeTLSType(t string) bool {
+	switch t {
+	case "postgres", "mysql", "mongodb", "redis":
+		return true
+	}
+	return false
 }
 
 // inClusterMongoQuery returns the query string for in-cluster Mongo URLs. When the chart enforces
