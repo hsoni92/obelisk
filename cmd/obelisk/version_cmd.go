@@ -1,40 +1,16 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
-	"path/filepath"
 	"runtime"
+
+	"github.com/hsoni92/obelisk/internal/release"
 )
 
-// installMeta is /opt/obelisk/.install-meta.json. Schema 2 adds build/tag/profile/arch/source.
-// Files written before schema 2 have no build; they count as build 0.
-type installMeta struct {
-	Schema      int    `json:"schema,omitempty"`
-	Repo        string `json:"repo"`
-	Ref         string `json:"ref"`
-	InstalledAt string `json:"installed_at"`
-	ImageTag    string `json:"image_tag"`
-	Build       int    `json:"build,omitempty"`
-	Tag         string `json:"tag,omitempty"`
-	Profile     string `json:"profile,omitempty"`
-	Arch        string `json:"arch,omitempty"`
-	Source      string `json:"source,omitempty"` // "release" or "dev"
-}
+type installMeta = release.InstallMeta
 
-func readInstallMeta(root string) (installMeta, string, error) {
-	metaPath := filepath.Join(root, ".install-meta.json")
-	b, err := os.ReadFile(metaPath)
-	if err != nil {
-		return installMeta{}, metaPath, err
-	}
-	var m installMeta
-	if err := json.Unmarshal(b, &m); err != nil {
-		return installMeta{}, metaPath, err
-	}
-	return m, metaPath, nil
-}
+func readInstallMeta(root string) (installMeta, string, error) { return release.ReadInstallMeta(root) }
 
 func cmdVersion() {
 	root := resolveObeliskRoot()

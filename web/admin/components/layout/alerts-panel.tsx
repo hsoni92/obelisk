@@ -6,12 +6,24 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import {
   rtkErrorMessage,
   useGetBlueprintStatusQuery,
+  useGetUpdateStatusQuery,
   useUnlockBlueprintMutation,
 } from "@/lib/api";
 import { readPassphrase, writePassphrase } from "@/lib/blueprint-storage";
+import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
-import { ArrowRight, Bell, BellOff, GitMerge, LockKeyhole, type LucideIcon } from "lucide-react";
+import {
+  ArrowRight,
+  Bell,
+  BellOff,
+  Copy,
+  Download,
+  GitMerge,
+  LockKeyhole,
+  RefreshCw,
+  type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
@@ -26,6 +38,7 @@ type AlertItem = {
   detail?: string;
   action?: { label: string; href: string };
   unlock?: boolean;
+  update?: boolean;
 };
 
 const SEVERITY_TILE: Record<Severity, string> = {
@@ -35,6 +48,11 @@ const SEVERITY_TILE: Record<Severity, string> = {
 
 export function AlertsPanel() {
   const { data } = useGetBlueprintStatusQuery(undefined, { pollingInterval: 5000 });
+  // Same check as `obelisk update --check`; the controller caches the GitHub lookup.
+  const { data: update, refetch: recheck, isFetching: rechecking } = useGetUpdateStatusQuery(
+    undefined,
+    { pollingInterval: 30 * 60 * 1000 },
+  );
   const [unlock, { isLoading }] = useUnlockBlueprintMutation();
   const [open, setOpen] = useState(false);
   const [passphrase, setPassphrase] = useState("");
@@ -79,6 +97,40 @@ export function AlertsPanel() {
           : `GitHub (${data.repository}) is ahead of this appliance (generation ${data.generation}). Choose whether to import from GitHub or overwrite GitHub with this appliance.`,
         action: { label: "Resolve conflict", href: "/platform#blueprint" },
       });
+    }
+  }
+
+  if (update?.update_available) {
+    alerts.push({
+      id: "update-available",
+      severity: "warning",
+      icon: Download,
+      title: "Update available",
+      body: `Build ${update.latest_build} is available (installed: build ${update.installed_build}). Updating restarts the platform and must run on the appliance as root.`,
+      detail: update.command,
+      update: true,
+    });
+  }
+
+  async function recheckUpdate() {
+    try {
+      const res = await recheck().unwrap();
+      toast.success(
+        res.update_available
+          ? `Update available: build ${res.installed_build} → ${res.latest_build}`
+          : res.error || "Up to date",
+      );
+    } catch (e) {
+      toast.error(rtkErrorMessage(e));
+    }
+  }
+
+  async function copyUpdateCommand(command: string) {
+    try {
+      await copyToClipboard(command);
+      toast.success("Command copied");
+    } catch {
+      toast.error("Could not copy the command");
     }
   }
 
@@ -177,6 +229,28 @@ export function AlertsPanel() {
                             Unlock
                           </Button>
                         </form>
+                      ) : null}
+                      {a.update && update ? (
+                        <div className="mt-3 flex items-center gap-2">
+                          <Button
+                            type="button"
+                            size="sm"
+                            onClick={() => void copyUpdateCommand(update.command)}
+                          >
+                            <Copy className="size-3.5" aria-hidden />
+                            Copy command
+                          </Button>
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="outline"
+                            disabled={rechecking}
+                            onClick={() => void recheckUpdate()}
+                          >
+                            <RefreshCw className={cn("size-3.5", rechecking && "animate-spin")} aria-hidden />
+                            Check again
+                          </Button>
+                        </div>
                       ) : null}
                       {a.action ? (
                         <Button asChild size="sm" className="mt-3">

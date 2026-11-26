@@ -22,6 +22,7 @@ import type {
   ProjectView,
   TailscaleStatusResponse,
   FederationResponse,
+  UpdateStatus,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { obeliskApiBaseUrl } from "./api-base";
@@ -625,6 +626,9 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview", "Federation"],
     }),
+    getUpdateStatus: builder.query<UpdateStatus, { refresh?: boolean } | void>({
+      query: (arg) => (arg && arg.refresh ? "/update?refresh=1" : "/update"),
+    }),
     getFederation: builder.query<FederationResponse, void>({
       query: () => "/federation",
       providesTags: ["Federation"],
@@ -894,6 +898,7 @@ export const {
   useConnectTailscaleMutation,
   usePatchDeploymentMutation,
   useGetFederationQuery,
+  useGetUpdateStatusQuery,
   usePatchFederationMutation,
   useFederationAdvertiseNowMutation,
   useFederationUnregisterMutation,
