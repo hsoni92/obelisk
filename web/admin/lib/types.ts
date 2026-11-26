@@ -662,3 +662,13 @@ export type OverviewResponse = {
   vitals?: VitalsSnapshot;
   warnings?: string[];
 };
+export type UpdateStatus = {
+  installed_build: number;
+  latest_build?: number;
+  source?: "release" | "dev";
+  update_available: boolean;
+  checkable: boolean;
+  checked_at: string;
+  error?: string;
+  command: string;
+};

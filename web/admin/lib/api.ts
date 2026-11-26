@@ -81,6 +81,7 @@ export {
   useDeleteMailAccountMutation,
   useTestMailMutation,
   useGetBlueprintStatusQuery,
+  useGetUpdateStatusQuery,
   useGetSystemHealthQuery,
   useLazyGetSystemHealthQuery,
   useGetBlueprintGitHubConfigQuery,
