@@ -13,7 +13,8 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PeerFlowDiagram } from "@/components/connectivity/peer-flow-diagram";
+import { PeerFlowScene } from "@/components/connectivity/peer-flow-scene";
+import { availability } from "@/components/connectivity/peer-stats";
 import { PeerStrip } from "@/components/connectivity/peer-strip";
 import {
   STATE_LABEL,
@@ -27,7 +28,7 @@ import {
   useGetConnectivityQuery,
 } from "@/lib/store/obelisk-api";
 import { toast } from "@/lib/toast";
-import type { ConnectivityPeer, ConnectivityResponse } from "@/lib/types";
+import type { ConnectivityPeer } from "@/lib/types";
 import { Network } from "lucide-react";
 import * as React from "react";
 
@@ -160,17 +161,6 @@ function StripLegend() {
   );
 }
 
-function countsLine(data: ConnectivityResponse): string {
-  const c = data.counts;
-  const parts = [
-    `${c.connected ?? 0} connected`,
-    `${c.degraded ?? 0} degraded`,
-    `${c.offline ?? 0} offline`,
-  ];
-  if (c.never) parts.push(`${c.never} waiting`);
-  return parts.join(" · ");
-}
-
 export function GatewayPeerView() {
   const { data, error } = useGetConnectivityQuery(
     undefined,
@@ -203,6 +193,8 @@ export function GatewayPeerView() {
   if (!data.peer_view_enabled) return null;
 
   const peers = data.peers;
+  const avail = availability(peers);
+  const counts = data.counts;
   return (
     <section aria-labelledby="peers-heading">
       <Card className="space-y-5 p-6">
@@ -234,8 +226,50 @@ export function GatewayPeerView() {
           </p>
         ) : (
           <>
-            <PeerFlowDiagram peers={peers} />
-            <p className="text-sm text-muted-foreground">{countsLine(data)}</p>
+            <div className="grid items-center gap-x-6 gap-y-3 sm:grid-cols-[17.5rem_minmax(0,1fr)]">
+              <div
+                role="img"
+                aria-label={`${counts.connected ?? 0} of ${peers.length} peers connected`}
+                className="mx-auto w-full max-w-[17.5rem]"
+              >
+                <PeerFlowScene peers={peers} connected={counts.connected ?? 0} />
+              </div>
+              <div className="space-y-3">
+                <div className="flex items-baseline gap-2">
+                  <p className="text-3xl font-light leading-none tabular-nums text-foreground">
+                    {avail === null ? "—" : `${avail >= 99.95 ? 100 : avail.toFixed(1)}%`}
+                  </p>
+                  <p className="text-metadata text-muted-foreground">
+                    available, {data.window_hours} h
+                  </p>
+                </div>
+                <ul className="flex flex-wrap gap-x-5 gap-y-1 text-metadata">
+                  <li className="text-muted-foreground">
+                    <span className="font-medium tabular-nums" style={{ color: "var(--success)" }}>
+                      {counts.connected ?? 0}
+                    </span>{" "}
+                    connected
+                  </li>
+                  <li className="text-muted-foreground">
+                    <span className="font-medium tabular-nums" style={{ color: "var(--warning)" }}>
+                      {counts.degraded ?? 0}
+                    </span>{" "}
+                    degraded
+                  </li>
+                  <li className="text-muted-foreground">
+                    <span className="font-medium tabular-nums" style={{ color: "var(--destructive)" }}>
+                      {counts.offline ?? 0}
+                    </span>{" "}
+                    offline
+                  </li>
+                  {counts.never ? (
+                    <li className="text-muted-foreground">
+                      <span className="font-medium tabular-nums">{counts.never}</span> waiting
+                    </li>
+                  ) : null}
+                </ul>
+              </div>
+            </div>
             <ul className="divide-y divide-border/60 overflow-hidden rounded-xl border border-border">
               {peers.map((peer) => (
                 <PeerRow
