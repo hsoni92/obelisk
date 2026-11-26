@@ -380,32 +380,24 @@
 .conn-flow[data-speed="slow"] {
   animation-duration: 3.2s;
 }
-/* Overview mesh: hub ripples and a slow spinning ring. Decorative only. */
-@keyframes conn-ripple {
-  0% { transform: scale(0.6); opacity: 0.4; }
-  100% { transform: scale(1.7); opacity: 0; }
+/* Flat flow diagram: a short bright dash glides along a live link toward the hub. */
+@keyframes conn-comet {
+  from { stroke-dashoffset: 9; }
+  to { stroke-dashoffset: -100; }
 }
-@keyframes conn-spin {
-  to { transform: rotate(360deg); }
+.conn-comet {
+  animation: conn-comet 3s cubic-bezier(0.45, 0, 0.35, 1) infinite;
 }
-.conn-ripple {
-  transform-box: fill-box;
-  transform-origin: center;
-  opacity: 0.18;
-  animation: conn-ripple 3.6s ease-out infinite;
-}
-.conn-ripple[data-delay="1"] { animation-delay: 1.2s; }
-.conn-ripple[data-delay="2"] { animation-delay: 2.4s; }
-.conn-spin {
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: conn-spin 40s linear infinite;
+.conn-comet[data-speed="slow"] {
+  animation-duration: 5.5s;
 }
 @media (prefers-reduced-motion: reduce) {
-  .conn-flow,
-  .conn-ripple,
-  .conn-spin {
+  .conn-flow {
     animation: none;
+  }
+  .conn-comet {
+    animation: none;
+    opacity: 0;
   }
 }
 @keyframes auth-sheen {

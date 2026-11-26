@@ -33,6 +33,7 @@ __debug_bin*
 /dev/obelisk.yaml
 /dev/appliance-id
 /dev/state-history.jsonl
+/dev/gateway.alive
 /dev/credentials/
 /dev/*.credentials.json
 
