@@ -154,8 +154,12 @@ func (s *Scheduler) runScan(ctx context.Context) {
 	}
 	wg.Wait()
 
-	fed, _ := FederatedTargetsForConfig(s.rec.ConfigPath, spec)
-	if err := exposure.Reconcile(ctx, spec, s.rec.HelmRoot, s.rec.Namespace, fed, s.rec.ConfigPath); err != nil {
+	fed, fedErr := FederatedTargetsForConfig(s.rec.ConfigPath, spec)
+	if fedErr != nil {
+		// Never reconcile from a load error: an empty federated set would remove
+		// every federated route. Keep the applied routes and retry next tick.
+		slog.Warn("peer registry load failed; skipping exposure reconcile", "err", fedErr)
+	} else if err := exposure.Reconcile(ctx, spec, s.rec.HelmRoot, s.rec.Namespace, fed, s.rec.ConfigPath); err != nil {
 		s.exposureErr = err.Error()
 		s.exposureErrTime = time.Now()
 		slog.Warn("exposure reconcile", "err", err)

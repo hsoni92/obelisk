@@ -10,10 +10,15 @@ import (
 )
 
 // Event is one observed state transition for a component key.
+//
+// Kinds: platform | instance | audit | peer | gateway.
+// For kind "gateway" with state "gap", At is the start of the unobserved span
+// and Until is its end.
 type Event struct {
 	At         time.Time `json:"at"`
+	Until      time.Time `json:"until,omitempty"`
 	Key        string    `json:"key"`
-	Kind       string    `json:"kind"` // platform | instance
+	Kind       string    `json:"kind"`
 	State      string    `json:"state"`
 	Detail     string    `json:"detail,omitempty"`
 	HelmStatus string    `json:"helm_status,omitempty"`
@@ -27,6 +32,26 @@ type Store struct {
 	retention time.Duration
 	mu        sync.Mutex
 	lastState map[string]string
+}
+
+var (
+	sharedStoresMu sync.Mutex
+	sharedStores   = map[string]*Store{}
+)
+
+// Shared returns the process-wide store for path, hydrated once. Every writer in
+// the process must use it: two Store values on one file have separate locks
+// and would overwrite each other's appends and prunes.
+func Shared(path string) *Store {
+	sharedStoresMu.Lock()
+	defer sharedStoresMu.Unlock()
+	if s, ok := sharedStores[path]; ok {
+		return s
+	}
+	s := NewStore(path)
+	_ = s.Hydrate()
+	sharedStores[path] = s
+	return s
 }
 
 func NewStore(path string) *Store {
@@ -78,6 +103,32 @@ func (s *Store) Record(e Event) error {
 		return nil
 	}
 	s.lastState[e.Key] = e.State
+	if e.At.IsZero() {
+		e.At = time.Now().UTC()
+	}
+	if err := s.ensureDir(); err != nil {
+		return err
+	}
+	f, err := os.OpenFile(s.path, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o600)
+	if err != nil {
+		return err
+	}
+	enc := json.NewEncoder(f)
+	if err := enc.Encode(e); err != nil {
+		_ = f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return s.pruneLocked()
+}
+
+// Append writes an event without state deduplication. Use it for spans and
+// markers where every occurrence matters (for example gateway gaps).
+func (s *Store) Append(e Event) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	if e.At.IsZero() {
 		e.At = time.Now().UTC()
 	}

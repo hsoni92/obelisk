@@ -30,7 +30,7 @@ export function GatewayAdvertiseUrlCopy({
     <div className="space-y-3 rounded-xl border border-broadcast/30 bg-broadcast-tint/40 p-4">
       <Label className="text-foreground">Gateway advertise URL</Label>
       <p className="text-metadata text-muted-foreground">
-        Paste this on each local Obelisk under Platform → Register with
+        Paste this on each local Obelisk under Connectivity → Register with
         gateway. Prefer the tailnet URL if the public one times out.
       </p>
       <UrlRow label="Public" url={endpoint} />

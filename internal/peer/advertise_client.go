@@ -155,7 +155,7 @@ func postAdvertiseOnce(ctx context.Context, configPath string, spec obelisk.Spec
 // StartAdvertiser periodically posts catalog updates from a local appliance.
 func StartAdvertiser(ctx context.Context, configPath string, interval time.Duration) {
 	if interval <= 0 {
-		interval = 45 * time.Second
+		interval = AdvertiseInterval
 	}
 	t := time.NewTicker(interval)
 	defer t.Stop()

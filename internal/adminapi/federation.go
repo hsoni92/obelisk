@@ -91,7 +91,6 @@ func (s *Server) handleGetFederation(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		reg.MarkStale(2 * time.Minute)
 		peers := reg.ListPeers()
 		out["peers"] = peers
 	} else {

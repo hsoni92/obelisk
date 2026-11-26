@@ -1,6 +1,7 @@
 "use client";
 
 import { AuthFrame } from "@/components/blueprint/auth-frame";
+import { AuthSkeleton } from "@/components/skeletons";
 import { GitHubErrorScreen } from "@/components/blueprint/github-error-screen";
 import { Button } from "@/components/ui/button";
 import { Field, FieldPassword } from "@/components/ui/field";
@@ -111,6 +112,15 @@ export default function OnboardPage() {
         onRecovered={() => setApiError(null)}
       />
     );
+  }
+
+  // Show nothing interactive until the session state is known. A user who is
+  // not signed in, or who already has a blueprint, is being redirected away.
+  if (!status) {
+    return <AuthSkeleton caption="Checking blueprint" />;
+  }
+  if (!status.authenticated || (status.repository && !status.needs_onboarding && !status.import_required)) {
+    return <AuthSkeleton caption="Opening console" />;
   }
 
   return (

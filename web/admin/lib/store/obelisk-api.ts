@@ -22,6 +22,7 @@ import type {
   ProjectView,
   TailscaleStatusResponse,
   FederationResponse,
+  ConnectivityResponse,
   UpdateStatus,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
@@ -626,12 +627,16 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Tailscale", "Deployment", "Status", "Overview", "Federation"],
     }),
-    getUpdateStatus: builder.query<UpdateStatus, { refresh?: boolean } | void>({
-      query: (arg) => (arg && arg.refresh ? "/update?refresh=1" : "/update"),
-    }),
     getFederation: builder.query<FederationResponse, void>({
       query: () => "/federation",
       providesTags: ["Federation"],
+    }),
+    getConnectivity: builder.query<ConnectivityResponse, void>({
+      query: () => "/connectivity",
+      providesTags: ["Federation"],
+    }),
+    getUpdateStatus: builder.query<UpdateStatus, { refresh?: boolean } | void>({
+      query: (arg) => (arg && arg.refresh ? "/update?refresh=1" : "/update"),
     }),
     patchFederation: builder.mutation<
       { ok: boolean; advertise_url: string },
@@ -898,6 +903,7 @@ export const {
   useConnectTailscaleMutation,
   usePatchDeploymentMutation,
   useGetFederationQuery,
+  useGetConnectivityQuery,
   useGetUpdateStatusQuery,
   usePatchFederationMutation,
   useFederationAdvertiseNowMutation,
@@ -907,6 +913,7 @@ export const {
 
 export const tailscalePollOptions = { pollingInterval: 8000 } as const;
 export const federationPollOptions = { pollingInterval: 8000 } as const;
+export const connectivityPollOptions = { pollingInterval: 8000 } as const;
 
 /** Default polling for live cluster status. */
 export const statusPollOptions = { pollingInterval: POLL_MS } as const;

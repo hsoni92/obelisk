@@ -4,6 +4,7 @@ export type NavId =
   | "projects"
   | "dr"
   | "exposure"
+  | "connectivity"
   | "platform";
 
 export const NAV_ROUTES: Record<NavId, string> = {
@@ -12,6 +13,7 @@ export const NAV_ROUTES: Record<NavId, string> = {
   projects: "/projects",
   dr: "/dr",
   exposure: "/exposure",
+  connectivity: "/connectivity",
   platform: "/platform",
 };
 
@@ -43,10 +45,14 @@ export const PAGE_TITLES: Record<
     title: "Exposure",
     subtitle: "Kong HTTP routes and optional Tailscale Funnel.",
   },
+  connectivity: {
+    title: "Connectivity",
+    subtitle:
+      "Tailscale join, gateway role, and whether your home Obelisks are reaching this gateway.",
+  },
   platform: {
     title: "Platform",
-    subtitle:
-      "Tailscale, gateway role, appearance, and blueprint — always available here.",
+    subtitle: "Appearance and blueprint — always available here.",
   },
 };
 

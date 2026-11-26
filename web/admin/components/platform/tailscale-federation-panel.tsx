@@ -58,6 +58,23 @@ export function TailscaleFederationPanel() {
   const vpsBlocksTailscaleInConfig =
     profile === "vps" && !isGateway;
 
+  // Nothing about the host is known yet. Do not show "Not connected" or the
+  // VPS profile warning, which would be wrong for a connected host.
+  if (!data) {
+    return (
+      <section aria-labelledby="tailscale-heading">
+        <Card className="p-6" aria-busy="true">
+          <h2 id="tailscale-heading" className="text-page-title">
+            Tailscale &amp; gateway
+          </h2>
+          <p className="mt-1 text-metadata text-muted-foreground">
+            {error ? rtkErrorMessage(error) : "Checking Tailscale…"}
+          </p>
+        </Card>
+      </section>
+    );
+  }
+
   async function onConnect() {
     const key = authKey.trim();
     if (!key && !connected) {
@@ -214,15 +231,13 @@ export function TailscaleFederationPanel() {
         </div>
 
         {isGateway ? (
-          <>
-            <div className="px-6 pb-2">
-              <GatewayAdvertiseUrlCopy
-                endpoint={data?.gateway_advertise_endpoint}
-                tailnetEndpoint={data?.gateway_advertise_endpoint_tailnet}
-              />
-            </div>
-            <FederationPeersPanel isGateway />
-          </>
+          // Gateway peers are shown in the Connectivity peer view, not here.
+          <div className="px-6 pb-6">
+            <GatewayAdvertiseUrlCopy
+              endpoint={data?.gateway_advertise_endpoint}
+              tailnetEndpoint={data?.gateway_advertise_endpoint_tailnet}
+            />
+          </div>
         ) : profile === "local" ? (
           <FederationPeersPanel isGateway={false} />
         ) : (

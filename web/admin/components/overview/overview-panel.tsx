@@ -21,6 +21,7 @@ import {
   useGetOverviewQuery,
 } from "@/lib/api";
 import { BackupOverview } from "@/components/overview/backup-overview";
+import { ConnectivityMesh } from "@/components/overview/connectivity-mesh";
 import { ServiceVitals } from "@/components/overview/service-vitals";
 import { summarizeBackup } from "@/lib/backup-summary";
 import { formatBytes } from "@/lib/format-bytes";
@@ -241,6 +242,8 @@ export function OverviewPanel({
       </div>
 
       <ServiceVitals vitals={data?.vitals} />
+
+      <ConnectivityMesh />
 
       {/* Charts */}
       <div className="grid gap-3 lg:grid-cols-3">

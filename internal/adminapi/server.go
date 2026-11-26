@@ -35,7 +35,9 @@ type Server struct {
 	historyOnce           sync.Once
 	historyStore          *history.Store
 	Vitals                *vitals.Store
-	updateCache           updateCache
+	// Connectivity is the gateway peer monitor. Nil on hosts that do not run one.
+	Connectivity *peer.Monitor
+	updateCache  updateCache
 }
 
 func (s *Server) reconciler(cfg string) controller.Reconciler {
@@ -54,10 +56,11 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/health", s.handleHealth)
 	mux.HandleFunc("GET /api/v1/system/health", s.handleSystemHealth)
 	mux.HandleFunc("GET /api/v1/status", s.handleStatus)
-	mux.HandleFunc("GET /api/v1/update", s.handleUpdateStatus)
 	mux.HandleFunc("GET /api/v1/overview", s.handleOverview)
 	mux.HandleFunc("GET /api/v1/activity/history", s.handleActivityHistory)
 	mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
+	mux.HandleFunc("GET /api/v1/connectivity", s.handleConnectivity)
+	mux.HandleFunc("GET /api/v1/update", s.handleUpdateStatus)
 	mux.HandleFunc("POST /api/v1/diagnostics/run", s.handleDiagnosticsRun)
 	mux.HandleFunc("GET /api/v1/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/v1/config", s.handlePutConfig)

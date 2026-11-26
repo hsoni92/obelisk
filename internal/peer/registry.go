@@ -19,25 +19,60 @@ import (
 
 const registryFile = "peer.registry.json"
 
+const (
+	// AdvertiseInterval is how often a local posts its catalog to the gateway.
+	AdvertiseInterval = 30 * time.Second
+	// HeartbeatStaleAfter is the age of LastSeen after which a peer is no longer
+	// considered connected. Every staleness check must use this constant.
+	HeartbeatStaleAfter = 2 * time.Minute
+)
+
 type registryDisk struct {
 	Peers map[string]PeerRecord `json:"peers,omitempty"`
 }
 
 // Registry holds admitted peers and their latest catalog snapshots.
+//
+// One Registry exists per registry file per process (see LoadRegistry), so
+// every handler and the reconcile loop share one lock and one in-memory copy.
+// That removes the lost-update race where a stale copy saved after a heartbeat
+// rolled LastSeen back.
 type Registry struct {
 	mu   sync.RWMutex
 	path string
 	data registryDisk
 }
 
+var (
+	sharedRegistriesMu sync.Mutex
+	sharedRegistries   = map[string]*Registry{}
+)
+
 func registryPath(configPath string) string {
 	return filepath.Join(config.CredentialsDir(configPath), registryFile)
 }
 
-// LoadRegistry reads peer state from disk.
+// LoadRegistry returns the process-wide registry for configPath, reading the
+// file from disk only the first time. If that first read fails, nothing is
+// cached and the error is returned, so callers must not treat it as an empty set.
 func LoadRegistry(configPath string) (*Registry, error) {
-	r := &Registry{path: registryPath(configPath), data: registryDisk{Peers: map[string]PeerRecord{}}}
-	data, err := os.ReadFile(r.path)
+	path := registryPath(configPath)
+	sharedRegistriesMu.Lock()
+	defer sharedRegistriesMu.Unlock()
+	if r, ok := sharedRegistries[path]; ok {
+		return r, nil
+	}
+	r, err := readRegistryFile(path)
+	if err != nil {
+		return nil, err
+	}
+	sharedRegistries[path] = r
+	return r, nil
+}
+
+func readRegistryFile(path string) (*Registry, error) {
+	r := &Registry{path: path, data: registryDisk{Peers: map[string]PeerRecord{}}}
+	data, err := os.ReadFile(path)
 	if err != nil {
 		if os.IsNotExist(err) {
 			return r, nil
@@ -53,6 +88,8 @@ func LoadRegistry(configPath string) (*Registry, error) {
 	return r, nil
 }
 
+// save writes the registry atomically: a unique temp file, fsync, then rename.
+// Callers must hold r.mu.
 func (r *Registry) save() error {
 	dir := filepath.Dir(r.path)
 	if err := os.MkdirAll(dir, 0o700); err != nil {
@@ -62,11 +99,36 @@ func (r *Registry) save() error {
 	if err != nil {
 		return err
 	}
-	tmp := r.path + ".tmp"
-	if err := os.WriteFile(tmp, data, 0o600); err != nil {
+	f, err := os.CreateTemp(dir, registryFile+".*.tmp")
+	if err != nil {
 		return err
 	}
-	return os.Rename(tmp, r.path)
+	tmp := f.Name()
+	cleanup := func() { _ = os.Remove(tmp) }
+	if _, err := f.Write(data); err != nil {
+		_ = f.Close()
+		cleanup()
+		return err
+	}
+	if err := f.Chmod(0o600); err != nil {
+		_ = f.Close()
+		cleanup()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		_ = f.Close()
+		cleanup()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		cleanup()
+		return err
+	}
+	if err := os.Rename(tmp, r.path); err != nil {
+		cleanup()
+		return err
+	}
+	return nil
 }
 
 func newToken() (plain string, hash string, err error) {
@@ -167,9 +229,12 @@ func subtleCompareBearer(bearer, hash string) bool {
 func (r *Registry) ListPeers() []PeerRecord {
 	r.mu.RLock()
 	defer r.mu.RUnlock()
+	now := time.Now().UTC()
 	out := make([]PeerRecord, 0, len(r.data.Peers))
 	for _, p := range r.data.Peers {
 		cp := p
+		// Heartbeat freshness is derived at read time, never persisted.
+		cp.Reachable = heartbeatFresh(cp.LastSeen, now, HeartbeatStaleAfter)
 		out = append(out, cp)
 	}
 	sort.Slice(out, func(i, j int) bool {
@@ -185,7 +250,7 @@ func (r *Registry) ListPeers() []PeerRecord {
 // FederatedTargets builds exposure routes for enabled advertised instances.
 func (r *Registry) FederatedTargets(spec obelisk.Spec, staleAfter time.Duration) []FederatedTarget {
 	if staleAfter <= 0 {
-		staleAfter = 2 * time.Minute
+		staleAfter = HeartbeatStaleAfter
 	}
 	now := time.Now().UTC()
 	r.mu.RLock()
@@ -195,7 +260,7 @@ func (r *Registry) FederatedTargets(spec obelisk.Spec, staleAfter time.Duration)
 		if !rec.Admitted {
 			continue
 		}
-		reachable := rec.Reachable && now.Sub(rec.LastSeen) <= staleAfter
+		reachable := heartbeatFresh(rec.LastSeen, now, staleAfter)
 		host := strings.TrimSpace(rec.TailnetHost)
 		if host == "" {
 			continue
@@ -303,24 +368,16 @@ func (r *Registry) AdmitPeer(peerID string) (string, error) {
 	return plain, nil
 }
 
-// MarkStale sets reachable=false for peers not seen recently.
-func (r *Registry) MarkStale(staleAfter time.Duration) {
-	if staleAfter <= 0 {
-		staleAfter = 2 * time.Minute
+// heartbeatFresh reports whether a peer has advertised within staleAfter.
+// A zero LastSeen (never advertised) is never fresh.
+func heartbeatFresh(lastSeen, now time.Time, staleAfter time.Duration) bool {
+	if lastSeen.IsZero() {
+		return false
 	}
-	now := time.Now().UTC()
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	changed := false
-	for id, rec := range r.data.Peers {
-		ok := now.Sub(rec.LastSeen) <= staleAfter
-		if rec.Reachable != ok {
-			rec.Reachable = ok
-			r.data.Peers[id] = rec
-			changed = true
-		}
+	age := now.Sub(lastSeen)
+	if age < 0 {
+		// Clock stepped backwards: treat as fresh, the advertise just happened.
+		return true
 	}
-	if changed {
-		_ = r.save()
-	}
+	return age <= staleAfter
 }

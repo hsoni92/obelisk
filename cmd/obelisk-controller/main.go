@@ -15,6 +15,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/blueprint"
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/controller"
+	"github.com/hsoni92/obelisk/internal/history"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
 	"github.com/hsoni92/obelisk/internal/peer"
@@ -64,6 +65,8 @@ func main() {
 		backupSched.Reload()
 	})
 	vitalsStore := vitals.NewStore()
+	connHistory := history.Shared(config.HistoryPath(cfgFile))
+	peerMonitor := peer.StartMonitor(ctx, cfgFile, connHistory)
 	api := &adminapi.Server{
 		ConfigPath:            cfgFile,
 		HelmRoot:              *helmRoot,
@@ -74,6 +77,7 @@ func main() {
 		Blueprint:             bp,
 		Restore:               restore.New(),
 		Vitals:                vitalsStore,
+		Connectivity:          peerMonitor,
 	}
 	vitals.StartSamplerLogged(ctx, vitalsStore, vitals.SamplerConfig{
 		ConfigPath: cfgFile,

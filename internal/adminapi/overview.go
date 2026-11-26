@@ -56,9 +56,7 @@ type overviewResponse struct {
 
 func (s *Server) overviewStore() *history.Store {
 	s.historyOnce.Do(func() {
-		st := history.NewStore(config.HistoryPath(config.EnsureReadablePath(s.ConfigPath)))
-		_ = st.Hydrate()
-		s.historyStore = st
+		s.historyStore = history.Shared(config.HistoryPath(config.EnsureReadablePath(s.ConfigPath)))
 	})
 	return s.historyStore
 }

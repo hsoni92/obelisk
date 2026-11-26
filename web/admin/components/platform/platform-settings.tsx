@@ -1,7 +1,6 @@
 "use client";
 
 import { BlueprintPanel } from "@/components/blueprint/blueprint-panel";
-import { TailscaleFederationPanel } from "@/components/platform/tailscale-federation-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -11,7 +10,8 @@ import {
   systemPrefersDark,
   type ThemeMode,
 } from "@/lib/theme";
-import { GitBranch, Monitor, Moon, Network, Palette, Sun, type LucideIcon } from "lucide-react";
+import { GitBranch, Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 const MODES: {
@@ -26,7 +26,6 @@ const MODES: {
 ];
 
 const PLATFORM_TABS = [
-  { id: "tailscale", label: "Tailscale & gateway", icon: Network },
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "blueprint", label: "Blueprint", icon: GitBranch },
 ] as const;
@@ -35,6 +34,10 @@ type PlatformTab = (typeof PLATFORM_TABS)[number]["id"];
 
 function isPlatformTab(value: string): value is PlatformTab {
   return PLATFORM_TABS.some((tab) => tab.id === value);
+}
+
+function noopSubscribe() {
+  return () => {};
 }
 
 function subscribeSystem(onChange: () => void) {
@@ -47,7 +50,15 @@ const tabTriggerClass =
   "group flex w-full outline-none focus:outline-none focus-visible:ring-0 focus-visible:outline-none items-center justify-start gap-2.5 rounded-lg px-3 py-2 text-left text-[13px] font-medium text-muted-foreground shadow-none transition-colors hover:bg-card/70 hover:text-foreground data-[state=active]:bg-card data-[state=active]:text-foreground data-[state=active]:shadow-rb-2";
 
 export function PlatformSettings() {
-  const [tab, setTab] = useState<PlatformTab>("tailscale");
+  const router = useRouter();
+  const [tab, setTab] = useState<PlatformTab>("appearance");
+  // False during server render and hydration, true once the client can read the
+  // hash. Keeps the default tab from flashing before the linked one.
+  const ready = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const theme = useSyncExternalStore(subscribeTheme, readTheme, () => "light" as const);
   const systemDark = useSyncExternalStore(
     subscribeSystem,
@@ -59,12 +70,17 @@ export function PlatformSettings() {
   useEffect(() => {
     function syncFromHash() {
       const hash = window.location.hash.replace(/^#/, "");
+      // Tailscale and gateway moved to Connectivity. Keep old links working.
+      if (hash === "tailscale") {
+        router.replace("/connectivity");
+        return;
+      }
       if (isPlatformTab(hash)) setTab(hash);
     }
     syncFromHash();
     window.addEventListener("hashchange", syncFromHash);
     return () => window.removeEventListener("hashchange", syncFromHash);
-  }, []);
+  }, [router]);
 
   function onTabChange(value: string) {
     if (!isPlatformTab(value)) return;
@@ -74,7 +90,11 @@ export function PlatformSettings() {
   }
 
   return (
-    <Tabs value={tab} onValueChange={onTabChange} className="max-w-3xl">
+    <Tabs
+      value={tab}
+      onValueChange={onTabChange}
+      className={`max-w-3xl ${ready ? "" : "invisible"}`}
+    >
       <div className="grid gap-6 md:grid-cols-[13rem_minmax(0,1fr)] md:gap-8">
         <TabsList
           aria-label="Platform settings"
@@ -92,10 +112,6 @@ export function PlatformSettings() {
         </TabsList>
 
         <div className="min-w-0">
-          <TabsContent value="tailscale" className="mt-0">
-            <TailscaleFederationPanel />
-          </TabsContent>
-
           <TabsContent value="appearance" className="mt-0">
             <section aria-labelledby="appearance-heading">
               <h2 id="appearance-heading" className="text-page-title">

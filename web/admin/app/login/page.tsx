@@ -2,6 +2,7 @@
 
 import { useSafeReducedMotion } from "@/lib/use-reduced-motion";
 import { AuthStage } from "@/components/auth/auth-stage";
+import { AuthSkeleton } from "@/components/skeletons";
 import { DeviceCodePanel } from "@/components/auth/device-code-panel";
 import { GitHubMark } from "@/components/auth/github-mark";
 import { GitHubErrorScreen } from "@/components/blueprint/github-error-screen";
@@ -161,10 +162,16 @@ export default function LoginPage() {
     );
   }
 
+  // Do not show sign-in controls until we know the session state. A signed-in
+  // user is being redirected, so show a neutral screen instead of the form.
+  if (!status) {
+    return <AuthSkeleton caption="Checking session" />;
+  }
+  if (status.authenticated) {
+    return <AuthSkeleton caption="Opening console" />;
+  }
+
   const notConfigured = Boolean(status && !status.client_configured);
-  // Fresh installs allow nobody until the operator runs `obelisk admin allow add` on the machine.
-  const noUsersAllowed = Boolean(status?.login_allowlist_empty);
-  const signInBlocked = notConfigured || noUsersAllowed;
   const busy = isLoading || redirecting;
 
   const item = (delay: number) =>
@@ -236,8 +243,6 @@ export default function LoginPage() {
               exit={reduce ? { opacity: 0 } : { opacity: 0, y: -8 }}
               transition={{ duration: 0.3, ease: EASE }}
             >
-              {noUsersAllowed && <NoUsersAllowedNotice />}
-
               {notConfigured && (
                 <div
                   role="alert"
@@ -260,7 +265,7 @@ export default function LoginPage() {
                   size="lg"
                   className="auth-cta w-full"
                   onClick={() => void browserLogin()}
-                  disabled={busy || signInBlocked}
+                  disabled={busy || notConfigured}
                 >
                   {busy ? (
                     <Loader2 className="size-5 animate-spin" />
@@ -288,7 +293,7 @@ export default function LoginPage() {
                   size="lg"
                   className="w-full"
                   onClick={() => void deviceLogin()}
-                  disabled={busy || signInBlocked}
+                  disabled={busy || notConfigured}
                 >
                   <Smartphone className="size-4" />
                   Use a device code
@@ -318,52 +323,6 @@ export default function LoginPage() {
         to know who you are. Nothing else.
       </motion.p>
     </AuthStage>
-  );
-}
-
-const ALLOW_COMMAND = "sudo obelisk admin allow add --login YOUR_GITHUB_USER";
-
-/**
- * Shown on a fresh install: no GitHub user is allowed to sign in until the operator allows
- * one from the machine's terminal. Sign-in buttons are disabled while this is showing.
- */
-function NoUsersAllowedNotice() {
-  async function copy() {
-    try {
-      await copyToClipboard(ALLOW_COMMAND);
-      toast.success("Command copied");
-    } catch {
-      toast.error("Could not copy the command");
-    }
-  }
-
-  return (
-    <div
-      role="alert"
-      className="mt-5 rounded-2xl bg-destructive-tint p-3.5 text-[13px] leading-5 text-destructive"
-    >
-      <div className="flex gap-3">
-        <TriangleAlert className="mt-0.5 size-4 shrink-0" strokeWidth={1.75} />
-        <p>
-          <span className="font-medium">No GitHub user is allowed to sign in yet.</span> This
-          appliance starts closed. Allow your GitHub account from a terminal on this machine,
-          then reload this page.
-        </p>
-      </div>
-      <div className="mt-2.5 flex items-start gap-2 rounded-xl bg-card p-3 text-foreground">
-        <code className="min-w-0 flex-1 break-all font-mono text-[12px] leading-[18px]">
-          {ALLOW_COMMAND}
-        </code>
-        <button
-          type="button"
-          onClick={() => void copy()}
-          aria-label="Copy allow command"
-          className="flex size-7 shrink-0 cursor-pointer items-center justify-center rounded-full bg-muted text-muted-foreground transition-colors hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-        >
-          <Copy className="size-3.5" />
-        </button>
-      </div>
-    </div>
   );
 }
 

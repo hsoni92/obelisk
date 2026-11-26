@@ -1,5 +1,7 @@
-import { redirect } from "next/navigation";
+"use client";
+
+import { AuthBoot } from "@/components/auth/auth-boot";
 
 export default function Home() {
-  redirect("/login");
+  return <AuthBoot />;
 }

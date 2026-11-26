@@ -151,7 +151,7 @@ export function FederationPeersPanel({
         {peers.length === 0 ? (
           <p className="rounded-xl border border-dashed border-border px-4 py-3 text-sm text-muted-foreground">
             Waiting for a local appliance. Copy the gateway advertise URL above,
-            then on the home box: Platform → Register with gateway.
+            then on the home box: Connectivity → Register with gateway.
           </p>
         ) : (
           <ul className="divide-y divide-border/60 rounded-xl border border-border overflow-hidden">
@@ -236,7 +236,9 @@ export function FederationPeersPanel({
         </p>
       </div>
 
-      {data?.tailnet_host ? (
+      {!data ? (
+        <p className="text-metadata text-muted-foreground">Checking tailnet…</p>
+      ) : data.tailnet_host ? (
         <p className="text-metadata text-muted-foreground">
           Tailnet dial host:{" "}
           <span className="font-mono text-foreground">{data.tailnet_host}</span>

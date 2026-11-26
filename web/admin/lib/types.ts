@@ -467,8 +467,6 @@ export type BlueprintStatus = {
   authenticated: boolean;
   login?: string;
   client_configured: boolean;
-  /** True when no GitHub user is allowed to sign in (fresh install). Run `obelisk admin allow add`. */
-  login_allowlist_empty?: boolean;
   repository?: string;
   branch?: string;
   default_upstream_branch?: string;
@@ -662,6 +660,47 @@ export type OverviewResponse = {
   vitals?: VitalsSnapshot;
   warnings?: string[];
 };
+export type ConnectivityState =
+  | "connected"
+  | "degraded"
+  | "offline"
+  | "never"
+  | "no_data"
+  | "unknown";
+
+export type ConnectivityPeer = {
+  id: string;
+  machine_id?: string;
+  tailnet_host?: string;
+  duplicate_machine_id: boolean;
+  last_seen?: string;
+  heartbeat_fresh: boolean;
+  probe_known: boolean;
+  probe_reachable: boolean;
+  probe_checked_at?: string;
+  probe_error?: string;
+  state: ConnectivityState;
+  state_since?: string;
+  state_since_capped: boolean;
+  observed_seconds: number;
+  strip: ConnectivityState[];
+};
+
+export type ConnectivityResponse = {
+  role: string;
+  is_gateway: boolean;
+  peer_view_enabled: boolean;
+  window_start?: string;
+  window_hours: number;
+  bin_minutes: number;
+  gateway_alive_at?: string;
+  monitoring_since?: string;
+  heartbeat_stale_seconds: number;
+  probe_interval_seconds: number;
+  counts: Partial<Record<ConnectivityState, number>>;
+  peers: ConnectivityPeer[];
+};
+
 export type UpdateStatus = {
   installed_build: number;
   latest_build?: number;
