@@ -9,6 +9,7 @@ import {
   FolderKanban,
   LayoutDashboard,
   Menu,
+  Network,
   Search,
   Settings,
   Share2,
@@ -26,6 +27,7 @@ const NAV: { id: NavId; label: string; icon: LucideIcon }[] = [
   { id: "services", label: "Services", icon: LayoutDashboard },
   { id: "dr", label: "Disaster Recovery", icon: HardDriveDownload },
   { id: "exposure", label: "Exposure", icon: Share2 },
+  { id: "connectivity", label: "Connectivity", icon: Network },
   { id: "platform", label: "Platform", icon: Settings },
 ];
 

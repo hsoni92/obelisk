@@ -181,7 +181,11 @@ export function AlertsPanel() {
           ) : null}
         </div>
         <div className="max-h-[70vh] overflow-y-auto border-t border-border/60">
-          {count === 0 ? (
+          {!data ? (
+            <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
+              <p className="text-metadata text-muted-foreground">Checking alerts…</p>
+            </div>
+          ) : count === 0 ? (
             <div className="flex flex-col items-center gap-2 px-4 py-10 text-center">
               <span className="flex size-10 items-center justify-center rounded-full bg-muted text-muted-foreground">
                 <BellOff className="size-4" aria-hidden />

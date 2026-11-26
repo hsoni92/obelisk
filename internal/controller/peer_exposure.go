@@ -2,7 +2,6 @@ package controller
 
 import (
 	"context"
-	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/exposure"
@@ -37,7 +36,5 @@ func FederatedTargetsForConfig(configPath string, spec obelisk.Spec) ([]peer.Fed
 	if err != nil {
 		return nil, err
 	}
-	const stale = 2 * time.Minute
-	reg.MarkStale(stale)
-	return reg.FederatedTargets(spec, stale), nil
+	return reg.FederatedTargets(spec, peer.HeartbeatStaleAfter), nil
 }

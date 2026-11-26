@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"strings"
-	"time"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/peer"
@@ -183,6 +182,5 @@ func (s *Server) handleListPeers(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	reg.MarkStale(2 * time.Minute)
 	writeJSON(w, map[string]any{"peers": reg.ListPeers()})
 }
