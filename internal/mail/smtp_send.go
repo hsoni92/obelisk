@@ -3,6 +3,7 @@ package mail
 import (
 	"crypto/tls"
 	"fmt"
+	"mime"
 	"net"
 	"net/smtp"
 	"strconv"
@@ -19,6 +20,9 @@ func SendMessage(address, secret, to, subject, text, html string) error {
 	to = strings.TrimSpace(to)
 	if to == "" {
 		return fmt.Errorf("recipient required")
+	}
+	if strings.ContainsAny(to, "\r\n") || strings.ContainsAny(subject, "\r\n") {
+		return fmt.Errorf("recipient and subject must not contain line breaks")
 	}
 	msg := buildMIME(address, to, subject, text, html)
 	addr := net.JoinHostPort(prof.Host, strconv.Itoa(prof.Port))
@@ -78,7 +82,7 @@ func buildMIME(from, to, subject, text, html string) string {
 	var b strings.Builder
 	b.WriteString("From: " + from + "\r\n")
 	b.WriteString("To: " + to + "\r\n")
-	b.WriteString("Subject: " + subject + "\r\n")
+	b.WriteString("Subject: " + mime.QEncoding.Encode("utf-8", subject) + "\r\n")
 	b.WriteString("MIME-Version: 1.0\r\n")
 	if html != "" {
 		b.WriteString("Content-Type: text/html; charset=UTF-8\r\n\r\n")

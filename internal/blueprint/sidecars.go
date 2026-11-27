@@ -5,6 +5,7 @@ import (
 
 	"github.com/hsoni92/obelisk/internal/backup"
 	"github.com/hsoni92/obelisk/internal/mail"
+	"github.com/hsoni92/obelisk/internal/mcpgateway"
 	"github.com/hsoni92/obelisk/internal/openrouter"
 	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
@@ -51,6 +52,15 @@ func CollectSecrets(configPath string, spec obelisk.Spec) (Secrets, error) {
 		}
 		sec.Mail = raw
 	}
+	if m, ok, err := mcpgateway.LoadCredentials(configPath); err != nil {
+		return Secrets{}, err
+	} else if ok {
+		raw, err := json.Marshal(m)
+		if err != nil {
+			return Secrets{}, err
+		}
+		sec.MCP = raw
+	}
 	return sec, nil
 }
 
@@ -91,6 +101,15 @@ func WriteSidecars(configPath string, sec Secrets) error {
 			return err
 		}
 		if err := mail.SaveCredentials(configPath, m); err != nil {
+			return err
+		}
+	}
+	if len(sec.MCP) > 0 {
+		var m mcpgateway.CredentialsFile
+		if err := json.Unmarshal(sec.MCP, &m); err != nil {
+			return err
+		}
+		if err := mcpgateway.SaveCredentials(configPath, m); err != nil {
 			return err
 		}
 	}

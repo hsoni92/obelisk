@@ -39,6 +39,7 @@ type Secrets struct {
 	BackupLegacy       json.RawMessage                        `json:"backup_legacy,omitempty"`
 	OpenRouter         json.RawMessage                        `json:"openrouter,omitempty"`
 	Mail               json.RawMessage                        `json:"mail,omitempty"`
+	MCP                json.RawMessage                        `json:"mcp,omitempty"`
 }
 
 // Bundle is a packed v1 blueprint.

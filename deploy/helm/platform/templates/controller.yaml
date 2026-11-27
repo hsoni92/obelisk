@@ -29,6 +29,7 @@ spec:
             - -listen=:8080
             - -gateway-listen=:8081
             - -mail-gateway-listen=:8082
+            - -mcp-gateway-listen=:8083
           env:
             - name: OBELISK_RECONCILE
               value: cluster
@@ -73,6 +74,8 @@ spec:
               name: openrouter
             - containerPort: 8082
               name: mail
+            - containerPort: 8083
+              name: mcp
           volumeMounts:
             - name: obelisk-config
               mountPath: /etc/obelisk
@@ -119,6 +122,9 @@ spec:
     - port: 8082
       targetPort: mail
       name: mail
+    - port: 8083
+      targetPort: mcp
+      name: mcp
 ---
 apiVersion: v1
 kind: ServiceAccount

@@ -13,6 +13,7 @@ import (
 	"github.com/hsoni92/obelisk/internal/credentials"
 	"github.com/hsoni92/obelisk/internal/history"
 	"github.com/hsoni92/obelisk/internal/mailgateway"
+	"github.com/hsoni92/obelisk/internal/mcpgateway"
 	"github.com/hsoni92/obelisk/internal/openroutergateway"
 	"github.com/hsoni92/obelisk/internal/peer"
 	"github.com/hsoni92/obelisk/internal/restore"
@@ -28,6 +29,8 @@ type Server struct {
 	GatewayListenAddr     string
 	MailGateway           *mailgateway.Server
 	MailGatewayListenAddr string
+	MCPGateway            *mcpgateway.Server
+	MCPGatewayListenAddr  string
 	Blueprint             *blueprint.Runtime
 	Restore               *restore.Orchestrator
 	mu                    sync.Mutex
@@ -122,6 +125,9 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("PATCH /api/v1/mail/accounts/{id}", s.handlePatchMailAccount)
 	mux.HandleFunc("DELETE /api/v1/mail/accounts/{id}", s.handleDeleteMailAccount)
 	mux.HandleFunc("POST /api/v1/mail/test", s.handleMailTest)
+	mux.HandleFunc("GET /api/v1/mcp/config", s.handleGetMCPConfig)
+	mux.HandleFunc("PATCH /api/v1/mcp/config", s.handlePatchMCPConfig)
+	mux.HandleFunc("POST /api/v1/mcp/test", s.handleMCPTest)
 	mux.HandleFunc("GET /api/v1/blueprint/status", s.handleBlueprintStatus)
 	mux.HandleFunc("GET /api/v1/blueprint/github/config", s.handleBlueprintGitHubConfig)
 	mux.HandleFunc("POST /api/v1/blueprint/github/authorize", s.handleBlueprintAuthorize)

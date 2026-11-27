@@ -15,4 +15,5 @@ fi
 exec "$ROOT/tmp/obelisk-controller" \
   -listen ":8080" \
   -gateway-listen "${GATEWAY_LISTEN:-:18081}" \
-  -mail-gateway-listen "${MAIL_GATEWAY_LISTEN:-:18082}"
+  -mail-gateway-listen "${MAIL_GATEWAY_LISTEN:-:18082}" \
+  -mcp-gateway-listen "${MCP_GATEWAY_LISTEN:-:18083}"

@@ -13,6 +13,7 @@ type Spec struct {
 	Exposure          Exposure          `yaml:"exposure"`
 	OpenRouterGateway OpenRouterGateway `yaml:"openrouter_gateway,omitempty" json:"openrouter_gateway,omitempty"`
 	MailGateway       MailGateway       `yaml:"mail_gateway,omitempty" json:"mail_gateway,omitempty"`
+	MCPGateway        MCPGateway        `yaml:"mcp_gateway,omitempty" json:"mcp_gateway,omitempty"`
 	Blueprint         Blueprint         `yaml:"blueprint,omitempty" json:"blueprint,omitempty"`
 	Projects          []Project         `yaml:"projects"`
 	PeerGateway       PeerGateway       `yaml:"peer_gateway,omitempty" json:"peer_gateway,omitempty"`
@@ -153,5 +154,6 @@ func DefaultSpec(profile string) Spec {
 		},
 		OpenRouterGateway: OpenRouterGateway{Enabled: false},
 		MailGateway:       MailGateway{Enabled: false},
+		MCPGateway:        MCPGateway{Enabled: false},
 	}
 }

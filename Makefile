@@ -60,6 +60,7 @@ dev-k3d-down:
 # :8081 is often taken on dev machines (e.g. other Docker stacks); override with OBELISK_GATEWAY_LISTEN.
 GATEWAY_LISTEN ?= :18081
 MAIL_GATEWAY_LISTEN ?= :18082
+MCP_GATEWAY_LISTEN ?= :18083
 
 dev-api: build-controller
 	test -f "$(CURDIR)/dev/kubeconfig" || $(MAKE) dev-k3d-up
@@ -68,7 +69,7 @@ dev-api: build-controller
 	OBELISK_ROOT="$(CURDIR)" \
 	OBELISK_RECONCILE=cluster \
 	OBELISK_CREDENTIALS_DIR="$${OBELISK_CREDENTIALS_DIR:-$(CURDIR)/dev/credentials}" \
-	./bin/obelisk-controller -listen :8080 -gateway-listen $(GATEWAY_LISTEN) -mail-gateway-listen $(MAIL_GATEWAY_LISTEN)
+	./bin/obelisk-controller -listen :8080 -gateway-listen $(GATEWAY_LISTEN) -mail-gateway-listen $(MAIL_GATEWAY_LISTEN) -mcp-gateway-listen $(MCP_GATEWAY_LISTEN)
 
 install-air: check-go
 	$(GO) install github.com/air-verse/air@latest

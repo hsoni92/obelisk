@@ -144,6 +144,7 @@ func write(path string, spec obelisk.Spec, notify bool) error {
 func normalize(spec *obelisk.Spec) {
 	obelisk.NormalizeOpenRouter(spec)
 	obelisk.NormalizeMail(spec)
+	obelisk.NormalizeMCP(spec)
 	obelisk.NormalizeInstances(spec)
 	obelisk.NormalizeBackup(spec)
 	obelisk.NormalizeBlueprint(spec)
