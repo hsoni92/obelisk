@@ -1,6 +1,7 @@
 "use client";
 
 import { BlueprintPanel } from "@/components/blueprint/blueprint-panel";
+import { SoftwareUpdatePanel } from "@/components/platform/software-update-panel";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import {
@@ -10,7 +11,7 @@ import {
   systemPrefersDark,
   type ThemeMode,
 } from "@/lib/theme";
-import { GitBranch, Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
+import { Download, GitBranch, Monitor, Moon, Palette, Sun, type LucideIcon } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -28,6 +29,7 @@ const MODES: {
 const PLATFORM_TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "blueprint", label: "Blueprint", icon: GitBranch },
+  { id: "software-update", label: "Software update", icon: Download },
 ] as const;
 
 type PlatformTab = (typeof PLATFORM_TABS)[number]["id"];
@@ -166,6 +168,10 @@ export function PlatformSettings() {
 
           <TabsContent value="blueprint" className="mt-0">
             <BlueprintPanel />
+          </TabsContent>
+
+          <TabsContent value="software-update" className="mt-0">
+            <SoftwareUpdatePanel />
           </TabsContent>
         </div>
       </div>

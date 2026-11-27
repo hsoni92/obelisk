@@ -24,6 +24,7 @@ import type {
   FederationResponse,
   ConnectivityResponse,
   UpdateStatus,
+  UpdateApply,
 } from "@/lib/types";
 import { createApi, fetchBaseQuery } from "@reduxjs/toolkit/query/react";
 import { obeliskApiBaseUrl } from "./api-base";
@@ -638,6 +639,9 @@ export const obeliskApi = createApi({
     getUpdateStatus: builder.query<UpdateStatus, { refresh?: boolean } | void>({
       query: (arg) => (arg && arg.refresh ? "/update?refresh=1" : "/update"),
     }),
+    applyUpdate: builder.mutation<UpdateApply, void>({
+      query: () => ({ url: "/update/apply", method: "POST" }),
+    }),
     patchFederation: builder.mutation<
       { ok: boolean; advertise_url: string },
       { advertise_url: string }
@@ -905,6 +909,7 @@ export const {
   useGetFederationQuery,
   useGetConnectivityQuery,
   useGetUpdateStatusQuery,
+  useApplyUpdateMutation,
   usePatchFederationMutation,
   useFederationAdvertiseNowMutation,
   useFederationUnregisterMutation,

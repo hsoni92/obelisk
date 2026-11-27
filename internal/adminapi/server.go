@@ -61,6 +61,7 @@ func (s *Server) Handler() http.Handler {
 	mux.HandleFunc("GET /api/v1/connections", s.handleConnections)
 	mux.HandleFunc("GET /api/v1/connectivity", s.handleConnectivity)
 	mux.HandleFunc("GET /api/v1/update", s.handleUpdateStatus)
+	mux.HandleFunc("POST /api/v1/update/apply", s.handleUpdateApply)
 	mux.HandleFunc("POST /api/v1/diagnostics/run", s.handleDiagnosticsRun)
 	mux.HandleFunc("GET /api/v1/config", s.handleGetConfig)
 	mux.HandleFunc("PUT /api/v1/config", s.handlePutConfig)

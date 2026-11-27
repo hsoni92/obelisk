@@ -15,7 +15,8 @@ const updateCacheTTL = 30 * time.Minute
 
 // updateStatus mirrors `obelisk update --check`: the installed build, the latest published
 // build, and whether an update is available. Applying the update (`sudo obelisk update`) must
-// run on the host, so this endpoint only reports and hands back the command.
+// run on the host, so applying goes through a one-shot Job (see update_apply.go); the command
+// stays as a manual fallback.
 type updateStatus struct {
 	InstalledBuild  int    `json:"installed_build"`
 	LatestBuild     int    `json:"latest_build,omitempty"`
@@ -27,6 +28,8 @@ type updateStatus struct {
 	CheckedAt time.Time `json:"checked_at"`
 	Error     string    `json:"error,omitempty"`
 	Command   string    `json:"command"`
+	// Apply is the in-cluster update Job, when one has been started from the UI.
+	Apply *updateApply `json:"apply,omitempty"`
 }
 
 type updateCache struct {
@@ -87,5 +90,13 @@ func (s *Server) checkUpdate(force bool) updateStatus {
 // handleUpdateStatus serves GET /api/v1/update. ?refresh=1 bypasses the cache.
 func (s *Server) handleUpdateStatus(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(s.checkUpdate(r.URL.Query().Get("refresh") == "1"))
+	st := s.checkUpdate(r.URL.Query().Get("refresh") == "1")
+	if apply := currentUpdateApply(r.Context()); apply != nil {
+		// A finished update makes the cached "update available" answer stale.
+		if apply.Phase == "succeeded" && st.InstalledBuild < apply.TargetBuild {
+			st = s.checkUpdate(true)
+		}
+		st.Apply = apply
+	}
+	_ = json.NewEncoder(w).Encode(st)
 }

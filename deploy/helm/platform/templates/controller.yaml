@@ -32,6 +32,8 @@ spec:
           env:
             - name: OBELISK_RECONCILE
               value: cluster
+            - name: OBELISK_CONTROLLER_IMAGE
+              value: {{ .Values.obelisk.imageController | quote }}
             - name: OBELISK_NAMESPACE
               value: {{ .Release.Namespace }}
             - name: OBELISK_HTTP_PORT

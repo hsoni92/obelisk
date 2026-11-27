@@ -5,22 +5,22 @@ import { FieldPassword } from "@/components/ui/field";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   rtkErrorMessage,
+  useApplyUpdateMutation,
   useGetBlueprintStatusQuery,
   useGetUpdateStatusQuery,
   useUnlockBlueprintMutation,
 } from "@/lib/api";
 import { readPassphrase, writePassphrase } from "@/lib/blueprint-storage";
-import { copyToClipboard } from "@/lib/copy-to-clipboard";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import {
   ArrowRight,
   Bell,
   BellOff,
-  Copy,
   Download,
   GitMerge,
   LockKeyhole,
+  Loader2,
   RefreshCw,
   type LucideIcon,
 } from "lucide-react";
@@ -49,10 +49,15 @@ const SEVERITY_TILE: Record<Severity, string> = {
 export function AlertsPanel() {
   const { data } = useGetBlueprintStatusQuery(undefined, { pollingInterval: 5000 });
   // Same check as `obelisk update --check`; the controller caches the GitHub lookup.
+  const [updating, setUpdating] = useState(false);
+  const [updatePolling, setUpdatePolling] = useState(false);
   const { data: update, refetch: recheck, isFetching: rechecking } = useGetUpdateStatusQuery(
     undefined,
-    { pollingInterval: 30 * 60 * 1000 },
+    // Poll fast while an update runs; the API drops for a moment when the controller restarts.
+    { pollingInterval: updatePolling ? 4000 : 30 * 60 * 1000 },
   );
+  const [applyUpdate, { isLoading: starting }] = useApplyUpdateMutation();
+  const applyPhase = update?.apply?.phase;
   const [unlock, { isLoading }] = useUnlockBlueprintMutation();
   const [open, setOpen] = useState(false);
   const [passphrase, setPassphrase] = useState("");
@@ -100,16 +105,38 @@ export function AlertsPanel() {
     }
   }
 
-  if (update?.update_available) {
+  const applying = applyPhase === "running" || (updating && applyPhase !== "failed" && applyPhase !== "succeeded");
+  if (applying !== updatePolling) setUpdatePolling(applying);
+  const failed = applyPhase === "failed" && !applying;
+  if (update && (update.update_available || applying || applyPhase === "failed")) {
     alerts.push({
       id: "update-available",
-      severity: "warning",
-      icon: Download,
-      title: "Update available",
-      body: `Build ${update.latest_build} is available (installed: build ${update.installed_build}). Updating restarts the platform and must run on the appliance as root.`,
-      detail: update.command,
+      severity: failed ? "error" : "warning",
+      icon: applying ? Loader2 : Download,
+      title: applying
+        ? `Updating to build ${update.apply?.target_build ?? update.latest_build}…`
+        : failed
+          ? "Update failed"
+          : "Update available",
+      body: applying
+        ? "The platform is being updated and will restart. This page may briefly lose connection; it reconnects automatically."
+        : failed
+          ? "The update did not complete. You can retry, or run it on the appliance."
+          : `Build ${update.latest_build} is available (installed: build ${update.installed_build}). Updating restarts the platform.`,
+      detail: failed ? update.apply?.log_tail || update.command : undefined,
       update: true,
     });
+  }
+
+  async function installUpdate() {
+    try {
+      await applyUpdate().unwrap();
+      setUpdating(true);
+      toast.success("Update started");
+      void recheck();
+    } catch (e) {
+      toast.error(rtkErrorMessage(e));
+    }
   }
 
   async function recheckUpdate() {
@@ -122,15 +149,6 @@ export function AlertsPanel() {
       );
     } catch (e) {
       toast.error(rtkErrorMessage(e));
-    }
-  }
-
-  async function copyUpdateCommand(command: string) {
-    try {
-      await copyToClipboard(command);
-      toast.success("Command copied");
-    } catch {
-      toast.error("Could not copy the command");
     }
   }
 
@@ -239,21 +257,28 @@ export function AlertsPanel() {
                           <Button
                             type="button"
                             size="sm"
-                            onClick={() => void copyUpdateCommand(update.command)}
+                            disabled={starting || applying}
+                            onClick={() => void installUpdate()}
                           >
-                            <Copy className="size-3.5" aria-hidden />
-                            Copy command
+                            {starting || applying ? (
+                              <Loader2 className="size-3.5 animate-spin" aria-hidden />
+                            ) : (
+                              <Download className="size-3.5" aria-hidden />
+                            )}
+                            {applying ? "Updating…" : failed ? "Retry update" : "Install update"}
                           </Button>
-                          <Button
-                            type="button"
-                            size="sm"
-                            variant="outline"
-                            disabled={rechecking}
-                            onClick={() => void recheckUpdate()}
-                          >
-                            <RefreshCw className={cn("size-3.5", rechecking && "animate-spin")} aria-hidden />
-                            Check again
-                          </Button>
+                          {!applying ? (
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="outline"
+                              disabled={rechecking}
+                              onClick={() => void recheckUpdate()}
+                            >
+                              <RefreshCw className={cn("size-3.5", rechecking && "animate-spin")} aria-hidden />
+                              Check again
+                            </Button>
+                          ) : null}
                         </div>
                       ) : null}
                       {a.action ? (
