@@ -47,6 +47,20 @@ services:
           - name: request-size-limiting
             config:
               allowed_payload_size: 1
+  - name: mcp-gateway
+    url: http://obelisk-controller:8083
+    routes:
+      - name: mcp
+        paths:
+          - /mcp
+        strip_path: true
+        plugins:
+          - name: rate-limiting
+            config:
+              minute: 120
+          - name: request-size-limiting
+            config:
+              allowed_payload_size: 1
   - name: rustfs-s3
     url: http://obelisk-rustfs:9000
     routes:

@@ -3,15 +3,14 @@ package mailgateway
 import (
 	"crypto/subtle"
 	"encoding/json"
+	"errors"
 	"io"
-	"log"
 	"net/http"
 	"strings"
 	"sync"
 
 	"github.com/hsoni92/obelisk/internal/config"
 	"github.com/hsoni92/obelisk/internal/mail"
-	"github.com/hsoni92/obelisk/pkg/obelisk"
 )
 
 const maxBodyBytes = 1 << 20 // 1 MiB
@@ -150,80 +149,30 @@ func (s *Server) handleSend(w http.ResponseWriter, r *http.Request) {
 	if idemKey == "" {
 		idemKey = strings.TrimSpace(r.Header.Get("Idempotency-Key"))
 	}
-	if idemKey != "" {
-		if prev, ok := s.idem.get(idemKey); ok {
-			writeJSON(w, http.StatusOK, sendResponse{
-				AccountID: prev.accountID,
-				From:      prev.from,
-				Accepted:  true,
-				Deduped:   true,
-			})
+	res, err := s.Send(r.Context(), SendRequest{
+		To:             req.firstTo(),
+		Subject:        req.Subject,
+		Text:           req.Text,
+		HTML:           req.HTML,
+		AccountID:      req.AccountID,
+		Failover:       req.Failover,
+		IdempotencyKey: idemKey,
+	})
+	if err != nil {
+		var se *SendError
+		if errors.As(err, &se) {
+			writeJSON(w, se.Status, map[string]string{"error": se.Msg})
 			return
 		}
-	}
-	to := req.firstTo()
-	if to == "" || strings.TrimSpace(req.Subject) == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "to and subject required"})
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": "could not send mail"})
 		return
 	}
-	text := strings.TrimSpace(req.Text)
-	html := strings.TrimSpace(req.HTML)
-	if text == "" && html == "" {
-		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "text or html required"})
-		return
-	}
-
-	s.mu.RLock()
-	sel := s.selector
-	s.mu.RUnlock()
-	var candidates []mailAccount
-	if strings.TrimSpace(req.AccountID) != "" {
-		acc, ok := sel.ByID(strings.TrimSpace(req.AccountID))
-		if !ok {
-			writeJSON(w, http.StatusNotFound, map[string]string{"error": "unknown account_id"})
-			return
-		}
-		candidates = []mailAccount{acc}
-		if req.Failover {
-			for _, a := range sel.RotateList() {
-				if a.ID != acc.ID {
-					candidates = append(candidates, a)
-				}
-			}
-		}
-	} else {
-		candidates = sel.RotateList()
-	}
-
-	var lastErr error
-	for _, acc := range candidates {
-		err := mail.SendMessage(acc.Address, acc.Secret, to, req.Subject, text, html)
-		if err != nil {
-			lastErr = err
-			if !retryableSMTP(err) {
-				break
-			}
-			continue
-		}
-		s.mu.Lock()
-		s.lastAccountID = acc.ID
-		s.mu.Unlock()
-		if idemKey != "" {
-			s.idem.put(idemKey, acc.ID, acc.Address)
-		}
-		log.Printf("mail_send account_id=%s provider=%s outcome=ok recipient_domain=%s", acc.ID, obelisk.MailboxDomain(acc.Address), domainOf(to))
-		writeJSON(w, http.StatusOK, sendResponse{
-			AccountID: acc.ID,
-			From:      acc.Address,
-			Accepted:  true,
-		})
-		return
-	}
-	msg := "could not send mail"
-	if lastErr != nil {
-		msg = publicError(lastErr)
-	}
-	writeJSON(w, http.StatusBadGateway, map[string]string{"error": msg})
+	writeJSON(w, http.StatusOK, sendResponse{
+		AccountID: res.AccountID,
+		From:      res.From,
+		Accepted:  true,
+		Deduped:   res.Deduped,
+	})
 }
 
 func domainOf(email string) string {

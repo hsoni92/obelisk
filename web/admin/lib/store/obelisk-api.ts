@@ -9,6 +9,7 @@ import type {
   DiagnosticsRunResponse,
   CreateInstanceResponse,
   MailConfigResponse,
+  MCPConfigResponse,
   OpenRouterConfigResponse,
   RestoreChainState,
   ServiceInstance,
@@ -41,7 +42,7 @@ export const obeliskApi = createApi({
       return headers;
     },
   }),
-  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "Blueprint", "Restore", "Projects", "Tailscale", "Deployment", "Federation", "Instances"],
+  tagTypes: ["Status", "Connections", "BackupTarget", "BackupConfig", "BackupLineage", "BackupCatalog", "Overview", "OpenRouter", "Mail", "MCP", "Blueprint", "Restore", "Projects", "Tailscale", "Deployment", "Federation", "Instances"],
   endpoints: (builder) => ({
     getStatus: builder.query<StatusResponse, void>({
       query: () => "/status",
@@ -602,6 +603,28 @@ export const obeliskApi = createApi({
       }),
       invalidatesTags: ["Mail"],
     }),
+    getMCPConfig: builder.query<MCPConfigResponse, void>({
+      query: () => "/mcp/config",
+      providesTags: ["MCP"],
+    }),
+    patchMCPConfig: builder.mutation<
+      MCPConfigResponse | { token: string },
+      {
+        enabled?: boolean;
+        regenerate_token?: boolean;
+        tools?: Record<string, boolean>;
+      }
+    >({
+      query: (body) => ({ url: "/mcp/config", method: "PATCH", body }),
+      invalidatesTags: ["MCP"],
+    }),
+    testMCP: builder.mutation<
+      { ok: boolean; error?: string; tool_count?: number; search?: string },
+      void
+    >({
+      query: () => ({ url: "/mcp/test", method: "POST", body: {} }),
+      invalidatesTags: ["MCP"],
+    }),
     getTailscaleStatus: builder.query<TailscaleStatusResponse, void>({
       query: () => "/tailscale/status",
       providesTags: ["Tailscale", "Deployment"],
@@ -781,6 +804,7 @@ export const obeliskApi = createApi({
         "Connections",
         "OpenRouter",
         "Mail",
+        "MCP",
       ],
       async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
         try {
@@ -879,6 +903,9 @@ export const {
   useDeleteOpenRouterAccountMutation,
   useTestOpenRouterMutation,
   useGetMailConfigQuery,
+  useGetMCPConfigQuery,
+  usePatchMCPConfigMutation,
+  useTestMCPMutation,
   usePatchMailConfigMutation,
   usePostMailAccountMutation,
   usePatchMailAccountMutation,

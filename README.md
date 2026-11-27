@@ -329,6 +329,7 @@ Contributing (hooks, CI, secrets policy): [CONTRIBUTING.md](CONTRIBUTING.md)
 | [Uninstall runbook](docs/runbooks/uninstall.md) | Reclaim host / tiered teardown |
 | [Mail gateway](docs/runbooks/mail-gateway.md) | Optional mail edge |
 | [OpenRouter gateway](docs/runbooks/openrouter-gateway.md) | Optional LLM proxy edge |
+| [MCP gateway](docs/runbooks/mcp-gateway.md) | One MCP endpoint: web search + mail for your editors |
 | [AGENTS.md](AGENTS.md) | Agent / EGM workflow for contributors |
 
 ---

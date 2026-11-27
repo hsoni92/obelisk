@@ -91,6 +91,7 @@ fi
 
 export GATEWAY_LISTEN="${GATEWAY_LISTEN:-:18081}"
 export MAIL_GATEWAY_LISTEN="${MAIL_GATEWAY_LISTEN:-:18082}"
+export MCP_GATEWAY_LISTEN="${MCP_GATEWAY_LISTEN:-:18083}"
 
 if [ ! -d "$ROOT/web/admin/node_modules" ]; then
   echo "[dev] installing web/admin dependencies..."

@@ -432,6 +432,46 @@ export type MailConfigResponse = {
   };
 };
 
+export type MCPToolStatus = {
+  name: string;
+  description: string;
+  enabled: boolean;
+  ready: boolean;
+  message?: string;
+  destructive?: boolean;
+};
+
+export type MCPSendLogEntry = {
+  time: string;
+  to: string;
+  subject: string;
+  bytes: number;
+  body_hash: string;
+  outcome: "ok" | "deduped" | "error";
+  account_id?: string;
+  error?: string;
+};
+
+export type MCPConfigResponse = {
+  enabled: boolean;
+  token_configured: boolean;
+  public_path: string;
+  local_base_url?: string;
+  runtime: {
+    enabled: boolean;
+    configured: boolean;
+    tools: MCPToolStatus[];
+    calls: number;
+    last_call?: string;
+    last_error?: string;
+    auth_failures: number;
+    last_auth_failure?: string;
+    mail_limit_per_hour: number;
+    mail_limit_per_day: number;
+  };
+  send_log: MCPSendLogEntry[];
+};
+
 export type OpenRouterConfigResponse = {
   enabled: boolean;
   gateway_token_configured: boolean;
