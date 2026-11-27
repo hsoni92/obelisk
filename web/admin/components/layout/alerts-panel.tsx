@@ -8,6 +8,7 @@ import {
   useApplyUpdateMutation,
   useGetBlueprintStatusQuery,
   useGetUpdateStatusQuery,
+  useRecheckUpdateMutation,
   useUnlockBlueprintMutation,
 } from "@/lib/api";
 import { readPassphrase, writePassphrase } from "@/lib/blueprint-storage";
@@ -51,12 +52,13 @@ export function AlertsPanel() {
   // Same check as `obelisk update --check`; the controller caches the GitHub lookup.
   const [updating, setUpdating] = useState(false);
   const [updatePolling, setUpdatePolling] = useState(false);
-  const { data: update, refetch: recheck, isFetching: rechecking } = useGetUpdateStatusQuery(
+  const { data: update, refetch } = useGetUpdateStatusQuery(
     undefined,
     // Poll fast while an update runs; the API drops for a moment when the controller restarts.
     { pollingInterval: updatePolling ? 4000 : 30 * 60 * 1000 },
   );
   const [applyUpdate, { isLoading: starting }] = useApplyUpdateMutation();
+  const [recheck, { isLoading: rechecking }] = useRecheckUpdateMutation();
   const applyPhase = update?.apply?.phase;
   const [unlock, { isLoading }] = useUnlockBlueprintMutation();
   const [open, setOpen] = useState(false);
@@ -133,7 +135,7 @@ export function AlertsPanel() {
       await applyUpdate().unwrap();
       setUpdating(true);
       toast.success("Update started");
-      void recheck();
+      void refetch();
     } catch (e) {
       toast.error(rtkErrorMessage(e));
     }
