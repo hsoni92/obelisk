@@ -82,6 +82,7 @@ export {
   useTestMailMutation,
   useGetBlueprintStatusQuery,
   useGetUpdateStatusQuery,
+  useApplyUpdateMutation,
   useGetSystemHealthQuery,
   useLazyGetSystemHealthQuery,
   useGetBlueprintGitHubConfigQuery,

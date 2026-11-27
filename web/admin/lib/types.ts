@@ -710,4 +710,12 @@ export type UpdateStatus = {
   checked_at: string;
   error?: string;
   command: string;
+  apply?: UpdateApply;
+};
+
+export type UpdateApply = {
+  phase: "running" | "succeeded" | "failed";
+  target_build?: number;
+  started_at?: string;
+  log_tail?: string;
 };
