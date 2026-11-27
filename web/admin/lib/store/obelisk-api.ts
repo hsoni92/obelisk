@@ -662,6 +662,19 @@ export const obeliskApi = createApi({
     getUpdateStatus: builder.query<UpdateStatus, { refresh?: boolean } | void>({
       query: (arg) => (arg && arg.refresh ? "/update?refresh=1" : "/update"),
     }),
+    // Manual "Check for updates": bypasses the server's 30-minute cache (?refresh=1) and
+    // writes the fresh answer into the shared getUpdateStatus cache so every view updates.
+    recheckUpdate: builder.mutation<UpdateStatus, void>({
+      query: () => ({ url: "/update?refresh=1", method: "GET" }),
+      async onQueryStarted(_arg, { dispatch, queryFulfilled }) {
+        try {
+          const { data } = await queryFulfilled;
+          dispatch(obeliskApi.util.upsertQueryData("getUpdateStatus", undefined, data));
+        } catch {
+          /* the caller shows the error */
+        }
+      },
+    }),
     applyUpdate: builder.mutation<UpdateApply, void>({
       query: () => ({ url: "/update/apply", method: "POST" }),
     }),
@@ -937,6 +950,7 @@ export const {
   useGetConnectivityQuery,
   useGetUpdateStatusQuery,
   useApplyUpdateMutation,
+  useRecheckUpdateMutation,
   usePatchFederationMutation,
   useFederationAdvertiseNowMutation,
   useFederationUnregisterMutation,

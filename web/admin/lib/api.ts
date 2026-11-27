@@ -89,6 +89,7 @@ export {
   useGetBlueprintStatusQuery,
   useGetUpdateStatusQuery,
   useApplyUpdateMutation,
+  useRecheckUpdateMutation,
   useGetSystemHealthQuery,
   useLazyGetSystemHealthQuery,
   useGetBlueprintGitHubConfigQuery,

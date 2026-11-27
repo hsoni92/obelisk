@@ -1,7 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
-import { rtkErrorMessage, useApplyUpdateMutation, useGetUpdateStatusQuery } from "@/lib/api";
+import { rtkErrorMessage, useApplyUpdateMutation, useGetUpdateStatusQuery, useRecheckUpdateMutation } from "@/lib/api";
 import { toast } from "@/lib/toast";
 import { cn } from "@/lib/utils";
 import { CheckCircle2, Download, Loader2, RefreshCw, TriangleAlert } from "lucide-react";
@@ -23,10 +23,10 @@ export function SoftwareUpdatePanel() {
   const {
     data: update,
     refetch,
-    isFetching,
     isLoading,
   } = useGetUpdateStatusQuery(undefined, { pollingInterval: updating ? 4000 : 5 * 60 * 1000 });
   const [applyUpdate, { isLoading: starting }] = useApplyUpdateMutation();
+  const [recheck, { isLoading: isFetching }] = useRecheckUpdateMutation();
 
   const phase = update?.apply?.phase;
   // `updating` covers the gap after clicking, before the first poll reports the Job.
@@ -36,7 +36,7 @@ export function SoftwareUpdatePanel() {
 
   async function check() {
     try {
-      const res = await refetch().unwrap();
+      const res = await recheck().unwrap();
       toast.success(
         res.update_available
           ? `Update available: build ${res.latest_build}`
